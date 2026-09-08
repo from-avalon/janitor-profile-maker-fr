@@ -1,0 +1,54 @@
+# Deploys the studio to https://studio.from-avalon.com on every push to main.
+#
+# The studio is a static site, so "deploy" is a file copy: rsync the browser-
+# facing files to the VPS docroot. Nothing is built. The SSH key in the
+# DEPLOY_SSH_KEY secret is restricted on the server (rrsync, write-only, one
+# directory) — it cannot open a shell or touch anything else on the box.
+name: Deploy studio
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-studio
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deploy key
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+
+      - name: Stage the files the browser loads
+        # Same list tools/sync-to-next.mjs ships. Staging into one directory and
+        # syncing THAT lets --delete mirror the docroot root too — syncing a list
+        # of items only mirrors inside each item, so a removed top-level file
+        # would otherwise linger on the server forever.
+        run: |
+          rm -rf .deploy && mkdir .deploy
+          cp -r index.html .htaccess css js preview .deploy/
+          rm -f .deploy/preview/snapshot.html
+
+      - name: rsync to VPS
+        # --delete keeps the server an exact mirror of main: removed files go away.
+        run: |
+          rsync -az --delete --stats \
+            -e "ssh -i ~/.ssh/deploy_key -p 2200 -o IdentitiesOnly=yes" \
+            .deploy/ from-avalon@69.62.118.163:/ | tail -n 15
+
+      - name: Verify the site answers
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -u "${{ secrets.STUDIO_BASIC_AUTH }}" https://studio.from-avalon.com/)
+          echo "https://studio.from-avalon.com/ -> $code"
+          test "$code" = "200"
