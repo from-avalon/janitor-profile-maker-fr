@@ -1,0 +1,55 @@
+/*
+ * APPROXIMATE — the only styling in the preview that is not captured from
+ * janitorai.com.
+ *
+ * Everything else comes from a capture of your own profile. The Follow and
+ * Options buttons are the exception: JanitorAI does not render them on your own
+ * profile, so no capture of it can contain them, and the emotion classes that
+ * style them (.css-1vakbk4, .css-15w88gn) were never emitted.
+ *
+ * What this means in practice:
+ *
+ *   .pp-uc-follow-button   accurate. Its whole look comes from `.Btn`, which is
+ *                          in JanitorAI's own bundled stylesheet, not here.
+ *   .pp-uc-options-menu    approximate. Layout and colours below are a guess at
+ *                          a plain chakra menu button; treat its exact metrics
+ *                          as unverified.
+ *
+ * The class hooks themselves are real, so CSS you write against them works on
+ * JanitorAI regardless.
+ */
+
+.profile-uc-follow-flex {
+  display: flex;
+  align-items: center;
+}
+
+.pp-uc-follow-button {
+  font-family: var(--font-family-jura, Jura, sans-serif);
+  font-size: 0.95rem;
+  font-weight: 600;
+  min-width: 7.5rem;
+}
+
+.pp-uc-options-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 40px;
+  padding: 0 0.875rem;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  border-radius: 10px;
+  background: var(--colour-white-a05, rgba(255, 255, 255, 0.05));
+  color: var(--colour-white-a90, rgba(255, 255, 255, 0.9));
+  font-family: var(--font-family-jura, Jura, sans-serif);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.pp-uc-options-menu:hover {
+  background: var(--colour-white-a10, rgba(255, 255, 255, 0.1));
+}
+
+.pp-uc-options-menu .css-1hzyiq5 {
+  display: inline-flex;
+}

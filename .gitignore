@@ -1,0 +1,33 @@
+# Build artefacts of the extraction tools. Everything the app actually loads is
+# committed; these are the debugging by-products.
+preview/snapshot.html
+
+# Scratch captures dropped at the repo root. The one profile the app needs is
+# preview/profiles/default.mhtml, which IS committed.
+/*.mhtml
+/*.mht
+/*.html
+!/index.html
+*_files/
+tools/font-urls.txt
+tools/font-links.html
+tools/font-families.json
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Node / Next, for the wrapper in next/
+node_modules/
+.next/
+out/
+.vercel/
+*.tsbuildinfo
+.env*.local
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json

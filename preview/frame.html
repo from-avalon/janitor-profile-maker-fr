@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JanitorAI profile preview</title>
+  <link rel="icon" href="data:,">
+
+  <!-- The exact font stylesheets janitorai.com loads, so font-family values
+       behave here the same way they do on a live profile. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Abril+Fatface&amp;family=Aladin&amp;family=Alegreya+Sans+SC:ital,wght@0,100;0,300;0,400;0,500;0,700;0,800;0,900;1,100;1,300;1,400;1,500;1,700;1,800;1,900&amp;family=Black+Ops+One&amp;family=Chango&amp;family=Cherry+Bomb+One&amp;family=Cinzel+Decorative:wght@400;700;900&amp;family=Cinzel:wght@400..900&amp;family=Courgette&amp;family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&amp;family=Cutive+Mono&amp;family=DotGothic16&amp;family=Fascinate&amp;family=Graduate&amp;family=Grenze+Gotisch:wght@100..900&amp;family=Jacquard+12&amp;family=Jacquard+24&amp;family=Jim+Nightshade&amp;family=Linefont:wght@4..1000&amp;family=Montserrat+Alternates:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&amp;family=Montserrat:ital,wght@0,100..900;1,100..900&amp;family=Oleo+Script:wght@400;700&amp;family=Orbitron:wght@400..900&amp;family=Pacifico&amp;family=Petit+Formal+Script&amp;family=Pixelify+Sans:wght@400..700&amp;family=Playpen+Sans+Hebrew:wght@100..800&amp;family=Roboto+Condensed:ital,wght@0,100..900;1,100..900&amp;family=Roboto:ital,wght@0,100..900;1,100..900&amp;family=Share+Tech&amp;family=Sigmar+One&amp;family=Sunshiney&amp;family=Tagesschrift&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Aldrich&amp;family=Cardo:ital,wght@0,400;0,700;1,400&amp;family=Caveat+Brush&amp;family=Caveat:wght@400..700&amp;family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&amp;family=DM+Serif+Text:ital@0;1&amp;family=Jua&amp;family=Lacquer&amp;family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,100;1,300;1,400;1,700;1,900&amp;family=Lobster&amp;family=Mitr:wght@200;300;400;500;600;700&amp;family=Notable&amp;family=Pangolin&amp;family=Pirata+One&amp;family=Raleway:ital,wght@0,100..900;1,100..900&amp;family=Rubik+Glitch&amp;family=Silkscreen:wght@400;700&amp;family=Special+Elite&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600;1,700&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@300..700&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rock+Salt&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Monoton&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400..700&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Berkshire+Swash&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Press%20Start%202P">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&amp;family=Noto+Sans+KR:wght@400;500;700&amp;family=Noto+Sans+SC:wght@400;500;700&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,500;1,9..144,600;1,9..144,700&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jura:wght@300..700&amp;display=swap">
+
+  <!-- JanitorAI's own stylesheets, captured from the live site. -->
+  <link rel="stylesheet" href="vendor/janitor.css">
+  <link rel="stylesheet" href="vendor/emotion.css">
+  <!-- Emotion rules for the regions spliced in from the second capture:
+       user menu, About Me box, follow/options, pagination. -->
+  <link rel="stylesheet" href="vendor/emotion-extra.css">
+  <!-- The Follow/Options buttons only; everything else is captured. -->
+  <link rel="stylesheet" href="vendor/reconstructed.css">
+
+  <!-- Simulator-only styling. Lives before the user stylesheet so it never wins
+       a specificity tie that it would not win on JanitorAI. -->
+  <style id="sim-chrome">
+    html, body { margin: 0; }
+    body { overflow-x: hidden; }
+    /* The snapshot is a static capture: kill navigation so clicks in the
+       preview never leave the page. */
+    a { cursor: default; }
+    /* Inspector overlay */
+    #sim-inspector-box {
+      position: fixed; pointer-events: none; z-index: 2147483647;
+      border: 1px solid #ff5ea8; background: rgba(255,94,168,.14);
+      border-radius: 2px; display: none;
+    }
+    #sim-inspector-tag {
+      position: fixed; pointer-events: none; z-index: 2147483647;
+      font: 500 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: #ff5ea8; color: #1a0a12; padding: 2px 6px;
+      border-radius: 4px; display: none; max-width: 60vw;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+  </style>
+
+  <!-- Preview-content overrides (background image, badge visibility, owner vs
+       visitor view). A stylesheet rather than inline styles, so the creator's
+       CSS can still override any of it exactly as it would on JanitorAI. -->
+  <style id="sim-data"></style>
+
+  <!-- Page styles stored inside an imported MHTML profile. This stays before
+       the editor stylesheet so new CSS still wins exactly as expected. -->
+  <style id="jai-imported-css"></style>
+
+  <!-- Everything the creator writes lands here, last in <head>, which is where
+       JanitorAI puts it relative to the app's own emotion styles. -->
+  <style id="jai-user-css"></style>
+</head>
+<body data-ucs="1" style="background-color:var(--colour-grey-550)">
+  <div id="sim-inspector-box"></div>
+  <div id="sim-inspector-tag"></div>
+  <script src="snapshot.js"></script>
+  <script src="fragments.js"></script>
+  <script src="frame.js"></script>
+</body>
+</html>

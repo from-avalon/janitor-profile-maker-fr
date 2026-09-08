@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JanitorAI Profile CSS Studio</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23a855f7'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='18' font-weight='700' text-anchor='middle' fill='%23140620'%3E%7B%7D%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/app.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">{ }</span>
+    <div>
+      <strong>Profile CSS Studio</strong>
+      <span class="brand-sub">JanitorAI · live simulation</span>
+    </div>
+  </div>
+
+  <div class="viewport-switch" role="group" aria-label="Preview width">
+    <button type="button" data-viewport="wide">1920</button>
+    <button type="button" data-viewport="desktop" class="is-active">1440</button>
+    <button type="button" data-viewport="laptop">1200</button>
+    <button type="button" data-viewport="tablet">Tablet</button>
+    <button type="button" data-viewport="mobile">Mobile</button>
+    <button type="button" data-viewport="custom">Custom</button>
+    <input type="number" id="custom-width" min="320" max="3840" step="10" value="1600"
+           title="Custom preview width in CSS pixels" hidden>
+  </div>
+
+  <div class="topbar-actions">
+    <label class="switch" title="Strip everything JanitorAI does not allow before rendering">
+      <input type="checkbox" id="enforce" checked>
+      <span>Enforce JAI rules</span>
+    </label>
+    <button type="button" id="inspect-toggle" class="btn btn-ghost" title="Click any element in the preview to get its selector">
+      Inspect
+    </button>
+    <button type="button" id="toggle-code" class="btn btn-ghost">Code</button>
+    <button type="button" id="copy-css" class="btn btn-primary">Copy for About Me</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ------------------------------------------------------------ sidebar -->
+  <aside class="sidebar">
+    <nav class="sidebar-tabs" role="tablist">
+      <button type="button" role="tab" data-panel="design" class="is-active">Design</button>
+      <button type="button" role="tab" data-panel="presets">Presets</button>
+      <button type="button" role="tab" data-panel="profile">Profile</button>
+      <button type="button" role="tab" data-panel="reference">Selectors</button>
+    </nav>
+
+    <div class="sidebar-body">
+      <section class="panel" data-panel="design">
+        <div class="panel-search">
+          <input type="search" id="control-search" placeholder="Search controls…" autocomplete="off">
+        </div>
+        <div id="control-groups"></div>
+      </section>
+
+      <section class="panel" data-panel="presets" hidden>
+        <details class="preset-section" open>
+          <summary>
+            <span class="preset-section-name">Basic presets</span>
+            <span class="preset-section-count" id="basic-count"></span>
+          </summary>
+          <p class="panel-note">
+            Colour schemes and accents. Each appends a labelled block inside your
+            <code>&lt;style&gt;</code>; toggle one off and its block is removed —
+            anything you wrote around it stays put.
+          </p>
+          <div id="preset-list"></div>
+        </details>
+
+        <details class="preset-section">
+          <summary>
+            <span class="preset-section-name">Advanced templates</span>
+            <span class="preset-section-count" id="advanced-count"></span>
+          </summary>
+          <p class="panel-note">
+            Complete profile designs by community creators, split into parts. Add the
+            whole template, or open it and take only the pieces you want — each part
+            brings its own markup and CSS.
+          </p>
+          <div id="template-list"></div>
+        </details>
+      </section>
+
+      <section class="panel" data-panel="profile" hidden>
+        <p class="panel-note">
+          Only changes the preview, never your code. Set these to match your real profile so
+          you are designing against your own content. Your About Me contents live in the
+          editor on the right, not here.
+        </p>
+        <div class="profile-import">
+          <strong>Use your saved profile</strong>
+          <p>Import a <b>Webpage, Single File</b> (<code>.mhtml</code>) save from your JanitorAI profile. It stays on this device and loads your real profile content into the preview.</p>
+          <label class="btn btn-ghost btn-sm profile-import-button" for="profile-file">Choose profile file</label>
+          <input id="profile-file" type="file" accept=".mhtml,.mht,.html,.htm,text/html,multipart/related" hidden>
+          <p class="field-hint">MHTML is recommended because it keeps avatars and card images in one file. HTML is accepted, but its saved image folder cannot be read by a browser.</p>
+          <p class="profile-import-status" id="profile-import-status" aria-live="polite">Loading your profile…</p>
+          <button type="button" id="reset-import" class="btn btn-ghost btn-sm" hidden>Back to my profile</button>
+        </div>
+        <div id="profile-fields"></div>
+      </section>
+
+      <section class="panel" data-panel="reference" hidden>
+        <div class="panel-search">
+          <input type="search" id="reference-search" placeholder="Search 418 elements…" autocomplete="off">
+        </div>
+        <p class="panel-note">
+          Prefer the <b>label</b> selectors. The <code>.css-…</code> IDs are regenerated on
+          every JanitorAI deploy and will eventually break your profile.
+        </p>
+        <div id="reference-list"></div>
+      </section>
+    </div>
+  </aside>
+
+  <!-- ------------------------------------------------------------ preview -->
+  <section class="stage">
+    <div class="stage-bar">
+      <span id="stage-size">1440 × 900</span>
+      <span class="stage-sep">·</span>
+      <button type="button" id="stage-zoom" class="stage-zoom" title="Toggle between fit-to-pane and 1:1">100%</button>
+      <span class="stage-spacer"></span>
+      <span id="pick-result" class="pick-result"></span>
+    </div>
+    <p class="stage-notice" id="stage-notice" hidden>
+      Below 576px JanitorAI swaps in a different header and a bottom nav bar
+      (<code>.pp-top-header</code>, <code>.pp-mnb-wrapper</code>). Neither capture rendered
+      that markup, so the chrome you see here is still the desktop one — everything from the
+      profile box down is accurate.
+    </p>
+    <div class="stage-scroll" id="stage-scroll">
+      <!-- The sizer reserves the *scaled* footprint; the frame keeps the real
+           device pixel width so JanitorAI's media queries fire correctly. -->
+      <div class="stage-sizer" id="stage-sizer">
+        <div class="stage-frame" id="stage-frame">
+          <iframe id="preview" src="preview/frame.html" title="JanitorAI profile preview"></iframe>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- --------------------------------------------------------------- code -->
+  <aside class="codepane" id="codepane">
+    <div class="codepane-head">
+      <strong>About Me</strong>
+      <span class="code-stats" id="code-stats"></span>
+      <button type="button" id="format-css" class="btn btn-ghost btn-sm">Tidy</button>
+      <button type="button" id="clear-css" class="btn btn-ghost btn-sm">Clear</button>
+    </div>
+
+    <p class="codepane-note">
+      This is the whole contents of your JanitorAI <b>About Me</b> field — the
+      <code>&lt;style&gt;</code> blocks in it are what restyle your profile. Copy the lot
+      and paste it there.
+    </p>
+
+    <div class="editor" id="editor">
+      <div class="gutter" id="gutter"></div>
+      <div class="editor-scroll" id="editor-scroll">
+        <pre class="highlight" aria-hidden="true"><code id="highlight"></code></pre>
+        <textarea id="css-input" spellcheck="false" autocomplete="off" autocapitalize="off"
+                  placeholder="&lt;style&gt; … &lt;/style&gt; plus any markup — this is what you paste into your About Me box."></textarea>
+      </div>
+    </div>
+
+    <div class="lint" id="lint"></div>
+  </aside>
+</main>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="js/css-model.js"></script>
+<script src="js/payload.js"></script>
+<script src="js/lint.js"></script>
+<script src="js/controls.js"></script>
+<script src="js/presets.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/reference.js"></script>
+<script src="js/profile-import.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

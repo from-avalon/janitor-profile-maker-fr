@@ -1,0 +1,9 @@
+# Normalise line endings so the repo is consistent regardless of who checks out
+# where. The captures are binary-ish and must never be touched.
+* text=auto eol=lf
+
+*.mhtml  -text
+*.webp   binary
+*.png    binary
+*.svg    text eol=lf
+*.bat    text eol=crlf
