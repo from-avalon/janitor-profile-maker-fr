@@ -47,8 +47,13 @@ jobs:
             .deploy/ from-avalon@69.62.118.163:/ | tail -n 15
 
       - name: Verify the site answers
+        # A transient connect failure from a runner should cost seconds, not
+        # hang for curl's default 135 s and hold the deploy queue. The files
+        # are already on the server by this point; this step only confirms.
         run: |
           code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            --connect-timeout 10 --max-time 30 \
+            --retry 4 --retry-delay 5 --retry-all-errors \
             -u "${{ secrets.STUDIO_BASIC_AUTH }}" https://tools.from-avalon.com/janitor-profile-maker/)
           echo "https://tools.from-avalon.com/janitor-profile-maker/ -> $code"
           test "$code" = "200"
