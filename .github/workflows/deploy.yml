@@ -36,7 +36,7 @@ jobs:
         # would otherwise linger on the server forever.
         run: |
           rm -rf .deploy && mkdir .deploy
-          cp -r index.html .htaccess css js preview .deploy/
+          cp -r index.html .htaccess CHANGELOG.md css js preview .deploy/
           rm -f .deploy/preview/snapshot.html
 
       - name: rsync to VPS
