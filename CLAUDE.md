@@ -7,7 +7,8 @@ HTML injected where JanitorAI injects it. See README.md for what it does.
 ## This is a static site — keep it that way
 
 - `index.html` + `css/app.css` + nine files in `js/`. **No bundler, no framework,
-  no npm dependencies.** `package.json` exists only for its scripts.
+  no runtime npm dependencies.** `package.json` holds scripts and lint/test
+  tooling under `devDependencies` only.
 - Each `js/*.js` file is an IIFE (`(function(){ 'use strict'; … })()`). Files share
   state through globals set on `window` (`window.JAI_TEMPLATES`, `window.JAI_REFERENCE`,
   `window.JaiProfileImport`, …). **The `<script>` order at the bottom of
@@ -53,6 +54,15 @@ to the VPS docroot with `--delete`, so the server always mirrors `main` exactly.
 - Manual re-deploy: Actions → "Deploy studio" → *Run workflow*.
 - Anything not in the rsync list above is never published — build tools, raw
   captures and this file stay in the repo only.
+
+## Checks
+
+    npm run lint    # eslint, recommended rules; unused-variable findings are warnings
+    npm test        # serves the studio, loads it headless, fails on JS errors or empty panels
+
+`npm test` needs `npx playwright install chromium` once. CI runs both on every
+pull request and on `main` (`.github/workflows/ci.yml`). The repo is private on
+a free org, so a red check **cannot block a merge** — treat it as a signal.
 
 ## Conventions
 
