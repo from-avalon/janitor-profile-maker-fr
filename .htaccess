@@ -1,0 +1,19 @@
+# Served by Apache on the VPS; ignored by tools/serve.py locally and not copied
+# by tools/sync-to-next.mjs. The password file lives OUTSIDE the docroot on the
+# server and is never in this repo.
+AuthType Basic
+AuthName "Avalon Studio"
+AuthUserFile /home/from-avalon/domains/tools.from-avalon.com/.htpasswd-janitor-profile-maker
+Require valid-user
+
+# Same caching policy as tools/serve.py (the regex is unanchored on purpose:
+# the studio is served under a sub-path): captured data is cacheable, everything
+# else is code you might have just pushed, so the browser must not hold on to it.
+<IfModule mod_headers.c>
+  <If "%{REQUEST_URI} =~ m#/preview/(profiles|assets)/#">
+    Header set Cache-Control "public, max-age=3600"
+  </If>
+  <Else>
+    Header set Cache-Control "no-store, must-revalidate"
+  </Else>
+</IfModule>

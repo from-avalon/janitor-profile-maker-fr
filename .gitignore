@@ -31,3 +31,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/settings.json
+
+# CI staging dir used by .github/workflows/deploy.yml
+.deploy/
