@@ -68,3 +68,7 @@ a free org, so a red check **cannot block a merge** — treat it as a signal.
 
 - `.gitattributes` normalises line endings; `*.mhtml` is binary. Leave it.
 - Comments in this codebase explain *why*. Match that.
+- `CHANGELOG.md`: add a dated entry (`## YYYY-MM-DD — Title` + short prose)
+  for anything a user of the studio would notice, in the same pull request as
+  the change. Tooling and housekeeping stay out — the studio shows the newest
+  entry to users in a What's new dialog.
