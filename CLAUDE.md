@@ -70,5 +70,7 @@ a free org, so a red check **cannot block a merge** — treat it as a signal.
 - Comments in this codebase explain *why*. Match that.
 - `CHANGELOG.md`: add a dated entry (`## YYYY-MM-DD — Title` + short prose)
   for anything a user of the studio would notice, in the same pull request as
-  the change. Tooling and housekeeping stay out — the studio shows the newest
-  entry to users in a What's new dialog.
+  the change. Tooling and housekeeping stay out. `js/changelog.js` fetches this
+  file at runtime and renders it in the Changelog dialog, so the heading format
+  is load-bearing; the file ships with the site (it is in the deploy and
+  `sync-to-next` lists).

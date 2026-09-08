@@ -22,6 +22,7 @@ const STUDIO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // tools, the README, the raw captures — has no business in a public directory.
 const INCLUDE = [
   'index.html',
+  'CHANGELOG.md',
   'css',
   'js',
   'preview',

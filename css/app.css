@@ -571,3 +571,38 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .part-badge.is-good { color: #86efac; border-color: rgba(134, 239, 172, .3); }
 .part-badge.is-html { color: #7dd3fc; border-color: rgba(125, 211, 252, .3); }
+
+/* ---------------------------------------------------------------- changelog */
+.changelog {
+  width: min(720px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, .55);
+}
+.changelog::backdrop { background: rgba(0, 0, 0, .6); }
+.changelog-inner { padding: 22px 26px 24px; max-height: 80vh; overflow-y: auto; box-sizing: border-box; }
+.changelog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.changelog-head h2 { margin: 0; font-size: 17px; font-weight: 600; }
+.changelog-sub { margin: 4px 0 0; color: var(--text-dim); font-size: 13px; }
+.changelog-close {
+  appearance: none; width: 28px; height: 28px; flex: none;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: transparent; color: var(--text-dim);
+  font-size: 18px; line-height: 1; cursor: pointer;
+}
+.changelog-close:hover { color: var(--text); background: var(--bg-raised); }
+.changelog-entry { padding: 18px 0 8px; border-top: 1px solid var(--line-soft); }
+.changelog-entry:first-child { border-top: 0; padding-top: 14px; }
+.changelog-entry h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
+.changelog-entry p, .changelog-entry li { margin: 0 0 10px; color: var(--text-dim); font-size: 13.5px; line-height: 1.55; }
+.changelog-entry ul { margin: 0 0 10px 18px; padding: 0; }
+.changelog-entry a { color: var(--accent); text-decoration: none; }
+.changelog-entry a:hover { text-decoration: underline; }
+.changelog-entry code {
+  font-family: var(--mono); font-size: 12.5px;
+  background: var(--bg-sunken); padding: 1px 5px; border-radius: 4px;
+}
+.new-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-left: 7px; vertical-align: middle; }

@@ -40,6 +40,7 @@
     <button type="button" id="inspect-toggle" class="btn btn-ghost" title="Click any element in the preview to get its selector">
       Inspect
     </button>
+    <button type="button" id="changelog-toggle" class="btn btn-ghost" title="Recent updates and changes to the studio">Changelog<span class="new-dot" id="changelog-dot" hidden></span></button>
     <button type="button" id="toggle-code" class="btn btn-ghost">Code</button>
     <button type="button" id="copy-css" class="btn btn-primary">Copy for About Me</button>
   </div>
@@ -177,6 +178,18 @@
   </aside>
 </main>
 
+<dialog id="changelog" class="changelog" aria-labelledby="changelog-title">
+  <div class="changelog-inner">
+    <div class="changelog-head">
+      <div>
+        <h2 id="changelog-title">Changelog</h2>
+        <p class="changelog-sub">Recent updates and changes to the studio</p>
+      </div>
+      <button type="button" class="changelog-close" id="changelog-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="changelog-body" id="changelog-body"><p class="changelog-sub">Loading…</p></div>
+  </div>
+</dialog>
 <div class="toast" id="toast" hidden></div>
 
 <script src="js/css-model.js"></script>
@@ -188,5 +201,6 @@
 <script src="js/reference.js"></script>
 <script src="js/profile-import.js"></script>
 <script src="js/app.js"></script>
+<script src="js/changelog.js"></script>
 </body>
 </html>

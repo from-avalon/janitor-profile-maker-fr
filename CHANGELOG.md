@@ -9,6 +9,12 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-09-09 — A changelog inside the studio
+
+There is now a **Changelog** button in the top bar. It shows recent updates
+and changes to the studio, newest first, and a dot appears on the button when
+there is something you haven't seen yet.
+
 ## 2026-09-09 — The studio is online
 
 The studio now lives at https://tools.from-avalon.com/janitor-profile-maker/
