@@ -99,9 +99,10 @@
     /* Follow + Options, i.e. what everybody except you sees. */
     var actions = doc.querySelector('.css-1aq5geu');
     if (actions && !actions.querySelector('.pp-uc-follow-button')) {
-      // A capture of your own profile never contains these -- JanitorAI does
-      // not render them for you -- so they are rebuilt from its own class
-      // names. See preview/vendor/reconstructed.css.
+      // A capture of your own profile never contains these: JanitorAI does not
+      // render them for you. They normally come from a supplement capture (see
+      // tools/extract_fragments.py); the fallback below is only reached when
+      // fragments.js was built without one, and is unstyled beyond `.Btn`.
       actions.innerHTML = fragment('actions') || FALLBACK_ACTIONS;
       // The capture was of a profile the viewer already follows. Reset it to
       // what a first-time visitor sees; both states stay stylable through
@@ -140,6 +141,7 @@
       var portal = el('div', 'chakra-portal sim-user-menu', fragment('userMenu'));
       portal.hidden = true;
       doc.body.appendChild(portal);
+      openMenuInlineStyles(portal);
     }
 
     /* Clicking the avatar opens it, exactly like the real header. */
@@ -152,10 +154,44 @@
     }
   }
 
+  /*
+   * Chakra writes the menu's popper coordinates and its open/closed transition
+   * state into inline styles, so a capture freezes whichever state the menu was
+   * in. Ours was captured closed: the panel carries opacity:0 / visibility:hidden
+   * and the wrapper had never been positioned, which parks it at the top-left
+   * corner invisibly.
+   *
+   * These are runtime artifacts rather than styling, so they are rewritten to the
+   * values JanitorAI itself produces with the menu open — anchored under the
+   * avatar, top right. Keeping them inline is faithful: the real site sets them
+   * inline too, so CSS you write against the menu behaves the same either way.
+   */
+  function openMenuInlineStyles(portal) {
+    var wrapper = portal.querySelector('[data-popper-placement], .css-mzi0gq') ||
+                  portal.firstElementChild;
+    if (wrapper) {
+      wrapper.setAttribute('data-popper-placement', 'bottom-end');
+      wrapper.style.cssText =
+        'visibility: visible; position: absolute; min-width: max-content; ' +
+        'inset: 0px 0px auto auto; margin: 0px; ' +
+        'transform: translate3d(-48px, 53.3333px, 0px);';
+    }
+    var panel = portal.querySelector('.pp-top-bar-app-menu-list');
+    if (panel) {
+      panel.style.cssText =
+        'transform-origin: var(--popper-transform-origin); ' +
+        'opacity: 1; visibility: visible; transform: none;';
+    }
+  }
+
   function setUserMenu(open) {
     var portal = doc.querySelector('.sim-user-menu');
     if (!portal) return;
     portal.hidden = !open;
+    // The bundled profile can finish loading after you have already opened the
+    // menu, and that re-mount replays the last data it was given. Record the
+    // state here so the replay preserves it instead of closing the menu.
+    if (lastData) lastData.userMenu = !!open;
     var button = doc.querySelector('.pp-top-bar-app-menu');
     if (button) button.setAttribute('aria-expanded', String(!!open));
     send({ type: 'userMenu', open: !!open });

@@ -130,22 +130,23 @@ on **8 Sep 2026**:
 - **the page structure** (`preview/snapshot.js`) — the header, footer and bot card
   grid, extracted at build time;
 - **five extra regions** (`preview/fragments.js`) — the user menu popup, the About
-  Me box, the character counter and the page navigation, lifted from a fuller
-  capture taken after the page had finished loading with the menu open;
+  Me box, the character counter, the page navigation and the follow/options
+  buttons, lifted from fuller captures taken after the page had finished loading;
 - **the live canvas** (`preview/profiles/default.mhtml`) — loaded at start-up so
   the preview is your real profile, bots and all.
 
-Everything in the preview is real JanitorAI markup with real classes, with exactly
-one exception:
+Everything in the preview is real JanitorAI markup with real classes. Nothing is
+approximated.
 
-> **The Follow and Options buttons are approximated.** JanitorAI does not render
-> them on your own profile, so no capture of it can contain them. The follow
-> button is still accurate — its whole look comes from `.Btn` in JanitorAI's own
-> bundled stylesheet — but the Options button's metrics are a guess. Both class
-> hooks are real, so CSS you write against them works regardless. See
-> `preview/vendor/reconstructed.css`.
+One region needs a second capture. JanitorAI does not render the Follow and
+Options buttons on your own profile, so no capture of it can contain them; those
+two come from a supplement capture of any public profile, along with only the
+emotion rules they use. That is JanitorAI's own chrome — nothing about the
+captured creator travels with it, and `is_creator_theme()` keeps their own theme
+out. Rebuild without a supplement and `frame.js` falls back to reconstructing the
+buttons from the same class names.
 
-Two other things worth knowing:
+Two things worth knowing:
 
 1. **Mobile chrome is missing.** Below 576px JanitorAI swaps to a different header
    and a bottom nav bar. No capture rendered that markup — its *stylesheets* are
@@ -177,6 +178,8 @@ To refresh either capture against a newer JanitorAI, see below.
 ```bash
 python tools/extract_snapshot.py     # base page structure
 python tools/extract_fragments.py    # menu, About Me, counter, pager
+# optionally, for the visitor-view buttons your own profile cannot show:
+python tools/extract_fragments.py preview/profiles/default.mhtml other-profile.mhtml
 python tools/build_reference.py path/to/janitorai-css-reference.md
 ```
 

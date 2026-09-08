@@ -24,11 +24,24 @@ except ImportError:                                    # Python 3.6 and older
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+# Captured data rather than source: a multi-megabyte profile and its images,
+# which never change while you are working. Re-downloading them on every reload
+# makes start-up slow enough that the preview can finish loading after you have
+# started clicking around in it.
+CACHEABLE = ("/preview/profiles/", "/preview/assets/")
+
+
 class Handler(SimpleHTTPRequestHandler):
     def end_headers(self):
-        self.send_header("Cache-Control", "no-store, must-revalidate")
-        self.send_header("Pragma", "no-cache")
-        self.send_header("Expires", "0")
+        if self.path.startswith(CACHEABLE):
+            self.send_header("Cache-Control", "public, max-age=3600")
+        else:
+            # Everything else is code you are editing. No caching at all, or the
+            # browser will happily go on running a stale copy of a file you just
+            # changed, with no error to explain why nothing happened.
+            self.send_header("Cache-Control", "no-store, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
         SimpleHTTPRequestHandler.end_headers(self)
 
     def log_message(self, fmt, *args):

@@ -862,3 +862,33 @@
 .chakra-ui-dark .css-1nfaq08:not([data-theme]), [data-theme="dark"] .css-1nfaq08:not([data-theme]), .css-1nfaq08[data-theme="dark"] { --tooltip-bg: var(--chakra-colors-gray-300); --tooltip-fg: var(--chakra-colors-gray-900); }
 
 .css-10byp9b { background: rgb(33, 33, 33); }
+@charset "utf-8";
+
+.css-1vakbk4 { display: flex; gap: var(--chakra-space-2); }
+@charset "utf-8";
+
+.css-e9kr8m { font-family: Jura; font-weight: var(--chakra-fontWeights-bold); }
+@charset "utf-8";
+
+.css-15w88gn { display: inline-flex; appearance: none; -webkit-box-align: center; align-items: center; -webkit-box-pack: center; justify-content: center; user-select: none; position: relative; white-space: nowrap; vertical-align: middle; outline: transparent solid 2px; outline-offset: 2px; line-height: 1.2; border-radius: var(--chakra-radii-md); font-weight: var(--chakra-fontWeights-semibold); transition-property: var(--chakra-transition-property-common); transition-duration: var(--chakra-transition-duration-normal); height: var(--chakra-sizes-10); min-width: var(--chakra-sizes-10); font-size: var(--chakra-fontSizes-md); padding-inline-start: var(--chakra-space-4); padding-inline-end: var(--chakra-space-4); background: var(--chakra-colors-whiteAlpha-200); color: var(--chakra-colors-whiteAlpha-900); }
+
+.css-15w88gn:focus-visible, .css-15w88gn[data-focus-visible] { box-shadow: var(--chakra-shadows-outline); }
+
+.css-15w88gn:disabled, .css-15w88gn[disabled], .css-15w88gn[aria-disabled="true"], .css-15w88gn[data-disabled] { opacity: 0.4; cursor: not-allowed; box-shadow: var(--chakra-shadows-none); }
+
+.css-15w88gn:hover, .css-15w88gn[data-hover] { background: var(--chakra-colors-whiteAlpha-300); }
+
+.css-15w88gn:hover:disabled, .css-15w88gn[data-hover]:disabled, .css-15w88gn:hover[disabled], .css-15w88gn[data-hover][disabled], .css-15w88gn:hover[aria-disabled="true"], .css-15w88gn[data-hover][aria-disabled="true"], .css-15w88gn:hover[data-disabled], .css-15w88gn[data-hover][data-disabled] { background: var(--chakra-colors-whiteAlpha-200); }
+
+.css-15w88gn:active, .css-15w88gn[data-active] { background: var(--chakra-colors-whiteAlpha-400); }
+@charset "utf-8";
+
+.css-1hzyiq5 { display: inline-flex; align-self: center; flex-shrink: 0; margin-inline-start: 0.5rem; }
+@charset "utf-8";
+
+.css-r6z5ec { z-index: 1; }
+@charset "utf-8";
+
+.css-1kk6pgz { outline: transparent solid 2px; outline-offset: 2px; --menu-bg: #fff; --menu-shadow: var(--chakra-shadows-sm); color: var(--chakra-colors-white); min-width: var(--chakra-sizes-3xs); padding-top: var(--chakra-space-1); padding-bottom: var(--chakra-space-1); z-index: 1; border-radius: var(--chakra-radii-lg); background: var(--chakra-colors-neutral-600); box-shadow: var(--menu-shadow); border: var(--chakra-borders-none); }
+
+.chakra-ui-dark .css-1kk6pgz:not([data-theme]), [data-theme="dark"] .css-1kk6pgz:not([data-theme]), .css-1kk6pgz[data-theme="dark"] { --menu-bg: var(--chakra-colors-gray-700); --menu-shadow: var(--chakra-shadows-dark-lg); }
