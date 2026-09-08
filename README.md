@@ -188,6 +188,27 @@ rebuilds without needing any file from elsewhere on disk. To refresh it, open yo
 profile, wait for it to finish loading, click your avatar to open the user menu,
 then Ctrl+S → "Webpage, Single File" over that path.
 
+## Putting it on a website
+
+The studio is a static app and stays one. `next/` holds a drop-in route for a
+**Next 16 (App Router) · React 19 · Tailwind v4 · shadcn/ui** site, plus a GA4
+bridge via `@next/third-parties`:
+
+```bash
+cp -r next/app/studio /path/to/your-site/app/studio
+node tools/sync-to-next.mjs /path/to/your-site      # -> public/studio/
+```
+
+Wire `studio:sync` into the site's `predev`/`prebuild` so the copy is never stale,
+and `.gitignore` `public/studio/` there. Full instructions, including the GA4
+event list and why the studio is embedded rather than ported, are in
+[next/README.md](next/README.md).
+
+Short version of the why: Tailwind v4's preflight would reset the studio's own
+design, and the preview has to be a separate document anyway so that the CSS you
+are writing cannot leak into the editor around it. An iframe is a hard style
+boundary and costs nothing.
+
 ## Layout
 
 ```
