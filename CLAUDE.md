@@ -42,7 +42,7 @@ The list of CSS JanitorAI strips (the linter's rules) lives in `js/lint.js`.
 
 ## Deployment — automatic
 
-Every push to `main` deploys to **https://studio.from-avalon.com** (password-
+Every push to `main` deploys to **https://tools.from-avalon.com/janitor-profile-maker/** (password-
 protected) via `.github/workflows/deploy.yml`. It takes about 30 seconds and
 there is nothing to build: the workflow rsyncs `index.html .htaccess css js preview`
 to the VPS docroot with `--delete`, so the server always mirrors `main` exactly.
