@@ -291,7 +291,17 @@
     if (!allCards) {
       allCards = Array.prototype.slice.call(list.querySelectorAll(CARD_SELECTOR));
     }
-    n = Math.max(1, Math.min(allCards.length, n | 0));
+    n = Math.max(1, n | 0);
+    // Saved profiles contain only the cards rendered in that capture (usually
+    // the first page), while their counter records the creator's real total.
+    // Duplicate cards only fill the preview grid; they do not affect the
+    // imported profile, generated CSS, or the code copied to JanitorAI.
+    var originals = allCards.length;
+    while (allCards.length < n && originals) {
+      var copy = allCards[allCards.length % originals].cloneNode(true);
+      copy.setAttribute('data-sim-card-copy', 'true');
+      allCards.push(copy);
+    }
     allCards.forEach(function (card, i) {
       var wanted = i < n;
       if (wanted && !card.parentNode) list.appendChild(card);

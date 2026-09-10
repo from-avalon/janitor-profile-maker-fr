@@ -9,6 +9,42 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-09-11 — Velvet Nocturne joins Advanced Templates
+
+**Velvet Nocturne** is now available alongside Dark Red. Add the complete
+gothic-purple profile or choose its individual backdrop, layout, loading veil,
+hero, content panels, site chrome, character gallery, or credit. Each part
+carries its own mobile rules and brings only what it needs — adding the
+character gallery no longer repaints the page background or fonts.
+
+A part that was added only because another one needed it is now removed again
+along with that part, for every template.
+
+Its package metadata also feeds the part filters, so the relevant pieces appear
+when browsing areas such as character cards, the header, or motion.
+
+## 2026-09-11 — Easier profile imports
+
+The Profile tab now gives the import button a clearer visual priority, and Help
+shows the exact save flow: open your JanitorAI profile, press **Ctrl + S**, then
+choose **Webpage, Single File** (`.mhtml`). Help and bug reports can go to
+**eslezer** on Discord.
+
+The preview now starts with the character total recorded in your saved profile,
+rather than an arbitrary 12 cards. When a saved page contains only its first
+page of cards, visual copies fill the remaining preview slots; your profile file
+and copied CSS are never changed.
+
+## 2026-09-10 — Faster browsing, less clutter
+
+Advanced templates can now be filtered by the part of the profile they affect,
+such as character cards, the header, notifications, or social links. Choosing a
+filter opens the matching parts so they are ready to add.
+
+The main workspace is also quieter. Short labels replace repeated explanations,
+while the new **Help** tab holds the practical guide for About Me, templates,
+preview rules, and importing a saved profile.
+
 ## 2026-09-10 — Loads properly, and much faster
 
 The bundled profile was failing to load in every browser — the server was
