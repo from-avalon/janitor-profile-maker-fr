@@ -106,8 +106,15 @@
         // start-up (server restarting, a flaky connection) must not stick for
         // the whole session. Say why, so a report can be acted on.
         entries = null;
-        body.innerHTML = '<p class="changelog-sub">Couldn’t load the changelog (' +
-          esc(String((err && err.message) || err)) + '). Close this and try again.</p>';
+        // Opened by double-clicking index.html: browsers refuse to fetch other
+        // files from disk, so this can never work there. Say how to fix it
+        // rather than suggesting a retry.
+        body.innerHTML = location.protocol === 'file:'
+          ? '<p class="changelog-sub">The changelog can’t load when the studio is opened ' +
+            'straight from a file. Start it with <code>run.bat</code> (or ' +
+            '<code>python tools/serve.py</code>) and open http://localhost:5173/ instead.</p>'
+          : '<p class="changelog-sub">Couldn’t load the changelog (' +
+            esc(String((err && err.message) || err)) + '). Close this and try again.</p>';
         return [];
       });
   }
