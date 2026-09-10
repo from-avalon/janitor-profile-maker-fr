@@ -9,6 +9,12 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-09-11 — A Discord invite in Help
+
+The **Need help?** topic in the Help tab now links to the Avalon Discord, for
+feedback or just to hang around, alongside the existing eslezer contact for
+bug reports.
+
 ## 2026-09-11 — A plain background to start from
 
 The built-in profile no longer comes with its owner's background photo, so
