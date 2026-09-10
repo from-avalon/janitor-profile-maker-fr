@@ -43,14 +43,16 @@ The list of CSS JanitorAI strips (the linter's rules) lives in `js/lint.js`.
 
 ## Deployment — automatic
 
-Every push to `main` deploys to **https://tools.from-avalon.com/janitor-profile-maker/** (password-
-protected) via `.github/workflows/deploy.yml`. It takes about 30 seconds and
-there is nothing to build: the workflow rsyncs `index.html .htaccess css js preview`
+Every push to `main` deploys to **https://tools.from-avalon.com/janitor-profile-maker/** (public)
+via `.github/workflows/deploy.yml`. It takes about 30 seconds and
+there is nothing to build: the workflow rsyncs `index.html .htaccess CHANGELOG.md assets css js preview`
 to the VPS docroot with `--delete`, so the server always mirrors `main` exactly.
 
-- `.htaccess` (in this repo) holds the auth rule and the cache policy.
-- `.htpasswd` lives **on the server**, outside the docroot. Never commit passwords
-  or the deploy key; they are GitHub Actions secrets.
+- `.htaccess` (in this repo) holds the cache policy. There is no auth; the
+  studio is public.
+- Never commit the deploy key; it is a GitHub Actions secret.
+- `assets/` holds the link-preview image (`og.png`, 1200×630) and the touch icon.
+  The Open Graph tags in `index.html` use absolute URLs of the deployed address.
 - Manual re-deploy: Actions → "Deploy studio" → *Run workflow*.
 - Anything not in the rsync list above is never published — build tools, raw
   captures and this file stay in the repo only.

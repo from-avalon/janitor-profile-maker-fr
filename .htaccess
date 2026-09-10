@@ -1,10 +1,5 @@
 # Served by Apache on the VPS; ignored by tools/serve.py locally and not copied
-# by tools/sync-to-next.mjs. The password file lives OUTSIDE the docroot on the
-# server and is never in this repo.
-AuthType Basic
-AuthName "Avalon Studio"
-AuthUserFile /home/from-avalon/domains/tools.from-avalon.com/.htpasswd-janitor-profile-maker
-Require valid-user
+# by tools/sync-to-next.mjs. The studio is public — no auth here.
 
 # Same caching policy as tools/serve.py (the regex is unanchored on purpose:
 # the studio is served under a sub-path): captured data is cacheable, everything
