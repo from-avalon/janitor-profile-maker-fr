@@ -9,6 +9,12 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-09-11 — A plain background to start from
+
+The built-in profile no longer comes with its owner's background photo, so
+you design on JanitorAI's plain page. Set your own in **Profile → Background
+image URL**; a profile you import still shows its own background.
+
 ## 2026-09-11 — Velvet Nocturne joins Advanced Templates
 
 **Velvet Nocturne** is now available alongside Dark Red. Add the complete

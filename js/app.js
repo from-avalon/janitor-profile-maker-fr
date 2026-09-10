@@ -1130,7 +1130,7 @@
     { key: 'followers', label: 'Followers', type: 'text' },
     { key: 'memberSince', label: 'Member since', type: 'text' },
     { key: 'background', label: 'Background image URL', type: 'text',
-      hint: 'The banner you set in JanitorAI profile settings. Leave blank to keep the captured one.' },
+      hint: 'The banner you set in JanitorAI profile settings. Leave blank for none, or for your imported profile’s own.' },
     { key: 'cardCount', label: 'Bot cards shown', type: 'number', min: 1, max: 250 },
     { key: 'viewMode', label: 'Viewing as', type: 'select',
       values: [['visitor', 'A visitor (Follow + Options)'], ['owner', 'Yourself (Edit profile)']] },
@@ -1263,6 +1263,24 @@
   var DEFAULT_PROFILE_URL = 'preview/profiles/default.mhtml';
   var DEFAULT_PROFILE_LABEL = 'your profile (@' + DEFAULT_DATA.username + ')';
 
+  /*
+   * The bundled capture carries its owner's background photo, set on the page
+   * background element through one of its emotion classes. Everyone else would
+   * be designing on top of someone else's picture, so the bundled profile starts
+   * on JanitorAI's plain page instead. The declaration is removed rather than
+   * set to `none`: the imported CSS comes after #sim-data, so `none` would also
+   * beat the Background image field. An imported profile keeps its own.
+   */
+  function withoutPageBackground(html, css) {
+    var m = /<[^>]*class="([^"]*\bpp-page-background\b[^"]*)"/.exec(html || '');
+    if (!m || !css) return css;
+    m[1].split(/\s+/).filter(function (c) { return /^css-[\w-]+$/.test(c); }).forEach(function (cls) {
+      var rule = new RegExp('(\\.' + cls + '\\s*\\{[^}]*?)background-image\\s*:\\s*url\\([^)]*\\)\\s*;?', 'g');
+      css = css.replace(rule, '$1');
+    });
+    return css;
+  }
+
   function loadBundledProfile() {
     if (importedProfile) return Promise.resolve(false);
     updateImportStatus('Loading ' + DEFAULT_PROFILE_LABEL + '…', false);
@@ -1277,6 +1295,7 @@
           new File([blob], 'default.mhtml', { type: 'multipart/related' }));
       })
       .then(function (profile) {
+        profile.css = withoutPageBackground(profile.html, profile.css);
         // Only fill in fields the creator has not already set for themselves.
         if (!hadSavedData) {
           Object.keys(profile.data).forEach(function (key) {
