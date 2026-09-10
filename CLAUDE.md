@@ -41,6 +41,15 @@ A local server is required — the preview iframe must be same-origin, so
 
 The list of CSS JanitorAI strips (the linter's rules) lives in `js/lint.js`.
 
+## Analytics
+
+GA4, measurement ID `G-JEZXRSPHC3` — the shared *Avalon Tools* property; this
+tool tags itself `content_group: janitor-profile-maker` (one web stream per
+domain, tools told apart by content group). The snippet is in `index.html`;
+`reportToHost()` in `js/app.js` sends the studio's named events to it when
+standalone, or to the embedding page when in an iframe. **Never send the
+creator's CSS** — names and coarse labels only.
+
 ## Deployment — automatic
 
 Every push to `main` deploys to **https://tools.from-avalon.com/janitor-profile-maker/** (public)

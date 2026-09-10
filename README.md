@@ -57,6 +57,13 @@ On by default. With it on, blocked CSS is removed before the preview renders, so
 preview is honest. Turn it off to see what your CSS *would* do in a normal browser —
 useful for working out whether a rule is broken or merely blocked.
 
+## Analytics
+
+The studio loads Google Analytics. It sees page views and a few named events —
+which preset or template was applied, that CSS was copied, that a profile was
+imported. It never sees the CSS you write or the profile you import; those
+stay in your browser.
+
 ## What JanitorAI blocks
 
 Checked by the linter, per the reference guide:

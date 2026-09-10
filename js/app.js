@@ -130,7 +130,14 @@
    * which is their work. A no-op when running standalone.
    */
   function reportToHost(name, label) {
-    if (window.parent === window) return;
+    if (window.parent === window) {
+      // Standalone: no host to forward to, so report to GA directly if the
+      // page loaded it. Same contract — a name and a coarse label, never CSS.
+      if (typeof window.gtag === 'function') {
+        window.gtag('event', name, { label: label || '', content_group: 'janitor-profile-maker' });
+      }
+      return;
+    }
     try {
       window.parent.postMessage(
         { source: 'jai-studio', type: 'analytics', name: name, label: label || '' },
