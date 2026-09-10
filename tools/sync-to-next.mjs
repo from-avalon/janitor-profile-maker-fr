@@ -23,6 +23,7 @@ const STUDIO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const INCLUDE = [
   'index.html',
   'CHANGELOG.md',
+  'assets',
   'css',
   'js',
   'preview',

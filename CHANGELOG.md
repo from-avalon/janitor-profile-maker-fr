@@ -9,6 +9,12 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-09-10 — Open to everyone, and links show a preview
+
+The studio no longer asks for a password — share the link freely. Pasting it
+into Discord, Slack or Twitter now shows a proper preview card with the
+studio's name, a line about what it does, and an image, instead of a bare URL.
+
 ## 2026-09-09 — A changelog inside the studio
 
 There is now a **Changelog** button in the top bar. It shows recent updates

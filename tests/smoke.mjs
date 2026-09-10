@@ -72,6 +72,18 @@ try {
   if (counts.referenceData < 300) fail(`reference data has only ${counts.referenceData} entries`);
   if (!counts.editor)            fail("editor textarea (#css-input) missing");
 
+  // Link previews: the Open Graph image is served and the tags point at it.
+  const og = await page.request.get(`${ORIGIN}/assets/og.png`);
+  if (og.status() !== 200 || !(og.headers()["content-type"] || "").includes("image/png")) fail(`assets/og.png: ${og.status()} ${og.headers()["content-type"]}`);
+  const ogTags = await page.evaluate(() => ({
+    image: document.querySelector('meta[property="og:image"]')?.content || "",
+    title: document.querySelector('meta[property="og:title"]')?.content || "",
+    card:  document.querySelector('meta[name="twitter:card"]')?.content || "",
+  }));
+  if (!ogTags.image.endsWith("/assets/og.png")) fail(`og:image is "${ogTags.image}"`);
+  if (!ogTags.title)                             fail("og:title missing");
+  if (ogTags.card !== "summary_large_image")     fail(`twitter:card is "${ogTags.card}"`);
+
   // The changelog dialog: opens from the toolbar and renders at least one entry.
   await page.click("#changelog-toggle");
   const dialog = await page.evaluate(() => {
@@ -90,6 +102,7 @@ try {
   console.log(`panels: design=${counts.controls} presets=${counts.presets} templates=${counts.templates} selectors=${counts.reference} (data=${counts.referenceData})`);
   console.log(`preview: profile ${profileRes.status()}, mounted=${!failures.some((f) => f.includes("mounted"))}`);
   console.log(`changelog: ${changelogRes.status()}, dialog open=${dialog.open}, entries=${dialog.entries}`);
+  console.log(`previews: og.png ${og.status()}, og:title="${ogTags.title}", twitter:card=${ogTags.card}`);
   console.log(`errors: page=${pageErrors.length} console=${ownConsoleErrors.length}${consoleErrors.length !== ownConsoleErrors.length ? ` (+${consoleErrors.length - ownConsoleErrors.length} third-party, ignored)` : ""} requests=${badResponses.length}`);
 
   await browser.close();
