@@ -48,7 +48,8 @@
     inspector: false,
     panel: 'design',
     zoom: 'fit',
-    customWidth: 1600
+    customWidth: 1600,
+    autoParts: []          // template part ids added only because another part needed them
   };
 
   var importedProfile = false;
@@ -64,7 +65,7 @@
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify({
         code: state.code, data: state.data, viewport: state.viewport,
-        enforce: state.enforce, customWidth: state.customWidth
+        enforce: state.enforce, customWidth: state.customWidth, autoParts: state.autoParts
       }));
     } catch (e) { /* private mode, quota — not worth interrupting the user */ }
   }
@@ -76,6 +77,7 @@
       var saved = JSON.parse(raw);
       if (typeof saved.code === 'string') state.code = saved.code;
       if (typeof saved.customWidth === 'number') state.customWidth = saved.customWidth;
+      if (Array.isArray(saved.autoParts)) state.autoParts = saved.autoParts;
       if (saved.data) {
         state.data = Object.assign({}, DEFAULT_DATA, saved.data);
         hadSavedData = true;
@@ -827,10 +829,10 @@
     window.JaiPresets.all.forEach(function (p) {
       var card = el('div', 'preset');
       card.dataset.preset = p.id;
+      card.title = p.blurb;
       card.appendChild(el('div', 'preset-main',
         '<div class="preset-cat">' + escapeHtml(p.category) + '</div>' +
-        '<div class="preset-name">' + escapeHtml(p.name) + '</div>' +
-        '<p class="preset-blurb">' + escapeHtml(p.blurb) + '</p>'));
+        '<div class="preset-name">' + escapeHtml(p.name) + '</div>'));
       var btn = el('button', 'btn btn-sm', 'Add');
       btn.type = 'button';
       btn.addEventListener('click', function () {
@@ -866,6 +868,38 @@
   // bot card redesign.
 
   function templateList() { return window.JaiPresets.templates(); }
+  var templateFilter = 'all';
+
+  /* Metadata belongs to a part, not a whole template: one theme can contribute
+   * a header, cards and a footer independently. New packages declare `affects`;
+   * the name fallback keeps older community packages browseable too. */
+  function partAreas(part) {
+    return part.affects && part.affects.length ? part.affects : [part.name];
+  }
+
+  function renderTemplateFilters() {
+    var host = $('#template-filters');
+    if (!host) return;
+    var areas = {};
+    templateList().forEach(function (tpl) {
+      tpl.components.forEach(function (part) {
+        partAreas(part).forEach(function (area) { areas[area] = true; });
+      });
+    });
+
+    host.innerHTML = '';
+    ['all'].concat(Object.keys(areas).sort()).forEach(function (area) {
+      var label = area === 'all' ? 'All parts' : area;
+      var button = el('button', 'btn btn-sm template-filter', label);
+      button.type = 'button';
+      button.classList.toggle('is-active', area === templateFilter);
+      button.addEventListener('click', function () {
+        templateFilter = area;
+        renderTemplates();
+      });
+      host.appendChild(button);
+    });
+  }
 
   /* `part` plus everything it depends on, in canonical order, deduped. */
   function withDependencies(part) {
@@ -890,6 +924,41 @@
     });
   }
 
+  /* A dependency the user never chose goes again with the last part that
+   * needed it; one they added themselves stays. Without this, adding one part
+   * and removing it left its whole foundation (background, fonts, grid) behind. */
+  function markAuto(id, on) {
+    var i = state.autoParts.indexOf(id);
+    if (on && i === -1) state.autoParts.push(id);
+    if (!on && i !== -1) state.autoParts.splice(i, 1);
+  }
+
+  /* `part` plus the auto-added dependencies nothing else applied still needs,
+   * dependants first so removal runs in reverse canonical order. */
+  function withOrphans(part) {
+    var gone = {};
+    gone[part.id] = true;
+    var candidates = withDependencies(part).filter(function (p) {
+      return p.id !== part.id && state.autoParts.indexOf(p.id) !== -1 &&
+             window.JaiPresets.isPartApplied(state.code, p);
+    });
+    var changed = true;
+    while (changed) {
+      changed = false;
+      candidates.forEach(function (dep) {
+        if (gone[dep.id]) return;
+        var stillNeeded = window.JaiPresets.allParts().some(function (p) {
+          return !gone[p.id] && (p.needs || []).indexOf(dep.id) !== -1 &&
+                 window.JaiPresets.isPartApplied(state.code, p);
+        });
+        if (!stillNeeded) { gone[dep.id] = true; changed = true; }
+      });
+    }
+    return window.JaiPresets.allParts().filter(function (p) { return gone[p.id]; }).reverse();
+  }
+
+  function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+
   function applyParts(parts) {
     var code = state.code;
     parts.forEach(function (p) { code = window.JaiPresets.applyPart(code, p); });
@@ -907,17 +976,23 @@
   function renderTemplates() {
     var host = $('#template-list');
     if (!host) return;
+    renderTemplateFilters();
     host.innerHTML = '';
 
     templateList().forEach(function (tpl) {
+      var visibleParts = tpl.components.filter(function (part) {
+        return templateFilter === 'all' || partAreas(part).indexOf(templateFilter) !== -1;
+      });
+      if (!visibleParts.length) return;
+
       var card = el('article', 'template');
       card.dataset.template = tpl.id;
+      card.title = tpl.blurb || '';
 
       var head = el('div', 'template-head',
         '<div class="preset-cat">Advanced template</div>' +
         '<div class="preset-name">' + escapeHtml(tpl.name) + '</div>' +
-        '<div class="template-credit">' + escapeHtml(tpl.credit) + '</div>' +
-        '<p class="preset-blurb">' + escapeHtml(tpl.blurb) + '</p>');
+        '<div class="template-credit">' + escapeHtml(tpl.credit) + '</div>');
 
       var actions = el('div', 'template-actions');
       var addAll = el('button', 'btn btn-sm', 'Add all');
@@ -926,6 +1001,7 @@
         var on = tpl.components.every(function (c) {
           return window.JaiPresets.isPartApplied(state.code, c);
         });
+        tpl.components.forEach(function (c) { markAuto(c.id, false); });
         if (on) {
           removeParts(tpl.components.slice().reverse());
           toast('Removed “' + tpl.name + '”');
@@ -941,13 +1017,15 @@
 
       var parts = el('details', 'template-parts');
       var summary = el('summary', null,
-        '<span>Parts</span><span class="template-parts-count">' +
-        tpl.components.length + '</span>');
+        '<span>Parts' + (templateFilter === 'all' ? '' : ' · ' + visibleParts.length + ' match') +
+        '</span><span class="template-parts-count">' + tpl.components.length + '</span>');
       parts.appendChild(summary);
+      parts.open = templateFilter !== 'all';
 
-      tpl.components.forEach(function (comp) {
+      visibleParts.forEach(function (comp) {
         var row = el('div', 'part');
         row.dataset.part = comp.id;
+        row.title = comp.blurb || comp.name;
 
         var badges = '';
         if (comp.required) badges += '<span class="part-badge">required</span>';
@@ -955,8 +1033,7 @@
         if (comp.html) badges += '<span class="part-badge is-html">+ markup</span>';
 
         row.appendChild(el('div', 'part-main',
-          '<div class="part-name">' + escapeHtml(comp.name) + badges + '</div>' +
-          '<p class="part-blurb">' + escapeHtml(comp.blurb) + '</p>'));
+          '<div class="part-name">' + escapeHtml(comp.name) + badges + '</div>'));
 
         var toggle = el('button', 'btn btn-sm', 'Add');
         toggle.type = 'button';
@@ -967,13 +1044,23 @@
               toast('Remove ' + dependants[0].name + ' first — it needs this');
               return;
             }
-            removeParts([comp]);
+            var removing = withOrphans(comp);
+            removing.forEach(function (p) { markAuto(p.id, false); });
+            removeParts(removing);
+            if (removing.length > 1) {
+              toast('Also removed ' + plural(removing.length - 1, 'part') + ' it had added');
+            }
           } else {
-            var needed = withDependencies(comp);
+            // Only what is not already on: a dependency the user added
+            // themselves must not become "auto" and vanish with this part.
+            var needed = withDependencies(comp).filter(function (p) {
+              return !window.JaiPresets.isPartApplied(state.code, p);
+            });
+            needed.forEach(function (p) { markAuto(p.id, p.id !== comp.id); });
             applyParts(needed);
             reportToHost('template_part_applied', comp.id);
             if (needed.length > 1) {
-              toast('Also added ' + (needed.length - 1) + ' part it depends on');
+              toast('Also added ' + plural(needed.length - 1, 'part') + ' it depends on');
             }
           }
         });
@@ -1037,7 +1124,7 @@
     { key: 'memberSince', label: 'Member since', type: 'text' },
     { key: 'background', label: 'Background image URL', type: 'text',
       hint: 'The banner you set in JanitorAI profile settings. Leave blank to keep the captured one.' },
-    { key: 'cardCount', label: 'Bot cards shown', type: 'number', min: 1, max: 25 },
+    { key: 'cardCount', label: 'Bot cards shown', type: 'number', min: 1, max: 250 },
     { key: 'viewMode', label: 'Viewing as', type: 'select',
       values: [['visitor', 'A visitor (Follow + Options)'], ['owner', 'Yourself (Edit profile)']] },
     { key: 'showBadges', label: 'Show event badges', type: 'checkbox' },
@@ -1190,7 +1277,6 @@
               state.data[key] = profile.data[key];
             }
           });
-          state.data.cardCount = Math.min(state.data.cardCount || 12, 12);
           renderProfileFields();
         }
         pushProfile(profile);

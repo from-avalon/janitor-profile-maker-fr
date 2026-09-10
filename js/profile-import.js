@@ -132,6 +132,8 @@
     var followers = doc.querySelector('.pp-uc-followers-count');
     var since = doc.querySelector('.pp-uc-member-since');
     var cards = doc.querySelectorAll('.pp-cc-wrapper').length;
+    var total = doc.querySelector('.pp-pg-total-count, .profile-badge-total-count');
+    var totalCards = total ? parseInt((total.textContent || '').replace(/[^\d]/g, ''), 10) : 0;
 
     return {
       html: content,
@@ -142,7 +144,10 @@
         avatar: avatar ? avatar.getAttribute('src') : null,
         followers: followers ? followers.textContent.replace(/followers/i, '').trim() : null,
         memberSince: since ? since.textContent.replace(/^\s*member\s+since\s*/i, '').trim() : null,
-        cardCount: cards || null
+        // The first page only contains some cards. The profile's counter is the
+        // creator's actual total, so prefer it when choosing the initial preview
+        // density; the frame can safely duplicate captured cards if needed.
+        cardCount: totalCards || cards || null
       }
     };
   }

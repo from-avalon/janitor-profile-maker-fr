@@ -37,7 +37,7 @@
     <span class="brand-mark">{ }</span>
     <div>
       <strong>Profile CSS Studio</strong>
-      <span class="brand-sub">JanitorAI · live simulation</span>
+      <span class="brand-sub">JanitorAI · live preview</span>
     </div>
   </div>
 
@@ -75,6 +75,7 @@
       <button type="button" role="tab" data-panel="presets">Presets</button>
       <button type="button" role="tab" data-panel="profile">Profile</button>
       <button type="button" role="tab" data-panel="reference">Selectors</button>
+      <button type="button" role="tab" data-panel="help">Help</button>
     </nav>
 
     <div class="sidebar-body">
@@ -91,11 +92,7 @@
             <span class="preset-section-name">Basic presets</span>
             <span class="preset-section-count" id="basic-count"></span>
           </summary>
-          <p class="panel-note">
-            Colour schemes and accents. Each appends a labelled block inside your
-            <code>&lt;style&gt;</code>; toggle one off and its block is removed —
-            anything you wrote around it stays put.
-          </p>
+          <p class="panel-note">Quick colour and type changes.</p>
           <div id="preset-list"></div>
         </details>
 
@@ -104,27 +101,20 @@
             <span class="preset-section-name">Advanced templates</span>
             <span class="preset-section-count" id="advanced-count"></span>
           </summary>
-          <p class="panel-note">
-            Complete profile designs by community creators, split into parts. Add the
-            whole template, or open it and take only the pieces you want — each part
-            brings its own markup and CSS.
-          </p>
+          <p class="panel-note">Full themes. Add all, or choose individual parts.</p>
+          <div class="template-filters" id="template-filters" aria-label="Filter template parts"></div>
           <div id="template-list"></div>
         </details>
       </section>
 
       <section class="panel" data-panel="profile" hidden>
-        <p class="panel-note">
-          Only changes the preview, never your code. Set these to match your real profile so
-          you are designing against your own content. Your About Me contents live in the
-          editor on the right, not here.
-        </p>
+        <p class="panel-note">Preview-only settings. Your code stays in About Me.</p>
         <div class="profile-import">
           <strong>Use your saved profile</strong>
-          <p>Import a <b>Webpage, Single File</b> (<code>.mhtml</code>) save from your JanitorAI profile. It stays on this device and loads your real profile content into the preview.</p>
+          <p>Import a <b>Webpage, Single File</b> (<code>.mhtml</code>) save to preview your own profile.</p>
           <label class="btn btn-ghost btn-sm profile-import-button" for="profile-file">Choose profile file</label>
           <input id="profile-file" type="file" accept=".mhtml,.mht,.html,.htm,text/html,multipart/related" hidden>
-          <p class="field-hint">MHTML is recommended because it keeps avatars and card images in one file. HTML is accepted, but its saved image folder cannot be read by a browser.</p>
+          <p class="field-hint">MHTML keeps your images with the profile.</p>
           <p class="profile-import-status" id="profile-import-status" aria-live="polite">Loading your profile…</p>
           <button type="button" id="reset-import" class="btn btn-ghost btn-sm" hidden>Back to my profile</button>
         </div>
@@ -135,11 +125,47 @@
         <div class="panel-search">
           <input type="search" id="reference-search" placeholder="Search 418 elements…" autocomplete="off">
         </div>
-        <p class="panel-note">
-          Prefer the <b>label</b> selectors. The <code>.css-…</code> IDs are regenerated on
-          every JanitorAI deploy and will eventually break your profile.
-        </p>
+        <p class="panel-note">Use label selectors. <code>.css-…</code> IDs change when JanitorAI updates.</p>
         <div id="reference-list"></div>
+      </section>
+
+      <section class="panel help-panel" data-panel="help" hidden>
+        <h2>Help</h2>
+        <p class="panel-note">A quick guide to the studio.</p>
+
+        <details open>
+          <summary>Start here</summary>
+          <ol>
+            <li>Set a preview width.</li>
+            <li>Choose a preset, template, or edit the code.</li>
+            <li>Copy everything from About Me into JanitorAI.</li>
+          </ol>
+        </details>
+
+        <details>
+          <summary>About Me</summary>
+          <p>JanitorAI themes live in your About Me field. It can contain HTML and <code>&lt;style&gt;</code>; copy the entire editor, not only the CSS.</p>
+        </details>
+
+        <details>
+          <summary>Templates &amp; parts</summary>
+          <p>Advanced templates are complete themes split into safe parts. Use the part filters to find areas such as the header, character cards, or profile content. Dependencies are added automatically.</p>
+        </details>
+
+        <details>
+          <summary>Preview &amp; rules</summary>
+          <p>The preview uses captured JanitorAI markup. Keep “Enforce JAI rules” on to see what JanitorAI will keep; blocked code is listed below the editor.</p>
+        </details>
+
+        <details>
+          <summary>Using your profile</summary>
+          <p>Open your JanitorAI profile, press <b>Ctrl + S</b>, and save it as <b>Webpage, Single File</b> (<code>.mhtml</code>). Import that file from the Profile tab; it stays in your browser.</p>
+        </details>
+
+        <details>
+          <summary>Need help?</summary>
+          <p>For help or bug reports, message <b>eslezer</b> on Discord. A screenshot and a copy of the warning below the editor help pinpoint the issue.</p>
+        </details>
       </section>
     </div>
   </aside>
@@ -154,10 +180,7 @@
       <span id="pick-result" class="pick-result"></span>
     </div>
     <p class="stage-notice" id="stage-notice" hidden>
-      Below 576px JanitorAI swaps in a different header and a bottom nav bar
-      (<code>.pp-top-header</code>, <code>.pp-mnb-wrapper</code>). Neither capture rendered
-      that markup, so the chrome you see here is still the desktop one — everything from the
-      profile box down is accurate.
+      Mobile uses desktop chrome in this preview; the profile content below it is accurate.
     </p>
     <div class="stage-scroll" id="stage-scroll">
       <!-- The sizer reserves the *scaled* footprint; the frame keeps the real
@@ -180,9 +203,7 @@
     </div>
 
     <p class="codepane-note">
-      This is the whole contents of your JanitorAI <b>About Me</b> field — the
-      <code>&lt;style&gt;</code> blocks in it are what restyle your profile. Copy the lot
-      and paste it there.
+      Copy this entire field into JanitorAI → <b>About Me</b>.
     </p>
 
     <div class="editor" id="editor">

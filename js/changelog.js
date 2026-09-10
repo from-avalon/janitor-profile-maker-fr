@@ -93,7 +93,7 @@
   function load() {
     if (entries) return Promise.resolve(entries);
     return fetch('CHANGELOG.md', { cache: 'no-store' })
-      .then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.text(); })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
       .then(function (md) {
         entries = parse(md);
         newest = entries.length ? entries[0].raw : '';
@@ -101,10 +101,14 @@
         dot.hidden = !newest || seen() === newest;
         return entries;
       })
-      .catch(function () {
-        entries = [];
-        body.innerHTML = '<p class="changelog-sub">Couldn’t load the changelog.</p>';
-        return entries;
+      .catch(function (err) {
+        // Leave `entries` unset so the next click tries again: a failure at
+        // start-up (server restarting, a flaky connection) must not stick for
+        // the whole session. Say why, so a report can be acted on.
+        entries = null;
+        body.innerHTML = '<p class="changelog-sub">Couldn’t load the changelog (' +
+          esc(String((err && err.message) || err)) + '). Close this and try again.</p>';
+        return [];
       });
   }
   function open() { dlg.showModal(); markSeen(); }

@@ -68,6 +68,7 @@ SPEC = [
         "blurb": "The CSS grid every other piece is positioned by, plus the page "
                  "background, the giant username and the hidden avatar. Everything "
                  "else here needs it.",
+        "affects": ["Page layout", "Profile identity"],
         "html": [],
         "patterns": [],   # catch_all
     },
@@ -77,6 +78,7 @@ SPEC = [
         "needs": ["base"],
         "blurb": "The wide header image and the cut-out character standing over it. "
                  "Swap both <img> sources for your own.",
+        "affects": ["Hero & cover"],
         "html": ["cover", "sona"],
         "patterns": [r"^\.cover\b", r"^\.sona\b"],
     },
@@ -85,6 +87,7 @@ SPEC = [
         "name": "Status box",
         "needs": ["base"],
         "blurb": "The pill-headed panel with the big ghosted STATUS word behind it.",
+        "affects": ["About & status"],
         "html": ["status-box"],
         "patterns": [r"^\.status-"],
     },
@@ -94,6 +97,7 @@ SPEC = [
         "needs": ["base"],
         "blurb": "About / Disclaimer / Recommended tabs, built from <details> so "
                  "they work without scripts.",
+        "affects": ["Content panels"],
         "html": ["tab-box"],
         "patterns": [r"^\.tab\b", r"^\.tab-", r"^\.inside\b",
                      r"::-webkit-scrollbar", r"^@keyframes fade"],
@@ -103,6 +107,7 @@ SPEC = [
         "name": "Contact link pills",
         "needs": ["base"],
         "blurb": "Discord / Ko-fi / Carrd buttons with numbered ghost digits.",
+        "affects": ["Links & social"],
         "html": ["contact-links"],
         "patterns": [r"^\.contact-links"],
     },
@@ -111,6 +116,7 @@ SPEC = [
         "name": "Creators row",
         "needs": ["base"],
         "blurb": "A horizontal scroller of friends or recommended creators.",
+        "affects": ["Creator showcase"],
         "html": ["creators-box"],
         "patterns": [r"^\.creators-", r"^\.creator-card"],
     },
@@ -119,6 +125,7 @@ SPEC = [
         "name": "Follow & options buttons",
         "needs": ["base"],
         "blurb": "Restyles the Follow and Options buttons to match.",
+        "affects": ["Follow & options"],
         "html": [],
         "patterns": [r"^\.Btn\b", r"^\.Btn[,:>]", r"\.pp-uc-options-menu",
                      r"profile-info-stack\s*>\s*div:last-child\s*>\s*div\s*\*"],
@@ -127,6 +134,7 @@ SPEC = [
         "id": "usermenu",
         "name": "User menu & mobile nav",
         "blurb": "The avatar dropdown and the mobile bottom bar.",
+        "affects": ["User menu", "Mobile navigation"],
         "html": [],
         "patterns": [r"\.pp-top-bar-app-menu-list", r"\.pp-mnb-"],
     },
@@ -134,6 +142,7 @@ SPEC = [
         "id": "notifications",
         "name": "Notifications popover",
         "blurb": "The bell popup: cards, avatars, unread indicators, timestamps.",
+        "affects": ["Notifications"],
         "html": [],
         "patterns": [r"notificationsPopover", r"popoverHeader", r"notificationItem",
                      r"contentWrapper", r'\[class\*="subject', r"highlightUsername",
@@ -147,6 +156,7 @@ SPEC = [
         "name": "Header & logo",
         "blurb": "The site header, including renaming the janitor logo to the "
                  "template's own wordmark.",
+        "affects": ["Header & search"],
         "html": [],
         "patterns": [r"\.pp-top-bar(?!-app-menu)", r"\.glow-logo",
                      r"\.profile-top-bar-logo-box", r"#search-input",
@@ -158,6 +168,7 @@ SPEC = [
         "name": "Search, filters & sort menu",
         "blurb": "The character search box, the filter modal and the Latest "
                  "dropdown, plus tooltips.",
+        "affects": ["Character filters"],
         "html": [],
         "patterns": [r"\.pp-fl-", r"filter-modal", r"react-select", r"css-b62m3t",
                      r"css-jdhqy4", r"chakra-modal", r"close-btn", r"expandButton",
@@ -170,6 +181,7 @@ SPEC = [
         "name": "Characters heading & counter",
         "blurb": "The huge word over the bot grid, the character count and the "
                  "pagination row.",
+        "affects": ["Character gallery"],
         "html": [],
         "patterns": [r"#profile-tabs", r"\.pp-tabs-", r"Btn2-purple",
                      r"profile-badge-flex-inner", r"\.pp-pg-",
@@ -182,6 +194,7 @@ SPEC = [
         "needs": ["botcards"],
         "blurb": "The ornamental corner flourish on each card. The author marks "
                  "this one as safe to drop.",
+        "affects": ["Character cards"],
         "html": [],
         "patterns": [r"profile-character-card-stack::before",
                      r"profile-character-card-description-box::before"],
@@ -191,6 +204,7 @@ SPEC = [
         "name": "Bot card redesign",
         "blurb": "Rebuilds every card as a grid: name banner, tilted portrait, "
                  "description, scrolling tags and a per-series label.",
+        "affects": ["Character cards"],
         "html": [],
         "patterns": [r"character-card", r"\.pp-cc-", r"chakra-wrap", r"\.pp-tag-",
                      r"\.css-1henxb"],
@@ -200,6 +214,7 @@ SPEC = [
         "name": "Credit line",
         "recommended": True,
         "blurb": "The author's credit in the corner. Please keep it.",
+        "affects": ["Credits"],
         "html": ["himecss"],
         "patterns": [r"^\.himecss"],
     },
@@ -357,6 +372,121 @@ def split_media(node):
 
 
 # --------------------------------------------------------------------------
+# Package templates
+#
+# New templates do not need selector heuristics. Their source marks each HTML
+# and CSS region explicitly, and the manifest describes dependencies and the
+# JanitorAI regions it affects. This is the format that can later be accepted
+# from a workshop after validation.
+
+def marker_pattern(key, css=False):
+    escaped = re.escape(key)
+    if css:
+        start = r"/\*\s*@jai:component\s+" + escaped + r":start\s*\*/"
+        end = r"/\*\s*@jai:component\s+" + escaped + r":end\s*\*/"
+    else:
+        start = r"<!--\s*@jai:component\s+" + escaped + r":start\s*-->"
+        end = r"<!--\s*@jai:component\s+" + escaped + r":end\s*-->"
+    return re.compile(start + r"([\s\S]*?)" + end, re.I)
+
+
+def marked_block(source, key, css=False):
+    """Return the contents between a package component's explicit markers."""
+    matches = marker_pattern(key, css).findall(source)
+    if len(matches) > 1:
+        raise ValueError("component '%s' is marked %d times" % (key, len(matches)))
+    return matches[0].strip() + "\n" if matches else ""
+
+
+def check_coverage(html, css, keys, entry_path):
+    """Refuse markers for undeclared components and content outside any marker.
+
+    Both would otherwise be dropped silently: the part would come out missing
+    rules and nothing would say why."""
+    for name, _ in re.findall(r"@jai:component\s+([\w-]+):(start|end)", html + css):
+        if name not in keys:
+            raise ValueError("undeclared component marker '%s' in %s" % (name, entry_path))
+    for text, is_css, comment in ((css, True, r"/\*[\s\S]*?\*/"),
+                                  (html, False, r"<!--[\s\S]*?-->")):
+        for key in keys:
+            text = marker_pattern(key, is_css).sub("", text)
+        text = re.sub(comment, "", text).strip()
+        if text:
+            raise ValueError("%s outside any component marker in %s: %r" %
+                             ("CSS" if is_css else "HTML", entry_path, text[:80]))
+
+
+def package_payload(manifest_path):
+    """Compile one manifest/source package into the generated preset shape."""
+    with io.open(manifest_path, encoding="utf-8") as fh:
+        manifest = json.load(fh)
+    if manifest.get("schemaVersion") != 1:
+        raise ValueError("unsupported schemaVersion in %s" % manifest_path)
+
+    package_dir = os.path.dirname(manifest_path)
+    entry_path = os.path.join(package_dir, manifest.get("entry", "source.txt"))
+    if not os.path.exists(entry_path):
+        raise ValueError("missing package entry: %s" % entry_path)
+    with io.open(entry_path, encoding="utf-8") as fh:
+        source = fh.read()
+    html, css = split_style_blocks(source)
+
+    template = {
+        "id": manifest["id"],
+        "name": manifest["name"],
+        "author": manifest.get("author", "Unknown"),
+        "credit": manifest.get("credit", ""),
+        "blurb": manifest.get("description", ""),
+        "components": [],
+    }
+    keys = set(c["key"] for c in manifest.get("components", []))
+    check_coverage(html, css, keys, entry_path)
+    for comp in manifest.get("components", []):
+        key = comp["key"]
+        part_css = marked_block(css, key, css=True)
+        part_html = marked_block(html, key)
+        if not part_css and not part_html:
+            raise ValueError("component '%s' has no matching markers in %s" %
+                             (key, entry_path))
+        unknown = [need for need in comp.get("needs", []) if need not in keys]
+        if unknown:
+            raise ValueError("component '%s' has unknown needs: %s" %
+                             (key, ", ".join(unknown)))
+        entry = {
+            "id": manifest["id"] + "-" + key,
+            "key": key,
+            "name": comp["name"],
+            "blurb": comp.get("blurb", comp["name"]),
+            "css": part_css,
+        }
+        if part_html:
+            entry["html"] = part_html
+        if comp.get("needs"):
+            entry["needs"] = [manifest["id"] + "-" + need for need in comp["needs"]]
+        if comp.get("required"):
+            entry["required"] = True
+        if comp.get("recommended"):
+            entry["recommended"] = True
+        if comp.get("affects"):
+            entry["affects"] = comp["affects"]
+        template["components"].append(entry)
+    return template
+
+
+def package_manifests():
+    """All local template packages, in a stable order for reproducible output."""
+    directory = os.path.join(ROOT, "templates")
+    if not os.path.isdir(directory):
+        return []
+    manifests = []
+    for name in sorted(os.listdir(directory)):
+        path = os.path.join(directory, name, "manifest.json")
+        if os.path.isfile(path):
+            manifests.append(path)
+    return manifests
+
+
+# --------------------------------------------------------------------------
 def main():
     src = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_SRC
     if not os.path.exists(src):
@@ -422,6 +552,8 @@ def main():
             entry["required"] = True
         if comp.get("recommended"):
             entry["recommended"] = True
+        if comp.get("affects"):
+            entry["affects"] = comp["affects"]
         components.append(entry)
 
         print("  %-14s %5d chars css  %s"
@@ -430,6 +562,11 @@ def main():
 
     payload = dict(TEMPLATE)
     payload["components"] = components
+    payloads = [payload]
+    for manifest_path in package_manifests():
+        package = package_payload(manifest_path)
+        payloads.append(package)
+        print("  package %-12s %d components" % (package["id"], len(package["components"])))
 
     with io.open(OUT, "w", encoding="utf-8") as fh:
         fh.write(
@@ -439,9 +576,9 @@ def main():
             " * can apply one at a time. Every rule is the author's, verbatim.\n"
             " */\n"
             "window.JAI_TEMPLATES = %s;\n"
-            % json.dumps([payload], ensure_ascii=False, indent=1)
+            % json.dumps(payloads, ensure_ascii=False, indent=1)
         )
-    print("-> js/templates.js (%d components)" % len(components))
+    print("-> js/templates.js (%d templates)" % len(payloads))
 
 
 if __name__ == "__main__":

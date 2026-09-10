@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "id": "velvet-nocturne",
+  "version": "0.2.0",
+  "status": "published",
+  "name": "Velvet Nocturne",
+  "author": "Sweepercom",
+  "license": "All rights reserved",
+  "credit": "Velvet Nocturne template by Sweepercom",
+  "description": "A seductive gothic-purple profile with a cinematic veil loading sequence, stained-glass gradients, velvet panels and jewel-like character cards.",
+  "tags": ["gothic", "purple", "romance", "dark fantasy", "animated"],
+  "entry": "source.txt",
+  "components": [
+    {
+      "key": "backdrop",
+      "name": "Nocturne backdrop",
+      "blurb": "The deep purple page background, its lattice texture, and the default text colour.",
+      "affects": ["Page background"]
+    },
+    {
+      "key": "layout",
+      "name": "Profile layout & identity",
+      "blurb": "The grid the hero, panels and credit are placed on, plus the username, follower count and badges. Includes its tablet and mobile layout.",
+      "affects": ["Page layout", "Profile identity", "Typography"]
+    },
+    {
+      "key": "loader",
+      "name": "Veil loading sequence",
+      "blurb": "The opening velvet-curtain screen and its decorative motion.",
+      "affects": ["Loading screen", "Motion"]
+    },
+    {
+      "key": "hero",
+      "name": "Cathedral hero",
+      "needs": ["layout"],
+      "blurb": "The stained-glass hero, title treatment, and optional portrait slot.",
+      "affects": ["Hero & cover", "Profile identity"]
+    },
+    {
+      "key": "profile-content",
+      "name": "Profile content panels",
+      "needs": ["layout"],
+      "blurb": "The status panel, section links, dossier, and social-contact content.",
+      "affects": ["About & status", "Content panels", "Links & social"]
+    },
+    {
+      "key": "site-chrome",
+      "name": "Header, menus and controls",
+      "blurb": "The site header, mobile navigation, user menu, notifications, and follow controls.",
+      "affects": ["Header & search", "Mobile navigation", "User menu", "Notifications", "Follow & options"]
+    },
+    {
+      "key": "characters",
+      "name": "Reliquary character gallery",
+      "blurb": "The character heading, jewel-like cards, filters, and pagination treatment.",
+      "affects": ["Character gallery", "Character cards", "Character filters", "Pagination"]
+    },
+    {
+      "key": "credit",
+      "name": "Template credit",
+      "recommended": true,
+      "needs": ["layout"],
+      "blurb": "A subtle credit line at the base of the profile.",
+      "affects": ["Credits"]
+    }
+  ],
+  "assets": [
+    {
+      "id": "hero-portrait",
+      "label": "Optional transparent hero portrait",
+      "required": false,
+      "kind": "image",
+      "recommendedRatio": "4:5",
+      "recommendedMinimum": "1200x1500",
+      "placement": "Add an img with class vn-hero-art inside the vn-hero element"
+    }
+  ],
+  "compatibility": {
+    "platform": "JanitorAI public profile About Me",
+    "testedReferenceDate": "2026-09-10",
+    "requiresJavaScript": false,
+    "usesBlockedFeatures": false,
+    "notes": [
+      "The loading veil is decorative and never receives pointer events.",
+      "Animations are disabled for visitors who prefer reduced motion.",
+      "No CSS background images or custom properties are used.",
+      "Every component carries its own responsive and reduced-motion rules, so parts can be added or removed independently."
+    ]
+  }
+}

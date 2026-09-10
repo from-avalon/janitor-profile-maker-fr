@@ -11,7 +11,8 @@ const PORT = 5199;                     // not 5173, so a running dev server isn'
 const ORIGIN = `http://localhost:${PORT}`;
 const THIRD_PARTY = ["fonts.googleapis.com", "fonts.gstatic.com", "picsum.photos", "file.garden"];
 
-const server = spawn("python3", ["tools/serve.py", String(PORT)], { stdio: ["ignore", "ignore", "pipe"] });
+const python = process.platform === "win32" ? "python" : "python3";
+const server = spawn(python, ["tools/serve.py", String(PORT)], { stdio: ["ignore", "ignore", "pipe"] });
 let serverErr = "";
 server.stderr.on("data", (d) => { serverErr += d; });
 
@@ -71,6 +72,67 @@ try {
   if (counts.reference === 0)    fail("Selectors panel is empty");
   if (counts.referenceData < 300) fail(`reference data has only ${counts.referenceData} entries`);
   if (!counts.editor)            fail("editor textarea (#css-input) missing");
+
+  // The saved profile's character-total badge, not a hard-coded sample size,
+  // determines the initial number of cards in the preview.
+  await page.waitForFunction(() =>
+    document.getElementById('profile-import-status')?.textContent.startsWith('Using your profile'),
+    { timeout: 30_000 }
+  ).catch(() => fail('bundled profile did not finish importing'));
+  if (preview) {
+    const importedCount = await page.evaluate(() => Number(
+      document.querySelector('#profile-fields input[type="number"]')?.value || 0
+    ));
+    const previewCount = await preview.evaluate(() =>
+      document.querySelectorAll('.pp-cc-wrapper').length
+    );
+    if (!importedCount || importedCount !== previewCount) {
+      fail(`profile card total mismatch (field=${importedCount}, preview=${previewCount})`);
+    }
+  }
+
+  // Advanced template parts can be narrowed to a specific profile region, and
+  // the long-form guidance lives in the Help tab instead of crowding the editor.
+  await page.click('button[data-panel="presets"]');
+  await page.locator('.preset-section').nth(1).locator(':scope > summary').click();
+  const filterCount = await page.locator('.template-filter').count();
+  if (filterCount < 2) fail(`template element filters missing (${filterCount})`);
+  await page.getByRole('button', { name: 'Character cards', exact: true }).click();
+  const filtered = await page.evaluate(() => ({
+    active: document.querySelector('.template-filter.is-active')?.textContent,
+    parts: document.querySelectorAll('.part').length,
+    open: document.querySelector('.template-parts')?.open,
+  }));
+  if (filtered.active !== 'Character cards' || filtered.parts === 0 || !filtered.open) {
+    fail(`template filter did not narrow parts (${JSON.stringify(filtered)})`);
+  }
+
+  // Template parts add and remove cleanly: a part brings only what it needs,
+  // and a dependency it pulled in goes again with it.
+  await page.getByRole('button', { name: 'All parts', exact: true }).click();
+  const partsOn = () => page.evaluate(() =>
+    [...document.querySelectorAll('.part.is-on')].map((r) => r.dataset.part).sort().join(','));
+  const togglePart = (id) => page.evaluate((pid) =>
+    document.querySelector(`.part[data-part="${pid}"] button`).click(), id);
+  const startParts = await partsOn();
+  const withParts = (...ids) => [...(startParts ? startParts.split(',') : []), ...ids].sort().join(',');
+  await togglePart('velvet-nocturne-characters');
+  if (await partsOn() !== withParts('velvet-nocturne-characters')) {
+    fail(`adding Velvet's gallery pulled in other parts (${await partsOn()})`);
+  }
+  await togglePart('velvet-nocturne-hero');
+  if (await partsOn() !== withParts('velvet-nocturne-characters', 'velvet-nocturne-hero', 'velvet-nocturne-layout')) {
+    fail(`adding Velvet's hero did not add exactly its layout (${await partsOn()})`);
+  }
+  await togglePart('velvet-nocturne-hero');
+  await togglePart('velvet-nocturne-characters');
+  if (await partsOn() !== startParts) fail(`removing Velvet parts left some behind (${await partsOn()})`);
+  await page.click('button[data-panel="help"]');
+  const help = await page.evaluate(() => ({
+    visible: !document.querySelector('section[data-panel="help"]').hidden,
+    topics: document.querySelectorAll('.help-panel details').length,
+  }));
+  if (!help.visible || help.topics < 4) fail(`help panel incomplete (${JSON.stringify(help)})`);
 
   // Link previews: the Open Graph image is served and the tags point at it.
   const og = await page.request.get(`${ORIGIN}/assets/og.png`);
