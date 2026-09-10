@@ -48,7 +48,11 @@ via `.github/workflows/deploy.yml`. It takes about 30 seconds and
 there is nothing to build: the workflow rsyncs `index.html .htaccess CHANGELOG.md assets css js preview`
 to the VPS docroot with `--delete`, so the server always mirrors `main` exactly.
 
-- `.htaccess` (in this repo) holds the cache policy. There is no auth; the
+- `.htaccess` (in this repo) holds the cache policy, compression, and a fix for
+  Apache's `mod_mime_magic` labelling the `.mhtml` with `Content-Encoding: 7bit`
+  (browsers reject it and the profile silently fails to load). **The CI smoke
+  test cannot see Apache-level problems** — it serves via `tools/serve.py` —
+  so check the live headers after touching `.htaccess`. There is no auth; the
   studio is public.
 - Never commit the deploy key; it is a GitHub Actions secret.
 - `assets/` holds the link-preview image (`og.png`, 1200×630) and the touch icon.

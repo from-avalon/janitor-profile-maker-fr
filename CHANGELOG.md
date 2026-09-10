@@ -9,6 +9,15 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-09-10 — Loads properly, and much faster
+
+The bundled profile was failing to load in every browser — the server was
+labelling the file with an encoding browsers don't understand — so the preview
+was quietly falling back to a plainer built-in copy without the real avatar.
+Fixed. The studio's files are also compressed on the way to you now: the
+profile capture is half the size on the wire and the code files a fraction of
+theirs, which makes a real difference on a slow connection.
+
 ## 2026-09-10 — Open to everyone, and links show a preview
 
 The studio no longer asks for a password — share the link freely. Pasting it
