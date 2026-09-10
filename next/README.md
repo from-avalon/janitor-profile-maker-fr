@@ -101,6 +101,8 @@ starts flowing to analytics by accident.
 - **Routing.** The studio uses relative URLs throughout, so it works under any
   prefix. If you serve it somewhere other than `/studio/`, only the `src` in
   `studio-frame.tsx` needs to change.
-- **Nothing leaves the browser.** The studio makes no network requests beyond its
-  own assets and Google Fonts. Imported profiles are parsed locally and never
-  uploaded.
+- **Your work never leaves the browser.** Imported profiles are parsed locally and
+  never uploaded, and the CSS you write is never sent anywhere. The studio does
+  load Google Fonts and Google Analytics; analytics sees page views and a few
+  named events (which preset or template was applied, that CSS was copied) —
+  names and coarse labels only.

@@ -9,6 +9,13 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-09-11 — A little analytics
+
+The studio now counts page views and a few things people do — which preset or
+template gets applied, that CSS was copied — so we know what's worth improving.
+It never sees the CSS you write or the profile you import; those stay in your
+browser as before.
+
 ## 2026-09-10 — Loads properly, and much faster
 
 The bundled profile was failing to load in every browser — the server was

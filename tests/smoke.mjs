@@ -9,7 +9,8 @@ import { chromium } from "playwright";
 
 const PORT = 5199;                     // not 5173, so a running dev server isn't disturbed
 const ORIGIN = `http://localhost:${PORT}`;
-const THIRD_PARTY = ["fonts.googleapis.com", "fonts.gstatic.com", "picsum.photos", "file.garden"];
+const THIRD_PARTY = ["fonts.googleapis.com", "fonts.gstatic.com", "picsum.photos", "file.garden",
+                     "googletagmanager.com", "google-analytics.com", "analytics.google.com", "doubleclick.net"];
 
 const server = spawn("python3", ["tools/serve.py", String(PORT)], { stdio: ["ignore", "ignore", "pipe"] });
 let serverErr = "";
