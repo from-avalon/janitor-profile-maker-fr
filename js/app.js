@@ -33,6 +33,10 @@
     followers: '1,192',
     memberSince: 'Jan 6, 2025',
     background: '',
+    // username/avatar/followers/memberSince/background are no longer editable
+    // in the Settings panel -- click them directly in the preview instead
+    // (see the 'fieldEdit' message case below). They stay in DEFAULT_DATA
+    // because the bundled/imported profile still supplies real values for them.
     showBadges: true,
     janitorPlus: false,
     viewMode: 'visitor',
@@ -183,11 +187,18 @@
     } else if (m.type === 'pick') {
       onPick(m);
     } else if (m.type === 'userMenu') {
-      // The preview's own avatar click can open the menu; keep the Profile
+      // The preview's own avatar click can open the menu; keep the Settings
       // panel's checkbox showing the truth.
       state.data.userMenu = m.open;
       var box = $('#profile-fields input[data-key="userMenu"]');
       if (box) box.checked = m.open;
+      save();
+    } else if (m.type === 'fieldEdit') {
+      // Username, followers, member-since, avatar and background are edited
+      // directly in the preview now (click text to edit; right-click an image
+      // to swap it) rather than through Settings-panel fields.
+      state.data[m.key] = m.value;
+      pushData();
       save();
     }
   });
@@ -444,6 +455,7 @@
       if (from !== 'controls') syncControls();
       if (from !== 'presets') syncPresets();
     syncTemplates();
+    syncCustomPresets();
     } catch (err) {
       // Whatever tripped this, the document itself is intact (state.code and
       // the textarea were already updated above) -- only the derived UI, which
@@ -1124,13 +1136,9 @@
   // ------------------------------------------------------------ profile data
 
   var PROFILE_FIELDS = [
-    { key: 'username', label: 'Username', type: 'text' },
-    { key: 'avatar', label: 'Avatar image URL', type: 'text',
-      hint: 'Any image URL. Right-click your avatar on JanitorAI → Copy image address.' },
-    { key: 'followers', label: 'Followers', type: 'text' },
-    { key: 'memberSince', label: 'Member since', type: 'text' },
-    { key: 'background', label: 'Background image URL', type: 'text',
-      hint: 'The banner you set in JanitorAI profile settings. Leave blank for none, or for your imported profile’s own.' },
+    // Username, avatar, followers, member-since and background are edited
+    // directly in the preview (click text to edit; right-click an image to
+    // swap it) -- see the 'sim-edit-value' wiring in preview/frame.js.
     { key: 'cardCount', label: 'Bot cards shown', type: 'number', min: 1, max: 250 },
     { key: 'viewMode', label: 'Viewing as', type: 'select',
       values: [['visitor', 'A visitor (Follow + Options)'], ['owner', 'Yourself (Edit profile)']] },
@@ -1224,7 +1232,7 @@
     toast('Profile imported — your About Me content is now in the editor');
   }
 
-  $('#profile-file').addEventListener('change', function () {
+  function handleProfileFileChange() {
     var file = this.files && this.files[0];
     if (!file) return;
     updateImportStatus('Reading “' + file.name + '”…', false);
@@ -1235,7 +1243,13 @@
       toast('Could not import that profile file');
     });
     this.value = '';
-  });
+  }
+
+  // The same import lives in both the Settings and Presets panels, so a
+  // creator building off a template can pull in their own profile without
+  // switching tabs.
+  $('#profile-file').addEventListener('change', handleProfileFileChange);
+  $('#profile-file-presets').addEventListener('change', handleProfileFileChange);
 
   $('#reset-import').addEventListener('click', function () {
     importedProfile = false;
@@ -1248,6 +1262,158 @@
     pushPayload();
     loadBundledProfile();
     toast('Switched back to ' + DEFAULT_PROFILE_LABEL);
+  });
+
+  // ------------------------------------------------------------- My presets
+  //
+  // User-authored presets: a name plus zero or more parts, each a snippet the
+  // creator selected out of their own editor and saved (see "Save selection…"
+  // in the code pane, wired further down). Persisted via js/custom-presets.js.
+
+  function renderCustomPresets() {
+    var host = $('#custom-preset-list');
+    if (!host) return;
+    host.innerHTML = '';
+    var presets = window.JaiCustomPresets.list();
+
+    $('#custom-count').textContent = presets.length || '';
+
+    presets.forEach(function (preset) {
+      var card = el('article', 'template');
+      card.dataset.customPreset = preset.id;
+
+      var head = el('div', 'template-head',
+        '<div class="preset-cat">My preset</div>' +
+        '<div class="preset-name">' + escapeHtml(preset.name) + '</div>');
+
+      var actions = el('div', 'template-actions');
+      var rename = el('button', 'btn btn-ghost btn-sm', 'Rename');
+      rename.type = 'button';
+      rename.addEventListener('click', function () {
+        var name = window.prompt('Rename preset', preset.name);
+        if (name) { window.JaiCustomPresets.rename(preset.id, name); renderCustomPresets(); }
+      });
+      var del = el('button', 'btn btn-ghost btn-sm', 'Delete');
+      del.type = 'button';
+      del.addEventListener('click', function () {
+        if (!window.confirm('Delete “' + preset.name + '” and its ' + plural(preset.parts.length, 'part') + '?')) return;
+        window.JaiCustomPresets.deletePreset(preset.id);
+        renderCustomPresets();
+      });
+      actions.appendChild(rename);
+      actions.appendChild(del);
+      head.appendChild(actions);
+      card.appendChild(head);
+
+      var parts = el('details', 'template-parts');
+      parts.open = true;
+      var summary = el('summary', null,
+        '<span>Parts</span><span class="template-parts-count">' + preset.parts.length + '</span>');
+      parts.appendChild(summary);
+
+      if (!preset.parts.length) {
+        parts.appendChild(el('p', 'panel-note', 'No parts yet — select code in the editor and use “Save selection…”.'));
+      }
+
+      preset.parts.forEach(function (part) {
+        var row = el('div', 'part');
+        row.dataset.part = part.id;
+        row.appendChild(el('div', 'part-main', '<div class="part-name">' + escapeHtml(part.name) + '</div>'));
+
+        var toggle = el('button', 'btn btn-sm', 'Add');
+        toggle.type = 'button';
+        toggle.addEventListener('click', function () {
+          var on = window.JaiCustomPresets.isPartApplied(state.code, part);
+          setCode(on ? window.JaiCustomPresets.removePart(state.code, part)
+                     : window.JaiCustomPresets.applyPart(state.code, part), 'presets');
+          syncCustomPresets();
+          toast(on ? 'Removed “' + part.name + '”' : 'Added “' + part.name + '”');
+        });
+        row.appendChild(toggle);
+
+        var delPart = el('button', 'btn btn-ghost btn-sm', 'Delete');
+        delPart.type = 'button';
+        delPart.addEventListener('click', function () {
+          if (!window.confirm('Delete the saved part “' + part.name + '”?')) return;
+          window.JaiCustomPresets.deletePart(preset.id, part.id);
+          renderCustomPresets();
+        });
+        row.appendChild(delPart);
+
+        parts.appendChild(row);
+      });
+
+      card.appendChild(parts);
+      host.appendChild(card);
+    });
+
+    syncCustomPresets();
+  }
+
+  function syncCustomPresets() {
+    $$('.template[data-custom-preset]').forEach(function (card) {
+      var preset = window.JaiCustomPresets.list().filter(function (p) { return p.id === card.dataset.customPreset; })[0];
+      if (!preset) return;
+      $$('.part', card).forEach(function (row) {
+        var part = preset.parts.filter(function (p) { return p.id === row.dataset.part; })[0];
+        if (!part) return;
+        var on = window.JaiCustomPresets.isPartApplied(state.code, part);
+        row.classList.toggle('is-on', on);
+        $('.btn:not(.btn-ghost)', row).textContent = on ? 'Remove' : 'Add';
+      });
+    });
+  }
+
+  $('#new-custom-preset').addEventListener('click', function () {
+    var name = window.prompt('Name this preset');
+    if (!name) return;
+    window.JaiCustomPresets.create(name);
+    renderCustomPresets();
+    toast('Created “' + name + '”');
+  });
+
+  // Selecting text in the editor lets you save it into one of your presets as
+  // a reusable part, the same way an advanced template ships pre-cut parts.
+  function updateSaveSelectionButton() {
+    var has = input.selectionStart !== input.selectionEnd;
+    $('#save-selection').disabled = !has;
+  }
+  input.addEventListener('select', updateSaveSelectionButton);
+  input.addEventListener('keyup', updateSaveSelectionButton);
+  input.addEventListener('mouseup', updateSaveSelectionButton);
+
+  $('#save-selection').addEventListener('click', function () {
+    var start = input.selectionStart, end = input.selectionEnd;
+    if (start === end) return;
+    var selected = state.code.slice(start, end);
+    if (!selected.trim()) return;
+
+    var inStyle = window.JaiPayload.styleBlocks(state.code).some(function (b) {
+      return start >= b.cssStart && end <= b.cssEnd;
+    });
+
+    var presets = window.JaiCustomPresets.list();
+    var preset;
+    if (presets.length) {
+      var names = presets.map(function (p, i) { return (i + 1) + '. ' + p.name; }).join('\n');
+      var choice = window.prompt('Save to which preset? Enter a number, or a new name to create one:\n' + names);
+      if (!choice) return;
+      var index = parseInt(choice, 10);
+      preset = (index >= 1 && index <= presets.length) ? presets[index - 1] : window.JaiCustomPresets.create(choice);
+    } else {
+      var name = window.prompt('No presets yet — name one to create it:');
+      if (!name) return;
+      preset = window.JaiCustomPresets.create(name);
+    }
+
+    var partName = window.prompt('Name this part', '');
+    if (!partName) return;
+    var part = {};
+    part[inStyle ? 'css' : 'html'] = selected;
+    part.name = partName;
+    window.JaiCustomPresets.addPart(preset.id, part);
+    toast('Saved “' + partName + '” to “' + preset.name + '”');
+    if (state.panel === 'presets') renderCustomPresets();
   });
 
   // ------------------------------------------------------- bundled profile
@@ -1457,10 +1623,13 @@
     if (!state.inspector) $('#pick-result').textContent = '';
   });
 
-  $('#toggle-code').addEventListener('click', function () {
-    $('.layout').classList.toggle('code-hidden');
+  function toggleCodePane() {
+    var hidden = $('.layout').classList.toggle('code-hidden');
+    $('#show-code').hidden = !hidden;
     setTimeout(layoutStage, 0);
-  });
+  }
+  $('#toggle-code').addEventListener('click', toggleCodePane);
+  $('#show-code').addEventListener('click', toggleCodePane);
 
   $('#copy-css').addEventListener('click', function () {
     copy(state.code);
@@ -1545,6 +1714,7 @@
   renderControls();
   renderPresets();
   renderTemplates();
+  renderCustomPresets();
   renderProfileFields();
   renderReference('');
   setCode(state.code || window.JaiPayload.STARTER);

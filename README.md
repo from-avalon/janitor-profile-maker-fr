@@ -40,12 +40,12 @@ document, which browsers block for pages opened directly from disk (`file://`).
 | Panel | What it does |
 | --- | --- |
 | **Design** | ~130 visual controls grouped by page element. Each one reads its value out of the `<style>` block in your About Me and writes back into it, so the code and the sliders never disagree. A `<style>` block is created for you if there isn't one. |
-| **Presets** | Two groups. **Basic** are colour schemes and accents — one labelled CSS block each. **Advanced** are complete community templates, split into parts you can apply one at a time. |
-| **Profile** | Preview content only — your username, avatar, follower count, how many bot cards to show, and whether you are looking at your own profile or a visitor's view. Never touches your code. Loads your own profile by default (see below); pick a file to design against a different one. |
-| **Import your profile** | In the Profile panel, choose a browser save of your own JanitorAI profile. Use Chrome/Edge's **Save page as → Webpage, Single File** (`.mhtml`) — it includes the page's images and styles in one private local file. The app reads it only in your browser, loads its profile DOM into the preview, and copies the saved About Me contents into the editor. Plain `.html` is also accepted, but browsers cannot access its companion `_files` folder, so MHTML is the reliable option. |
+| **Presets** | Three groups. **Basic** are colour schemes and accents — one labelled CSS block each. **Advanced** are complete community templates, split into parts you can apply one at a time. **My presets** are your own — select code in the editor, save it as a part with "Save selection…", and group parts into presets you name yourself. |
+| **Settings** | Preview content only — how many bot cards to show, whether you are looking at your own profile or a visitor's view, and the "Enforce JAI rules" switch. Never touches your code. Username, avatar, follower count and member-since are edited directly in the preview: click the text to edit it, or right-click the avatar/background to swap the image. |
+| **Import your profile** | In the Settings or Presets panel, choose a browser save of your own JanitorAI profile. Use Chrome/Edge's **Save page as → Webpage, Single File** (`.mhtml`) — it includes the page's images and styles in one private local file. The app reads it only in your browser, loads its profile DOM into the preview, and copies the saved About Me contents into the editor. Plain `.html` is also accepted, but browsers cannot access its companion `_files` folder, so MHTML is the reliable option. |
+| **View** | 1920 / 1440 / 1200 / tablet / mobile, plus a custom pixel width. Match it to your own monitor — a theme built at 1440 will look cramped on a 1920 screen and vice versa. |
 | **Selectors** | All 418 elements from Puppy's reference guide, searchable. Click any selector to start a rule for it. |
-| **User menu** | The avatar dropdown is included and stylable. Open it from the Profile tab, or click the avatar in the preview. |
-| **Widths** | 1920 / 1440 / 1200 / tablet / mobile, plus a custom pixel width. Match it to your own monitor — a theme built at 1440 will look cramped on a 1920 screen and vice versa. |
+| **User menu** | The avatar dropdown is included and stylable. Open it from the Settings tab, or click the avatar in the preview. |
 | **Inspect** | Click anything in the preview to get its selector. |
 
 The editor underlines, in red, every declaration JanitorAI will throw away, and the
@@ -92,14 +92,14 @@ no import step, and it works offline because MHTML embeds its own images.
 It supplies the canvas only:
 
 - the editor's contents are your document and are never touched by it;
-- profile fields you have already changed by hand are left alone, so renaming the
-  username in the Profile tab survives a reload;
+- profile fields you have already changed by hand are left alone, so renaming
+  yourself by clicking your @name in the preview survives a reload;
 - if the fetch fails (opening `index.html` straight off disk, say), the app falls
   back to the build-time snapshot in `preview/snapshot.js`, which is the same
   profile — so the preview stays correct either way.
 
 To swap it, replace that file with your own *Webpage, Single File* save, or use
-**Choose profile file** in the Profile tab for a one-off.
+**Choose profile file** in the Settings or Presets tab for a one-off.
 
 ## Advanced templates
 
@@ -107,7 +107,12 @@ An advanced preset is a whole profile design by a community creator — HTML *an
 CSS — cut into components. Open one and you get its parts; add the status box
 without inheriting the bot card redesign, or take the lot.
 
-Included: **Dark Red** by Hime (`@yourhighness08`), free to use and modify.
+Included: **Dark Red** by Hime (`@yourhighness08`), free to use and modify; **Dark Hour Menu** by Sweepercom, a Persona 3 Reload-inspired menu with a hardcoded 25-card gallery.
+
+Dark Hour's cards live in About Me markup and link directly to JanitorAI, so their
+layout does not depend on Janitor's generated card classes. Replace each card's
+text, URL or image directly in `templates/p3-reload-menu/source.txt` when your
+catalogue changes.
 
 Parts declare dependencies, so adding the decorative card border pulls in the card
 redesign it layers over, and the app refuses to remove something another applied
@@ -131,8 +136,8 @@ dropped so the preset stays lint-clean. Every other byte is the author's.
 
 ## Accuracy notes
 
-The preview is built entirely from captures of **one profile — your own**, taken
-on **8 Sep 2026**:
+The preview is built entirely from captures of **one profile — your own**, most
+recently refreshed on **12 Sep 2026**:
 
 - **the page structure** (`preview/snapshot.js`) — the header, footer and bot card
   grid, extracted at build time;

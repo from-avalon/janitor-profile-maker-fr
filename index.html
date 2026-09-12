@@ -51,28 +51,12 @@
     </div>
   </div>
 
-  <div class="viewport-switch" role="group" aria-label="Preview width">
-    <button type="button" data-viewport="wide">1920</button>
-    <button type="button" data-viewport="desktop" class="is-active">1440</button>
-    <button type="button" data-viewport="laptop">1200</button>
-    <button type="button" data-viewport="tablet">Tablet</button>
-    <button type="button" data-viewport="mobile">Mobile</button>
-    <button type="button" data-viewport="custom">Custom</button>
-    <input type="number" id="custom-width" min="320" max="3840" step="10" value="1600"
-           title="Custom preview width in CSS pixels" hidden>
-  </div>
-
   <div class="topbar-actions">
-    <label class="switch" title="Strip everything JanitorAI does not allow before rendering">
-      <input type="checkbox" id="enforce" checked>
-      <span>Enforce JAI rules</span>
-    </label>
     <button type="button" id="inspect-toggle" class="btn btn-ghost" title="Click any element in the preview to get its selector">
       Inspect
     </button>
     <button type="button" id="changelog-toggle" class="btn btn-ghost" title="Recent updates and changes to the studio">Changelog<span class="new-dot" id="changelog-dot" hidden></span></button>
-    <button type="button" id="toggle-code" class="btn btn-ghost">Code</button>
-    <button type="button" id="copy-css" class="btn btn-primary">Copy for About Me</button>
+    <button type="button" id="hardcoding-toggle" class="btn btn-ghost" disabled title="Coming soon">Hard coding</button>
   </div>
 </header>
 
@@ -83,7 +67,8 @@
     <nav class="sidebar-tabs" role="tablist">
       <button type="button" role="tab" data-panel="design" class="is-active">Design</button>
       <button type="button" role="tab" data-panel="presets">Presets</button>
-      <button type="button" role="tab" data-panel="profile">Profile</button>
+      <button type="button" role="tab" data-panel="profile">Settings</button>
+      <button type="button" role="tab" data-panel="view">View</button>
       <button type="button" role="tab" data-panel="reference">Selectors</button>
       <button type="button" role="tab" data-panel="help">Help</button>
     </nav>
@@ -115,10 +100,36 @@
           <div class="template-filters" id="template-filters" aria-label="Filter template parts"></div>
           <div id="template-list"></div>
         </details>
+
+        <details class="preset-section">
+          <summary>
+            <span class="preset-section-name">My presets</span>
+            <span class="preset-section-count" id="custom-count"></span>
+          </summary>
+          <p class="panel-note">Select code in the editor and save it as a part, then group parts into your own presets.</p>
+          <button type="button" id="new-custom-preset" class="btn btn-ghost btn-sm">New preset</button>
+          <div id="custom-preset-list"></div>
+        </details>
+
+        <details class="preset-section">
+          <summary>
+            <span class="preset-section-name">Use your saved profile</span>
+          </summary>
+          <div class="profile-import">
+            <p>Import a <b>Webpage, Single File</b> (<code>.mhtml</code>) save to preview your own profile.</p>
+            <label class="btn btn-ghost btn-sm profile-import-button" for="profile-file-presets">Choose profile file</label>
+            <input id="profile-file-presets" type="file" accept=".mhtml,.mht,.html,.htm,text/html,multipart/related" hidden>
+            <p class="field-hint">MHTML keeps your images with the profile.</p>
+          </div>
+        </details>
       </section>
 
       <section class="panel" data-panel="profile" hidden>
         <p class="panel-note">Preview-only settings. Your code stays in About Me.</p>
+        <label class="switch" title="Strip everything JanitorAI does not allow before rendering">
+          <input type="checkbox" id="enforce" checked>
+          <span>Enforce JAI rules</span>
+        </label>
         <div class="profile-import">
           <strong>Use your saved profile</strong>
           <p>Import a <b>Webpage, Single File</b> (<code>.mhtml</code>) save to preview your own profile.</p>
@@ -129,6 +140,20 @@
           <button type="button" id="reset-import" class="btn btn-ghost btn-sm" hidden>Back to my profile</button>
         </div>
         <div id="profile-fields"></div>
+      </section>
+
+      <section class="panel" data-panel="view" hidden>
+        <p class="panel-note">Preview width only — never touches your code.</p>
+        <div class="viewport-switch" role="group" aria-label="Preview width">
+          <button type="button" data-viewport="wide">1920</button>
+          <button type="button" data-viewport="desktop" class="is-active">1440</button>
+          <button type="button" data-viewport="laptop">1200</button>
+          <button type="button" data-viewport="tablet">Tablet</button>
+          <button type="button" data-viewport="mobile">Mobile</button>
+          <button type="button" data-viewport="custom">Custom</button>
+          <input type="number" id="custom-width" min="320" max="3840" step="10" value="1600"
+                 title="Custom preview width in CSS pixels" hidden>
+        </div>
       </section>
 
       <section class="panel" data-panel="reference" hidden>
@@ -169,7 +194,7 @@
 
         <details>
           <summary>Using your profile</summary>
-          <p>Open your JanitorAI profile, press <b>Ctrl + S</b>, and save it as <b>Webpage, Single File</b> (<code>.mhtml</code>). Import that file from the Profile tab; it stays in your browser.</p>
+          <p>Open your JanitorAI profile, press <b>Ctrl + S</b>, and save it as <b>Webpage, Single File</b> (<code>.mhtml</code>). Import that file from the Settings or Presets tab; it stays in your browser.</p>
         </details>
 
         <details>
@@ -187,6 +212,7 @@
       <span id="stage-size">1440 × 900</span>
       <span class="stage-sep">·</span>
       <button type="button" id="stage-zoom" class="stage-zoom" title="Toggle between fit-to-pane and 1:1">100%</button>
+      <button type="button" id="show-code" class="btn btn-ghost btn-sm show-code-pill" hidden>Show code</button>
       <span class="stage-spacer"></span>
       <span id="pick-result" class="pick-result"></span>
     </div>
@@ -209,8 +235,9 @@
     <div class="codepane-head">
       <strong>About Me</strong>
       <span class="code-stats" id="code-stats"></span>
+      <button type="button" id="save-selection" class="btn btn-ghost btn-sm" disabled>Save selection…</button>
       <button type="button" id="format-css" class="btn btn-ghost btn-sm">Tidy</button>
-      <button type="button" id="clear-css" class="btn btn-ghost btn-sm">Clear</button>
+      <button type="button" id="toggle-code" class="btn btn-ghost btn-sm">Hide</button>
     </div>
 
     <p class="codepane-note">
@@ -227,6 +254,11 @@
     </div>
 
     <div class="lint" id="lint"></div>
+
+    <div class="codepane-foot">
+      <button type="button" id="clear-css" class="btn btn-ghost btn-sm">Delete</button>
+      <button type="button" id="copy-css" class="btn btn-primary">Copy for About Me</button>
+    </div>
   </aside>
 </main>
 
@@ -249,6 +281,7 @@
 <script src="js/lint.js"></script>
 <script src="js/controls.js"></script>
 <script src="js/presets.js"></script>
+<script src="js/custom-presets.js"></script>
 <script src="js/templates.js"></script>
 <script src="js/reference.js"></script>
 <script src="js/profile-import.js"></script>

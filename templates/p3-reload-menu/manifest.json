@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "p3-reload-menu",
+  "version": "1.0.0",
+  "status": "draft",
+  "name": "Dark Hour Menu",
+  "author": "Sweepercom",
+  "license": "All rights reserved",
+  "credit": "Dark Hour Menu template by Sweepercom; inspired by Persona 3 Reload's graphic language",
+  "description": "A hardcoded character gallery in a midnight-blue, electric-cyan and warning-yellow menu style. Cards are independent Bio markup, so Janitor's card CSS changes cannot break their layout.",
+  "tags": ["persona-inspired", "blue", "cyan", "hardcoded-cards", "menu", "animated"],
+  "entry": "source.txt",
+  "components": [
+    {"key": "backdrop", "name": "Dark Hour backdrop", "blurb": "The navy field, scanlines, diagonal cuts and menu chrome.", "affects": ["Page background", "Typography"]},
+    {"key": "identity", "name": "Profile identity panel", "blurb": "The custom title screen, status readout and navigation rail.", "needs": ["backdrop"], "affects": ["Profile identity", "About & status"]},
+    {"key": "cards", "name": "Hardcoded character cards", "blurb": "Twenty-five independently linked cards with image, title, quote, tags and an animated focus state.", "needs": ["backdrop"], "affects": ["Character cards", "Character gallery"]},
+    {"key": "footer", "name": "Menu footer", "blurb": "A compact instruction strip and credit line.", "needs": ["backdrop"], "recommended": true, "affects": ["Credits"]}
+  ],
+  "compatibility": {
+    "platform": "JanitorAI public profile About Me",
+    "testedReferenceDate": "2026-09-12",
+    "requiresJavaScript": false,
+    "usesBlockedFeatures": false,
+    "notes": [
+      "Cards are static markup with live JanitorAI links and hosted avatar images.",
+      "The native profile character list can be hidden by the adapter rules in the backdrop component.",
+      "Replace card text, links and image URLs in the Bio when your catalogue changes."
+    ]
+  }
+}

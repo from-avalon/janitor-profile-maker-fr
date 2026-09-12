@@ -9,6 +9,38 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-09-12 — Sidebar reorganized, edit the preview directly
+
+The sidebar is reorganized around what people actually reach for. **View** is a
+new tab holding the preview-width switcher, out of the top bar. **Profile** is
+now **Settings** — its username/avatar/followers/member-since fields are gone,
+because you can now click that text directly in the preview to edit it, or
+right-click the avatar or background to swap the image; Settings keeps the
+profile import, "Enforce JAI rules", and the remaining preview-only toggles.
+The **Updates** and **Migrate** tabs are removed.
+
+**Presets** gains a third section, **My presets**: select any block of code in
+the editor, use "Save selection…" to store it as a named part, and group your
+own parts into presets you name and manage yourself — the same apply/remove
+toggle an advanced template part gets.
+
+The code pane's buttons moved to match how they're used: Copy and Delete now
+live in a footer bar under the editor, and the show/hide toggle lives with Tidy
+at the top, with a small "Show code" pill in the preview bar when it's hidden.
+A disabled **Hard coding** button in the top bar marks where bio-authoring
+tools (hardcoding bot cards directly into About Me, immune to JanitorAI's own
+card-class churn) are headed next.
+
+The Advanced Templates gallery now includes **Dark Hour Menu**, a Persona 3
+Reload-inspired profile with 25 hardcoded, directly linked character cards. The
+cards are ordinary About Me markup, so JanitorAI's generated card-class changes
+cannot rearrange or restyle them.
+
+The templates were checked against the 12 Sep capture. Dark Red now uses the
+semantic `react-select__*` and `[role="tooltip"]` hooks instead of old Emotion
+hashes. Velvet Nocturne is now 0.2.1 and uses the current
+`react-select__control` hook; Dark Hour Menu was already current.
+
 ## 2026-09-11 — A Discord invite in Help
 
 The **Need help?** topic in the Help tab now links to the Avalon Discord, for

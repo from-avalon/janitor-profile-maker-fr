@@ -1,0 +1,574 @@
+<!--
+  DARK HOUR MENU · 1.0.0
+  Hardcoded card gallery for @Sweepercom.
+  Replace any card's text, href or image URL directly in this Bio.
+-->
+
+<style>
+/* @jai:component backdrop:start */
+html {
+  background: #070b24 !important;
+  color: #f4f2ff;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  background: #070b24 !important;
+}
+
+.pp-page-background {
+  background:
+    linear-gradient(135deg, transparent 0 47%, #182766 47.2% 47.8%, transparent 48%),
+    linear-gradient(25deg, transparent 0 67%, #101b4d 67.2% 67.8%, transparent 68%),
+    radial-gradient(circle at 18% 10%, #2449a944, transparent 27%),
+    #070b24 !important;
+}
+
+.pp-page-background::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: .2;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, #65d9ff16 4px, transparent 5px);
+  z-index: 0;
+}
+
+.pp-uc-background,
+.pp-uc-background > div,
+.profile-page-container,
+.profile-page-flex {
+  max-width: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.pp-uc-about-me {
+  display: contents;
+  color: #f4f2ff;
+}
+
+.profile-tabs-chakra-tabs,
+.pp-cc-list-container,
+.profile-filters-flex-outer,
+.profile-pagination-flex-outer {
+  display: none !important;
+}
+
+.pp-top-bar-outer {
+  position: relative;
+  z-index: 50;
+  background: #080d2b !important;
+  border-bottom: 2px solid #4be1ff !important;
+  box-shadow: 0 8px 0 #f3c638, 0 18px 34px #0008;
+}
+
+.pp-top-bar,
+.pp-top-bar-inner {
+  background: transparent !important;
+}
+
+.pp-top-bar-logo,
+.pp-top-bar-create-char,
+.pp-top-bar-notifications-button,
+.pp-top-bar-app-menu {
+  color: #f4f2ff !important;
+  border-radius: 0 !important;
+}
+
+.pp-top-bar-logo img {
+  filter: saturate(0) brightness(4) drop-shadow(0 0 9px #4be1ff);
+}
+
+.pp-top-bar-search-box,
+.pp-top-bar-search-input {
+  border-radius: 0 !important;
+  border: 1px solid #4be1ff !important;
+  background: #0c1438 !important;
+  color: #fff !important;
+}
+
+.profile-info-hstack {
+  position: relative;
+  z-index: 10;
+  width: min(1180px, calc(100% - 32px));
+  margin: 40px auto 0 !important;
+  padding: 30px 36px !important;
+  border: 1px solid #4be1ff;
+  border-left: 8px solid #f3c638;
+  background: linear-gradient(105deg, #11194aee, #0a1031f2 72%, #172b68ee);
+  box-shadow: 12px 12px 0 #f3c638, 0 18px 40px #0009;
+  transform: skewX(-2deg);
+}
+
+.profile-info-hstack > * {
+  transform: skewX(2deg);
+}
+
+.profile-info-stack-inner-flex {
+  margin-right: 0 !important;
+}
+
+.pp-uc-avatar-container,
+.pp-uc-member-since,
+.profile-badges {
+  display: none !important;
+}
+
+.pp-uc-title {
+  margin: 0 !important;
+  color: #fff !important;
+  font-size: clamp(2.6rem, 8vw, 7rem) !important;
+  font-weight: 900 !important;
+  letter-spacing: -.08em;
+  line-height: .84 !important;
+  text-transform: uppercase;
+  text-shadow: 5px 5px 0 #164cff, 9px 9px 0 #f3c638;
+}
+
+.pp-uc-followers-count {
+  display: inline-flex !important;
+  gap: 8px;
+  margin-top: 17px;
+  color: #4be1ff !important;
+  font-size: .72rem !important;
+  font-weight: 900;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+}
+
+.pp-uc-followers-count span:first-child {
+  color: #f3c638;
+  font-size: 1rem;
+}
+
+/* @jai:component backdrop:end */
+
+/* @jai:component identity:start */
+.p3-shell {
+  position: relative;
+  z-index: 4;
+  width: min(1180px, calc(100% - 32px));
+  margin: 55px auto 0;
+  padding: 0 0 45px;
+}
+
+.p3-menu-line {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+  color: #4be1ff;
+  font-size: .65rem;
+  font-weight: 900;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+}
+
+.p3-menu-line::before {
+  content: "";
+  width: 54px;
+  height: 3px;
+  background: #f3c638;
+  box-shadow: 12px 5px 0 #4be1ff;
+}
+
+.p3-title {
+  position: relative;
+  margin: 0;
+  color: #fff;
+  font-size: clamp(3.5rem, 12vw, 10rem);
+  font-weight: 900;
+  letter-spacing: -.1em;
+  line-height: .78;
+  text-transform: uppercase;
+  text-shadow: 8px 8px 0 #174dff, 15px 15px 0 #f3c638;
+}
+
+.p3-title::after {
+  content: "// 25 ARCHIVED ENCOUNTERS";
+  display: block;
+  margin: 25px 0 0 8px;
+  color: #f3c638;
+  font-size: .65rem;
+  letter-spacing: .32em;
+  text-shadow: none;
+}
+
+.p3-subtitle {
+  max-width: 650px;
+  margin: 28px 0 35px;
+  color: #b9c8f7;
+  font-size: .86rem;
+  line-height: 1.8;
+}
+
+.p3-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.p3-nav a,
+.p3-command {
+  display: inline-block;
+  padding: 12px 18px;
+  border: 1px solid #4be1ff;
+  background: #0c1744;
+  color: #fff;
+  font-size: .65rem;
+  font-weight: 900;
+  letter-spacing: .18em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: transform .2s ease, background .2s ease, color .2s ease;
+}
+
+.p3-nav a:hover,
+.p3-command:hover {
+  transform: translate(-4px, -4px);
+  background: #4be1ff;
+  color: #07102e;
+  box-shadow: 5px 5px 0 #f3c638;
+}
+
+.p3-status {
+  position: absolute;
+  top: 25px;
+  right: 0;
+  width: 230px;
+  padding: 16px;
+  border: 1px solid #f3c638;
+  background: #0b1236dd;
+  color: #f3c638;
+  font-size: .58rem;
+  font-weight: 900;
+  letter-spacing: .18em;
+  line-height: 1.7;
+  text-align: right;
+  text-transform: uppercase;
+  transform: rotate(3deg);
+}
+
+.p3-status::before {
+  content: "●";
+  margin-right: 7px;
+  color: #4be1ff;
+  animation: p3-blink 1.8s steps(2, end) infinite;
+}
+
+.p3-status span {
+  display: block;
+  margin-top: 8px;
+  color: #dce4ff;
+  font-size: .68rem;
+  letter-spacing: .05em;
+  text-transform: none;
+}
+
+@keyframes p3-blink {
+  50% { opacity: .25; }
+}
+
+/* @jai:component identity:end */
+
+/* @jai:component cards:start */
+.p3-gallery {
+  position: relative;
+  padding: 45px 0 75px;
+  border-top: 1px solid #4be1ff66;
+}
+
+.p3-gallery-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.p3-gallery-head h2 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(2rem, 6vw, 5rem);
+  font-weight: 900;
+  letter-spacing: -.08em;
+  line-height: .82;
+  text-transform: uppercase;
+}
+
+.p3-gallery-head h2 em {
+  color: #4be1ff;
+  font-style: normal;
+  text-shadow: 4px 4px 0 #174dff;
+}
+
+.p3-gallery-head span {
+  color: #f3c638;
+  font-size: .6rem;
+  font-weight: 900;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+}
+
+.p3-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.p3-card {
+  position: relative;
+  min-width: 0;
+  min-height: 410px;
+  overflow: hidden;
+  border: 1px solid #4be1ff;
+  background: #0c1438;
+  box-shadow: 8px 8px 0 #153ca5, 0 18px 30px #0008;
+  transform: skewX(-2deg);
+  transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease;
+}
+
+.p3-card:nth-child(3n + 2) {
+  margin-top: 34px;
+  border-color: #f3c638;
+  box-shadow: 8px 8px 0 #4be1ff, 0 18px 30px #0008;
+}
+
+.p3-card:hover {
+  z-index: 3;
+  transform: translateY(-12px) skewX(-2deg) rotate(-1deg);
+  border-color: #fff;
+  box-shadow: 14px 18px 0 #f3c638, 0 28px 45px #000b;
+}
+
+.p3-card a {
+  display: block;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.p3-card-image {
+  position: relative;
+  height: 220px;
+  overflow: hidden;
+  background: #12225e;
+}
+
+.p3-card-image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(150deg, transparent 0 57%, #4be1ff66 57.3% 58%, transparent 58.3%), linear-gradient(0deg, #07102e 0, transparent 45%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.p3-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(.72) contrast(1.16) brightness(.82);
+  transition: transform .5s ease, filter .35s ease;
+}
+
+.p3-card:hover img {
+  transform: scale(1.08);
+  filter: saturate(1.08) contrast(1.15) brightness(1);
+}
+
+.p3-card-index {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
+  padding: 5px 8px;
+  background: #f3c638;
+  color: #07102e;
+  font-size: .64rem;
+  font-weight: 900;
+  letter-spacing: .15em;
+}
+
+.p3-card-body {
+  position: relative;
+  padding: 18px 18px 21px;
+}
+
+.p3-card-body::before {
+  content: "";
+  position: absolute;
+  top: -15px;
+  right: 0;
+  width: 65%;
+  height: 4px;
+  background: #4be1ff;
+}
+
+.p3-card:nth-child(3n + 2) .p3-card-body::before {
+  background: #f3c638;
+}
+
+.p3-card-kicker {
+  margin-bottom: 9px;
+  color: #4be1ff;
+  font-size: .55rem;
+  font-weight: 900;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.p3-card:nth-child(3n + 2) .p3-card-kicker {
+  color: #f3c638;
+}
+
+.p3-card h3 {
+  min-height: 42px;
+  margin: 0 0 11px;
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 900;
+  letter-spacing: -.03em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.p3-card-quote {
+  min-height: 49px;
+  margin: 0;
+  color: #bac8f0;
+  font-size: .72rem;
+  line-height: 1.55;
+}
+
+.p3-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 14px;
+}
+
+.p3-card-tags span {
+  padding: 4px 6px;
+  border: 1px solid #344f9e;
+  color: #dbe6ff;
+  font-size: .5rem;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.p3-card-arrow {
+  position: absolute;
+  right: 15px;
+  bottom: 14px;
+  color: #f3c638;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+@media screen and (max-width: 900px) {
+  .p3-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .p3-status { position: relative; top: auto; right: auto; margin: 30px 0 0; }
+}
+
+@media screen and (max-width: 620px) {
+  .profile-info-hstack,
+  .p3-shell { width: calc(100% - 22px); }
+  .profile-info-hstack { padding: 24px 18px !important; }
+  .p3-shell { margin-top: 38px; }
+  .p3-title { font-size: clamp(3rem, 18vw, 6rem); }
+  .p3-grid { grid-template-columns: 1fr; gap: 24px; }
+  .p3-card:nth-child(3n + 2) { margin-top: 0; }
+  .p3-card { min-height: 390px; }
+  .p3-gallery-head { display: block; }
+  .p3-gallery-head span { display: block; margin-top: 15px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .p3-status::before { animation: none; }
+  .p3-card,
+  .p3-card img,
+  .p3-nav a { transition: none; }
+}
+/* @jai:component cards:end */
+
+/* @jai:component footer:start */
+.p3-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 0 40px;
+  border-top: 1px solid #4be1ff66;
+  color: #8fa3dd;
+  font-size: .58rem;
+  font-weight: 900;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+.p3-footer strong { color: #f3c638; }
+
+@media screen and (max-width: 620px) {
+  .p3-footer { display: block; line-height: 1.8; }
+  .p3-footer strong { display: block; margin-bottom: 7px; }
+}
+/* @jai:component footer:end */
+</style>
+
+<!-- @jai:component identity:start -->
+<section class="p3-shell" id="p3-top">
+  <div class="p3-menu-line">Dark Hour · Main Menu</div>
+  <h1 class="p3-title">Sweepercom</h1>
+  <p class="p3-subtitle">A midnight archive of strange encounters, doomed romances, villains with terrible plans and characters who refuse to stay in the background.</p>
+  <nav class="p3-nav" aria-label="Profile menu">
+    <a href="#p3-cards">CHARACTERS</a>
+    <a href="#p3-about">ABOUT</a>
+    <a href="#p3-top">RETURN</a>
+  </nav>
+  <div class="p3-status">ONLINE / WRITING<span>Follower count and profile identity remain live above this menu.</span></div>
+</section>
+
+<section class="p3-shell" id="p3-about">
+  <div class="p3-menu-line">System · Creator File</div>
+  <p class="p3-subtitle">Welcome to my profile. I make character-driven bots with a bias toward messy relationships, dangerous situations, and a little bit of comedy in the worst possible moment. Open a character below to begin.</p>
+</section>
+<!-- @jai:component identity:end -->
+
+<!-- @jai:component cards:start -->
+<section class="p3-shell p3-gallery" id="p3-cards">
+  <div class="p3-gallery-head"><h2>Archive <em>//</em> 25</h2><span>Select an encounter</span></div>
+  <div class="p3-grid">
+    <article class="p3-card"><a href="https://janitorai.com/characters/a0561c81-8e1a-42c6-8bc7-dba457fc7acb_character-imperfect-revival-the-well-20-years-ago"><div class="p3-card-image"><span class="p3-card-index">01</span><img src="https://ella.janitorai.com/bot-avatars/c8xigf7O6WB7R3Q_KLoSq.webp?width=400" alt="Imperfect revival - The Well"></div><div class="p3-card-body"><div class="p3-card-kicker">The Well · 20 years ago</div><h3>Imperfect revival</h3><p class="p3-card-quote">Will you remember?</p><div class="p3-card-tags"><span>Drama</span><span>Memory</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/36f82827-45c5-4a44-a8b0-e1ca68afae1a_character-twins-on-your-tail"><div class="p3-card-image"><span class="p3-card-index">02</span><img src="https://ella.janitorai.com/bot-avatars/Dt8zrfkpw2opK-Vd9FTXk.webp?width=400" alt="Twins on your tail"></div><div class="p3-card-body"><div class="p3-card-kicker">Double Trouble</div><h3>Twins on your tail</h3><p class="p3-card-quote">✦ I'm not putting on the maid suit again ✦</p><div class="p3-card-tags"><span>Twins</span><span>Comedy</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/c36fa187-031c-4382-bd52-f890de131c87_character-duchess-sucks-at-love"><div class="p3-card-image"><span class="p3-card-index">03</span><img src="https://ella.janitorai.com/bot-avatars/hlVuEBs_Vf56OomqLgcAy.webp?width=400" alt="Duchess sucks at love"></div><div class="p3-card-body"><div class="p3-card-kicker">Royal Route</div><h3>Duchess sucks at love</h3><p class="p3-card-quote">No, I do not bark. Don't make such requests.</p><div class="p3-card-tags"><span>Royalty</span><span>Romance</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/84d72231-cf5c-446b-960b-58a743e76ea1_character-the-lamb-you-saved"><div class="p3-card-image"><span class="p3-card-index">04</span><img src="https://ella.janitorai.com/bot-avatars/9MIgdq5lsopY6vvYxfHTt.webp?width=400" alt="The lamb you saved"></div><div class="p3-card-body"><div class="p3-card-kicker">Morcadia File</div><h3>The lamb you saved</h3><p class="p3-card-quote">Boss... can you help me kill the heroes?</p><div class="p3-card-tags"><span>Villain</span><span>Fantasy</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/a633f61c-fa06-4bb6-a30e-a7fd33af39c4_character-killer-date-hahaha"><div class="p3-card-image"><span class="p3-card-index">05</span><img src="https://ella.janitorai.com/bot-avatars/VoanfZ82139EJPCCjgt_i.webp?width=400" alt="Killer Date"></div><div class="p3-card-body"><div class="p3-card-kicker">Dangerous Date</div><h3>Killer Date</h3><p class="p3-card-quote">You're just looking at my tits, aren't you?</p><div class="p3-card-tags"><span>Comedy</span><span>Chaos</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/19eb9b09-58dd-4441-9a04-9ff465b6196c_character-heroines-harem-party"><div class="p3-card-image"><span class="p3-card-index">06</span><img src="https://ella.janitorai.com/bot-avatars/y9ftb-8ue6ky-2cNwxZww.webp?width=400" alt="Heroine's harem party"></div><div class="p3-card-body"><div class="p3-card-kicker">Party Route</div><h3>Heroine's party</h3><p class="p3-card-quote">I will peg you.</p><div class="p3-card-tags"><span>Harem</span><span>Adventure</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/7c005b73-12af-41ec-bead-a24bef5e4481_character-heros-harem-party"><div class="p3-card-image"><span class="p3-card-index">07</span><img src="https://ella.janitorai.com/bot-avatars/9YR2igIcksOqDkTn12UlD.webp?width=400" alt="Hero's harem party"></div><div class="p3-card-body"><div class="p3-card-kicker">Hero Route</div><h3>Hero's party</h3><p class="p3-card-quote">Surrender and join my party, hot villain!</p><div class="p3-card-tags"><span>Harem</span><span>Adventure</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/f2cef1cc-0be2-467f-b503-001b114ec08e_character-alex-losing-her-place"><div class="p3-card-image"><span class="p3-card-index">08</span><img src="https://ella.janitorai.com/bot-avatars/biYTZmfgQV8ktdG_Y2L26.webp?width=400" alt="Alex - Losing her place"></div><div class="p3-card-body"><div class="p3-card-kicker">Alex · Route 08</div><h3>Losing her place</h3><p class="p3-card-quote">I really need your help. I can't be stubborn this time.</p><div class="p3-card-tags"><span>Drama</span><span>Romance</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/6b35bfca-ab43-41ee-ade6-9b5fb31f8765_character-forgotten-devotees-female-version"><div class="p3-card-image"><span class="p3-card-index">09</span><img src="https://ella.janitorai.com/bot-avatars/yxtSUs3n7jowf_RUBLrDc.webp?width=400" alt="Forgotten Devotees"></div><div class="p3-card-body"><div class="p3-card-kicker">Forgotten File</div><h3>Forgotten devotees</h3><p class="p3-card-quote">You must remember, Lord. You have to return to us...</p><div class="p3-card-tags"><span>Devotion</span><span>Horror</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/87e01bb8-3012-4a50-ba43-97e69b3b9a60_character-well-escape-promise"><div class="p3-card-image"><span class="p3-card-index">10</span><img src="https://ella.janitorai.com/bot-avatars/Jl_XtBKyNaPWNEonqcMKT.webp?width=400" alt="We'll escape. Promise."></div><div class="p3-card-body"><div class="p3-card-kicker">The Well · Promise</div><h3>We'll escape</h3><p class="p3-card-quote">A nation without morals, only progress matters.</p><div class="p3-card-tags"><span>Series</span><span>Escape</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/a8322f97-748b-4508-9402-30b47ee60da8_character-test-her-rank"><div class="p3-card-image"><span class="p3-card-index">11</span><img src="https://ella.janitorai.com/bot-avatars/LatV93E56SfdV36EMtxf5.webp?width=400" alt="Test her rank"></div><div class="p3-card-body"><div class="p3-card-kicker">Rank Test · Candidate</div><h3>Test her rank!</h3><p class="p3-card-quote">J-just one t-try?!</p><div class="p3-card-tags"><span>Challenge</span><span>Fantasy</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/29f2a31a-2a35-4e15-ae54-06059dd0e480_character-i-am-evil-stop-laughing"><div class="p3-card-image"><span class="p3-card-index">12</span><img src="https://ella.janitorai.com/bot-avatars/Zo_9tlLiJOd8IgjF2AXaR.webp?width=400" alt="I am evil! Stop laughing!"></div><div class="p3-card-body"><div class="p3-card-kicker">Villain File</div><h3>I am evil!</h3><p class="p3-card-quote">SHIVER! ....</p><div class="p3-card-tags"><span>Villain</span><span>Comedy</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/9a1a171f-518b-4fa5-9da7-48e774deb0b0_character-the-rank-test"><div class="p3-card-image"><span class="p3-card-index">13</span><img src="https://ella.janitorai.com/bot-avatars/Qify3sKx5Pu3UtqxY0LaU.webp?width=400" alt="The Rank Test"></div><div class="p3-card-body"><div class="p3-card-kicker">Rank Test · Trial</div><h3>The rank test</h3><p class="p3-card-quote">You have one try.</p><div class="p3-card-tags"><span>Trial</span><span>Fantasy</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/e21e403d-3308-4e49-b00d-7f7eddba6cf0_character-your-classmate-known-for-being-serious-and-reserved-is-dragging-around-a-body-in-an-alleyway-and-she-spotted-you-looking-at-her-so-now-you-have-to-convince-her-not-to-hurt-you"><div class="p3-card-image"><span class="p3-card-index">14</span><img src="https://ella.janitorai.com/bot-avatars/rSP_HbFtP2nme35HHHIw-.webp?width=400" alt="Your classmate in an alleyway"></div><div class="p3-card-body"><div class="p3-card-kicker">Alexandria Thorns</div><h3>The alleyway classmate</h3><p class="p3-card-quote">He was a drug dealer! He was selling stuff to kids!</p><div class="p3-card-tags"><span>School</span><span>Suspense</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/c9337f13-e947-42f4-81f5-a900f03c5f72_character-fan-of-a-rising-hero-male"><div class="p3-card-image"><span class="p3-card-index">15</span><img src="https://ella.janitorai.com/bot-avatars/747Zu7h00-kZRQ6YZgxpi.webp?width=400" alt="Fan of a rising hero male"></div><div class="p3-card-body"><div class="p3-card-kicker">Hero Route · M</div><h3>Fan of a rising hero</h3><p class="p3-card-quote">Please please please. I'm washed.</p><div class="p3-card-tags"><span>Hero</span><span>Fan</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/c80d807b-a1d9-468f-bc6c-efea94fa79ac_character-fan-of-a-rising-hero-female"><div class="p3-card-image"><span class="p3-card-index">16</span><img src="https://ella.janitorai.com/bot-avatars/Q5b0STkQ-790EW1nY5VGp.webp?width=400" alt="Fan of a rising hero female"></div><div class="p3-card-body"><div class="p3-card-kicker">Hero Route · F</div><h3>Fan of a rising hero</h3><p class="p3-card-quote">Still no quote. I'm washed.</p><div class="p3-card-tags"><span>Hero</span><span>Fan</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/8d30da78-f8d5-4e1a-96cf-c7e5636e73ad_character-your-bully-feels-terribly-bad-about-all-the-pain-she-has-brought-you-even-though-in-reality-shes-been-more-of-an-awkward-friend-but-shes-convinced-she-has-made-your-life-hell-in-an-attempt-to-gain-your-attention-with-her-limited-communication-too"><div class="p3-card-image"><span class="p3-card-index">17</span><img src="https://ella.janitorai.com/bot-avatars/6F7LaQ2XFJIAPD24oJrJv.webp?width=400" alt="Your bully feels terribly bad"></div><div class="p3-card-body"><div class="p3-card-kicker">Awkward Friendship</div><h3>The bully apology</h3><p class="p3-card-quote">MON DIEU! I took your pen without asking!</p><div class="p3-card-tags"><span>Comedy</span><span>School</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/179f18d7-210a-4a1f-9b24-c3f27fa71327_character-a-washed-up-d-ranker"><div class="p3-card-image"><span class="p3-card-index">18</span><img src="https://ella.janitorai.com/bot-avatars/mlSY7QmHStd5l6Vv66CiW.webp?width=400" alt="A washed-up D-ranker"></div><div class="p3-card-body"><div class="p3-card-kicker">D-Rank · Ruin</div><h3>A washed-up D-ranker</h3><p class="p3-card-quote">Family, home, purpose... how quickly words lose meaning.</p><div class="p3-card-tags"><span>Drama</span><span>Ruin</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/962297ab-7399-4821-a20e-b21bf109ef85_character-you-thought-it-was-over-lily-and-eva"><div class="p3-card-image"><span class="p3-card-index">19</span><img src="https://ella.janitorai.com/bot-avatars/0WUfdVX3eycPOEnaabMZu.webp?width=400" alt="You thought it was over"></div><div class="p3-card-body"><div class="p3-card-kicker">Lily &amp; Eva</div><h3>It was supposed to be over</h3><p class="p3-card-quote">She asked for a second chance, and I already promised her...</p><div class="p3-card-tags"><span>Romance</span><span>Drama</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/dc56c623-c441-4004-a9ac-b3bf85e32be9_character-if-you-were-innocent-why-did-you-run"><div class="p3-card-image"><span class="p3-card-index">20</span><img src="https://ella.janitorai.com/bot-avatars/76vHcFqBJhKGRVWyg5kij.webp?width=400" alt="If you were innocent, why did you run?"></div><div class="p3-card-body"><div class="p3-card-kicker">Yui Ashikawa · Entry 21</div><h3>Why did you run?</h3><p class="p3-card-quote">I sharpen my blade every night, praying I'll never draw it.</p><div class="p3-card-tags"><span>Journal</span><span>Suspense</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/8f681ade-6aec-40c8-81d0-48ee8762f9c4_character-two-gods-as-humans"><div class="p3-card-image"><span class="p3-card-index">21</span><img src="https://ella.janitorai.com/bot-avatars/pMusdiCfhfw0gePMYqrvf.webp?width=400" alt="Two Gods as humans"></div><div class="p3-card-body"><div class="p3-card-kicker">Divine Route</div><h3>Two gods as humans</h3><p class="p3-card-quote">Finally! I get to show your ass how to have real fun!</p><div class="p3-card-tags"><span>Gods</span><span>Comedy</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/c2a26f74-6a65-429d-bdd3-3560e3429352_character-villains-party-wants-a-pet"><div class="p3-card-image"><span class="p3-card-index">22</span><img src="https://ella.janitorai.com/bot-avatars/BAzCMcUdeUj-YeKoEaFG_.webp?width=400" alt="Villains party wants a pet"></div><div class="p3-card-body"><div class="p3-card-kicker">Morcadia · Trio</div><h3>Villains want a pet</h3><p class="p3-card-quote">Villains rule and heroes fall like leaves.</p><div class="p3-card-tags"><span>Villains</span><span>Petplay</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/7ce83cab-b8fc-47d8-a0dd-d947c118a9b8_character-winter-human-weapon-warrior"><div class="p3-card-image"><span class="p3-card-index">23</span><img src="https://ella.janitorai.com/bot-avatars/D5E5g8sDRiOMVMrRk-jVV.webp?width=400" alt="Winter, Human Weapon"></div><div class="p3-card-body"><div class="p3-card-kicker">White Cell · Warrior</div><h3>Winter, human weapon</h3><p class="p3-card-quote">She was in a corner of her room, awaiting instructions.</p><div class="p3-card-tags"><span>Warrior</span><span>Dark</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/5a2c09dd-1c58-4624-9449-fc2a08be1234_character-kitsune-wants-to-save-us"><div class="p3-card-image"><span class="p3-card-index">24</span><img src="https://ella.janitorai.com/bot-avatars/qz7UirCAtK_qhcjjtkfqX.webp?width=400" alt="Kitsune wants to save us"></div><div class="p3-card-body"><div class="p3-card-kicker">Sin Archive</div><h3>Kitsune wants to save us</h3><p class="p3-card-quote">Take away humanity's capability to fail.</p><div class="p3-card-tags"><span>Kitsune</span><span>Dark fantasy</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+    <article class="p3-card"><a href="https://janitorai.com/characters/9765368e-f115-4dc6-82da-276f5fb95488_character-master-ill-show-you-real-love"><div class="p3-card-image"><span class="p3-card-index">25</span><img src="https://ella.janitorai.com/bot-avatars/KGNQb-dieObRsgYNozTre.webp?width=400" alt="Master? I'll show you real love"></div><div class="p3-card-body"><div class="p3-card-kicker">First Public Bot</div><h3>Master? Real love</h3><p class="p3-card-quote">What do you mean real life isn't like porn?!</p><div class="p3-card-tags"><span>Comedy</span><span>Classic</span></div><b class="p3-card-arrow">↗</b></div></a></article>
+  </div>
+</section>
+<!-- @jai:component cards:end -->
+
+<!-- @jai:component footer:start -->
+<footer class="p3-shell p3-footer"><strong>Dark Hour Menu · Sweepercom</strong><span>▸ Select an encounter · Open a route · Return to menu</span></footer>
+<!-- @jai:component footer:end -->

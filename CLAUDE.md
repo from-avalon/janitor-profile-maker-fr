@@ -6,7 +6,7 @@ HTML injected where JanitorAI injects it. See README.md for what it does.
 
 ## This is a static site — keep it that way
 
-- `index.html` + `css/app.css` + nine files in `js/`. **No bundler, no framework,
+- `index.html` + `css/app.css` + the files in `js/`. **No bundler, no framework,
   no runtime npm dependencies.** `package.json` holds scripts and lint/test
   tooling under `devDependencies` only.
 - Each `js/*.js` file is an IIFE (`(function(){ 'use strict'; … })()`). Files share
