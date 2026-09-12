@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "velvet-nocturne",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "status": "published",
   "name": "Velvet Nocturne",
   "author": "Sweepercom",
@@ -77,13 +77,14 @@
   ],
   "compatibility": {
     "platform": "JanitorAI public profile About Me",
-    "testedReferenceDate": "2026-09-10",
+    "testedReferenceDate": "2026-09-12",
     "requiresJavaScript": false,
     "usesBlockedFeatures": false,
     "notes": [
       "The loading veil is decorative and never receives pointer events.",
       "Animations are disabled for visitors who prefer reduced motion.",
       "No CSS background images or custom properties are used.",
+      "The character sort control uses the durable react-select__control hook instead of its generated Emotion class.",
       "Every component carries its own responsive and reduced-motion rules, so parts can be added or removed independently."
     ]
   }

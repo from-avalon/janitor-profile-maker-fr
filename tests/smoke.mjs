@@ -90,6 +90,22 @@ try {
     if (!importedCount || importedCount !== previewCount) {
       fail(`profile card total mismatch (field=${importedCount}, preview=${previewCount})`);
     }
+
+    const notifications = await preview.evaluate(() => {
+      const panel = document.querySelector('.pp-top-bar-notifications-popover');
+      const bell = document.querySelector('.pp-top-bar-notifications-button');
+      const close = document.querySelector('.pp-top-bar-notifications-close');
+      if (!panel || !bell || !close) return null;
+      const startsClosed = panel.hidden && bell.getAttribute('aria-expanded') === 'false';
+      bell.click();
+      const opens = !panel.hidden && bell.getAttribute('aria-expanded') === 'true';
+      close.click();
+      const closes = panel.hidden && bell.getAttribute('aria-expanded') === 'false';
+      return { startsClosed, opens, closes };
+    });
+    if (!notifications || !notifications.startsClosed || !notifications.opens || !notifications.closes) {
+      fail(`notification popover controls failed (${JSON.stringify(notifications)})`);
+    }
   }
 
   // Advanced template parts can be narrowed to a specific profile region, and
@@ -134,6 +150,28 @@ try {
     topics: document.querySelectorAll('.help-panel details').length,
   }));
   if (!help.visible || help.topics < 4) fail(`help panel incomplete (${JSON.stringify(help)})`);
+
+  // The sidebar was reorganized: Updates/Migrate are gone, replaced by a View
+  // tab (viewport switch) and a renamed Settings tab; My presets lives inside
+  // Presets. Confirm the old panels are actually gone and the new ones render.
+  const panels = await page.evaluate(() => ({
+    updates: !!document.querySelector('button[data-panel="updates"]'),
+    migrate: !!document.querySelector('button[data-panel="migrate"]'),
+    view: !!document.querySelector('button[data-panel="view"]'),
+  }));
+  if (panels.updates || panels.migrate) fail('Updates/Migrate tabs are still present');
+  if (!panels.view) fail('View tab is missing');
+
+  await page.click('button[data-panel="view"]');
+  const viewportButtons = await page.locator('.viewport-switch button').count();
+  if (viewportButtons < 5) fail(`View tab is missing the viewport switch (${viewportButtons} buttons)`);
+
+  await page.click('button[data-panel="profile"]');
+  const settings = await page.evaluate(() => ({
+    enforce: !!document.getElementById('enforce'),
+    import: !!document.getElementById('profile-file'),
+  }));
+  if (!settings.enforce || !settings.import) fail(`Settings tab incomplete (${JSON.stringify(settings)})`);
 
   // Link previews: the Open Graph image is served and the tags point at it.
   const og = await page.request.get(`${ORIGIN}/assets/og.png`);

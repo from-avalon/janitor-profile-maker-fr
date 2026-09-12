@@ -1352,7 +1352,7 @@ main,
 
 .pp-fl-search-input,
 .profile-character-search-input-group,
-.css-b62m3t-container {
+.react-select__control {
   border: 1px solid #c084fc32 !important;
   border-radius: 999px !important;
   background: #100718 !important;

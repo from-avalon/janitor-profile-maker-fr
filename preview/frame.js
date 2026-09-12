@@ -152,6 +152,28 @@
         setUserMenu(doc.querySelector('.sim-user-menu').hidden);
       });
     }
+
+    /* The refreshed capture contains JanitorAI's new notifications popover.
+     * It happened to be open when the page was saved; start closed like the
+     * live site normally does, then make the captured bell and close button
+     * interactive so notification styling can still be previewed. */
+    var notifications = doc.querySelector('.pp-top-bar-notifications-popover');
+    var notificationsButton = doc.querySelector('.pp-top-bar-notifications-button');
+    if (notifications && notificationsButton) {
+      setNotifications(false);
+      notificationsButton.addEventListener('click', function (e) {
+        e.preventDefault();
+        setNotifications(notifications.hidden);
+      });
+      var notificationsClose = notifications.querySelector('.pp-top-bar-notifications-close');
+      if (notificationsClose) {
+        notificationsClose.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          setNotifications(false);
+        });
+      }
+    }
   }
 
   /*
@@ -197,6 +219,14 @@
     send({ type: 'userMenu', open: !!open });
   }
 
+  function setNotifications(open) {
+    var popover = doc.querySelector('.pp-top-bar-notifications-popover');
+    var button = doc.querySelector('.pp-top-bar-notifications-button');
+    if (!popover || !button) return;
+    popover.hidden = !open;
+    button.setAttribute('aria-expanded', String(!!open));
+  }
+
   /* The tab strip is inert in the capture; make it feel live. */
   function wireTabs() {
     var tabs = doc.querySelectorAll('.pp-tabs-button');
@@ -230,18 +260,27 @@
     lastData = d;
 
     var name = doc.querySelector('.pp-uc-title');
-    if (name && d.username != null) name.textContent = '@' + d.username;
+    if (name && d.username != null) {
+      name.innerHTML = '<span class="sim-edit-label">@</span>' +
+        '<span class="sim-edit-value" data-key="username" title="Click to edit">' +
+        escapeHtml(d.username) + '</span>';
+    }
 
     var avatar = doc.querySelector('.pp-uc-avatar');
     if (avatar && d.avatar) avatar.src = d.avatar;
 
     var followers = doc.querySelector('.pp-uc-followers-count');
     if (followers && d.followers != null) {
-      followers.innerHTML = '<span>' + escapeHtml(d.followers) + ' </span><span>followers</span>';
+      followers.innerHTML = '<span class="sim-edit-value" data-key="followers" title="Click to edit">' +
+        escapeHtml(d.followers) + '</span><span> followers</span>';
     }
 
     var since = doc.querySelector('.pp-uc-member-since');
-    if (since && d.memberSince != null) since.textContent = 'Member Since ' + d.memberSince;
+    if (since && d.memberSince != null) {
+      since.innerHTML = '<span class="sim-edit-label">Member Since </span>' +
+        '<span class="sim-edit-value" data-key="memberSince" title="Click to edit">' +
+        escapeHtml(d.memberSince) + '</span>';
+    }
 
     var plus = doc.querySelector('.profile-janitor-plus-box');
     if (plus && d.janitorPlus !== undefined) {
@@ -384,6 +423,121 @@
     for (var n = e.target; n && n !== doc.body; n = n.parentElement) chain.push(describe(n));
     send({ type: 'pick', target: describe(e.target), chain: chain.slice(0, 8) });
   }, true);
+
+  // ---------------------------------------------------------- inline editing
+  //
+  // Username, followers and member-since are edited by clicking the value
+  // directly here rather than through a Settings-panel field, so what you see
+  // is what you edit. See applyData() above for the '.sim-edit-value' markup.
+
+  var editingValue = null;
+
+  function beginEdit(node) {
+    if (inspectorOn || editingValue) return;
+    editingValue = { node: node, original: node.textContent };
+    node.contentEditable = 'true';
+    node.classList.add('sim-editing');
+    node.focus();
+    var range = doc.createRange();
+    range.selectNodeContents(node);
+    var selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  function commitEdit(save) {
+    if (!editingValue) return;
+    var node = editingValue.node, original = editingValue.original;
+    node.contentEditable = 'false';
+    node.classList.remove('sim-editing');
+    var value = save ? node.textContent.trim() : '';
+    if (!value) { node.textContent = original; editingValue = null; return; }
+    editingValue = null;
+    if (value !== original) send({ type: 'fieldEdit', key: node.dataset.key, value: value });
+  }
+
+  doc.addEventListener('click', function (e) {
+    if (inspectorOn) return;
+    var value = e.target.closest && e.target.closest('.sim-edit-value');
+    if (value && !editingValue) { e.stopPropagation(); beginEdit(value); }
+  }, true);
+
+  doc.addEventListener('keydown', function (e) {
+    if (!editingValue) return;
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); commitEdit(false); }
+  });
+
+  doc.addEventListener('focusout', function (e) {
+    if (editingValue && e.target === editingValue.node) commitEdit(true);
+  });
+
+  // -------------------------------------------------- image swap (right-click)
+  //
+  // The avatar and background are preview-only images (see applyData /
+  // applyDataStyles above); right-clicking either offers a way to swap them
+  // without leaving the preview. Reads the file locally and posts a data URL
+  // up to the parent, same as any other 'fieldEdit'.
+
+  var contextMenu = doc.getElementById('sim-context-menu');
+  var imageInput = doc.getElementById('sim-image-input');
+  var contextTarget = null;
+
+  function hideContextMenu() { contextMenu.hidden = true; contextTarget = null; }
+
+  function contextItem(label, onClick) {
+    var item = el('button', 'sim-context-item', label);
+    item.type = 'button';
+    item.addEventListener('click', function () { hideContextMenu(); onClick(); });
+    return item;
+  }
+
+  function showContextMenu(x, y, target) {
+    contextTarget = target;
+    contextMenu.innerHTML = '';
+    contextMenu.appendChild(contextItem('Change image…', function () { imageInput.click(); }));
+    if (target === 'background') {
+      contextMenu.appendChild(contextItem('Remove image', function () {
+        send({ type: 'fieldEdit', key: 'background', value: '' });
+        applyDataStyles(Object.assign({}, lastData || {}, { background: '' }));
+      }));
+    }
+    contextMenu.style.left = x + 'px';
+    contextMenu.style.top = y + 'px';
+    contextMenu.hidden = false;
+  }
+
+  doc.addEventListener('contextmenu', function (e) {
+    var avatarTarget = e.target.closest && e.target.closest('.pp-uc-avatar');
+    var backgroundTarget = !avatarTarget && e.target.closest && e.target.closest('.pp-page-background');
+    if (!avatarTarget && !backgroundTarget) return;
+    e.preventDefault();
+    showContextMenu(e.clientX, e.clientY, avatarTarget ? 'avatar' : 'background');
+  });
+
+  doc.addEventListener('click', function (e) {
+    if (!contextMenu.hidden && !contextMenu.contains(e.target)) hideContextMenu();
+  });
+  doc.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideContextMenu(); });
+
+  imageInput.addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    this.value = '';
+    if (!file || !contextTarget) return;
+    var key = contextTarget;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var dataUrl = reader.result;
+      if (key === 'avatar') {
+        var avatarImg = doc.querySelector('.pp-uc-avatar');
+        if (avatarImg) avatarImg.src = dataUrl;
+      } else {
+        applyDataStyles(Object.assign({}, lastData || {}, { background: dataUrl }));
+      }
+      send({ type: 'fieldEdit', key: key, value: dataUrl });
+    };
+    reader.readAsDataURL(file);
+  });
 
   // ------------------------------------------------------------- messaging
 
