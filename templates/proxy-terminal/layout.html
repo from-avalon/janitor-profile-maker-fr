@@ -1,0 +1,244 @@
+<!-- PROXY TERMINAL 1.0.0 · ZZZ-inspired JanitorAI profile for Sweepercom.
+     Edit the personal copy below. The Cards panel manages the marked roster.
+     Native Janitor navigation, identity, follow and block/options stay available. -->
+<style>
+/* @jai:component profile:start */
+html, body { background: #0b0c0c !important; color: #efefe8; }
+.pp-page-background { background: repeating-linear-gradient(125deg, #131514 0 1px, transparent 1px 34px), #0b0c0c !important; }
+.profile-background-effect-image { display: none; }
+main, .profile-page-container { padding: 0 !important; }
+.pp-uc-background, .pp-uc-background > div, .profile-info-wrapper-box { width: 100% !important; max-width: none !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; }
+.profile-page-flex { display: block !important; width: 100% !important; max-width: none !important; }
+.profile-info-stack { position: relative; display: flex !important; flex-direction: column; gap: 0 !important; width: min(1440px, calc(100% - 64px)) !important; max-width: none !important; margin: 28px auto 65px !important; padding: 0 !important; font-family: Arial, Helvetica, sans-serif; }
+.profile-info-hstack { position: relative; display: flex !important; flex-direction: row !important; align-items: center; justify-content: flex-start; gap: 25px !important; width: 100%; min-height: 236px; margin: 0 !important; padding: 42px 38px 35px !important; border: 2px solid #3c4035; border-radius: 18px 18px 0 0; overflow: hidden; background: linear-gradient(108deg, #171a16 0 69%, #d7f22a 69.2% 70.2%, #aebf2a 70.3% 71%, #d7f22a 71.2%); isolation: isolate; }
+.profile-info-hstack::before { content: "INTER-KNOT  /  CREATOR CHANNEL"; position: absolute; top: 17px; left: 40px; color: #d7f22a; font-size: 9px; font-weight: 900; letter-spacing: .24em; }
+.profile-info-hstack::after { content: "PROXY"; position: absolute; z-index: -1; right: -2px; top: 28px; color: #141813; font-size: clamp(65px, 8.5vw, 132px); font-weight: 1000; line-height: 1; letter-spacing: -.09em; font-style: italic; transform: rotate(-8deg); opacity: .92; }
+.pp-uc-avatar-container { flex: 0 0 128px; width: 128px !important; height: 140px !important; padding: 5px; border: 2px solid #d7f22a; border-radius: 13px 5px 13px 5px; background: #070908; transform: rotate(-4deg); }
+.pp-uc-avatar { display: block; width: 100% !important; height: 100% !important; object-fit: cover; object-position: center; border-radius: 7px !important; }
+.profile-info-stack-inner { gap: 7px !important; min-width: 0; max-width: 57%; align-items: flex-start !important; }
+.profile-info-stack-inner-flex { margin: 0 !important; gap: 5px; }
+.pp-uc-title { margin: 0 !important; color: #f2f2e9 !important; font-family: Arial, Helvetica, sans-serif !important; font-size: clamp(26px, 3.5vw, 48px) !important; font-weight: 1000 !important; font-style: italic; letter-spacing: -.06em; line-height: 1.05 !important; overflow-wrap: anywhere; }
+.pp-uc-followers-count { color: #d7f22a !important; font-size: 12px !important; font-weight: 800; letter-spacing: .04em; }
+.pp-uc-member-since { color: #939a8b !important; font-size: 9px !important; text-transform: uppercase; letter-spacing: .11em; }
+.profile-badges { display: flex; flex-wrap: wrap; gap: 7px !important; }
+.profile-badge, .profile-badge img { width: 25px !important; height: 25px !important; }
+.pp-uc-about-me { display: block; width: 100%; max-width: none; margin: 0 !important; padding: 0 !important; color: #efefe8; font-family: Arial, Helvetica, sans-serif; }
+.pp-uc-about-me *, .pp-uc-about-me *::before, .pp-uc-about-me *::after { box-sizing: border-box; }
+.pp-uc-about-me h1, .pp-uc-about-me h2, .pp-uc-about-me h3, .pp-uc-about-me p { margin: 0; }
+.pp-uc-about-me a { text-decoration: none; }
+.profile-info-stack > div:has(> button[aria-label="Customize profile page"]) { right: 10px; top: 10px; z-index: 15; }
+@media (max-width: 800px) {
+  .profile-info-stack { width: calc(100% - 24px) !important; margin: 16px auto 80px !important; }
+  .profile-info-hstack { gap: 15px !important; min-height: 260px; padding: 44px 20px 78px !important; background: linear-gradient(108deg, #171a16 0 77%, #d7f22a 77.2%); }
+  .profile-info-hstack::before { left: 21px; font-size: 8px; }
+  .profile-info-hstack::after { right: -26px; top: 105px; font-size: 59px; transform: rotate(-90deg); opacity: .7; }
+  .pp-uc-avatar-container { flex-basis: 85px; width: 85px !important; height: 103px !important; }
+  .profile-info-stack-inner { max-width: calc(100% - 122px); }
+  .pp-uc-title { font-size: clamp(21px, 4.8vw, 33px) !important; }
+  .profile-badge, .profile-badge img { width: 19px !important; height: 19px !important; }
+}
+/* @jai:component profile:end */
+
+/* @jai:component chrome:start */
+.pp-top-bar { background: #111310 !important; }
+.pp-top-bar-outer { z-index: 100 !important; border-bottom: 2px solid #d7f22a !important; background: #111310 !important; box-shadow: 0 6px 0 #0006 !important; }
+.pp-top-bar-inner { background: transparent !important; }
+.pp-top-bar-logo, .pp-top-bar-logo-name, .glow-logo { color: #e7f1bf !important; text-shadow: none !important; }
+.pp-top-bar-search-input, .pp-top-bar-search-box { border: 1px solid #414733 !important; border-radius: 999px !important; background: #242820 !important; color: #f2f4e7 !important; }
+.pp-top-bar-app-menu { border: 2px solid #d7f22a !important; border-radius: 50% !important; }
+.pp-top-bar-app-menu-list, .pp-uc-options-menu-list, [role="menu"], .pp-top-bar-notifications-popover { background: #191d16 !important; color: #f4f7e6 !important; border: 1px solid #626c43 !important; border-radius: 12px !important; box-shadow: 0 14px 40px #000b !important; }
+.pp-top-bar-app-menu-list-item, .pp-uc-options-menu-item { color: #edf1df !important; background: transparent !important; }
+.pp-top-bar-app-menu-list-item:hover, .pp-uc-options-menu-item:hover { color: #e2ff51 !important; background: #303726 !important; }
+.profile-info-stack > div:has(.pp-uc-follow-flex) { position: absolute; top: 174px; right: 28px; z-index: 12; margin: 0 !important; }
+.profile-info-stack > div:has(.pp-uc-follow-flex) > div { display: flex; flex-direction: row; align-items: center; gap: 9px; }
+.pp-uc-follow-button { display: flex !important; align-items: center; justify-content: center; min-width: 123px; min-height: 40px; height: auto !important; padding: 10px 18px !important; border: 2px solid #11150d !important; border-radius: 7px !important; background: #11150d !important; color: #e6ff6a !important; box-shadow: 3px 3px 0 #829513 !important; font-size: 12px; font-weight: 900; }
+.pp-uc-follow-button::before { display: none !important; }
+.pp-uc-follow-text { color: inherit !important; font-size: 12px !important; font-weight: 900; }
+.pp-uc-follow-button:hover { background: #2d351f !important; }
+.pp-uc-options-menu { display: inline-flex !important; min-height: 40px; padding: 10px 15px !important; border: 2px solid #11150d !important; border-radius: 7px !important; background: #d7f22a !important; color: #11150d !important; font-size: 12px !important; font-weight: 900; }
+.pp-uc-options-menu:hover { background: #edff8e !important; }
+.pp-mnb-container, .pp-mnb { background: #11150d !important; border-top: 1px solid #56602f; }
+.pp-mnb a { color: #d7f22a !important; }
+@media (max-width: 800px) {
+  .profile-info-stack > div:has(.pp-uc-follow-flex) { top: 207px; left: 20px; right: auto; }
+  .pp-uc-follow-button, .pp-uc-options-menu { min-height: 34px; padding: 6px 12px !important; }
+}
+/* @jai:component chrome:end */
+
+/* @jai:component menu:start */
+.zz-nav-key { position: fixed; top: 72px; left: 0; width: 1px; height: 1px; pointer-events: none; }
+.zz-navigation { position: relative; z-index: 20; display: flex; align-items: stretch; gap: 5px; min-height: 68px; padding: 12px 20px; border: 2px solid #34382e; border-top: 0; background: #10130f; }
+.zz-nav { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+.zz-tab { display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 10px 20px; border: 1px solid transparent; border-radius: 5px; color: #979e8b !important; font-size: 12px; font-weight: 900; font-style: italic; text-transform: uppercase; transform: skewX(-9deg); transition: background .18s ease, color .18s ease; }
+.zz-tab small { font-size: 9px; opacity: .6; font-style: normal; }
+.zz-tab-agents { background: #d7f22a; color: #11150c !important; box-shadow: 3px 3px 0 #607016; }
+.zz-tab:hover { border-color: #d7f22a; color: #ecff8b !important; background: #29311d; }
+.zz-nav-meta { display: flex; align-items: center; gap: 8px; margin-left: auto; color: #a5af90; font-size: 8px; font-weight: 900; letter-spacing: .15em; }
+.zz-nav-meta i { width: 6px; height: 6px; background: #d7f22a; border-radius: 50%; box-shadow: 0 0 10px #d7f22a80; }
+.zz-screen { min-height: 620px; background: #10120f; border: 2px solid #34382e; border-top: 0; }
+.zz-personal { display: none; }
+.pp-uc-about-me:has(#zz-about:target, #zz-friends:target, #zz-links:target) .zz-agents { display: none; }
+.pp-uc-about-me:has(#zz-about:target) .zz-about-screen,
+.pp-uc-about-me:has(#zz-friends:target) .zz-friends-screen,
+.pp-uc-about-me:has(#zz-links:target) .zz-links-screen { display: block; }
+.pp-uc-about-me:has(#zz-about:target, #zz-friends:target, #zz-links:target) .zz-tab-agents { background: transparent; color: #979e8b !important; box-shadow: none; }
+.pp-uc-about-me:has(#zz-about:target) .zz-tab-about,
+.pp-uc-about-me:has(#zz-friends:target) .zz-tab-friends,
+.pp-uc-about-me:has(#zz-links:target) .zz-tab-links { background: #d7f22a; color: #11150c !important; box-shadow: 3px 3px 0 #607016; }
+.zz-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px 19px; background: #d7f22a; color: #19200e; border-radius: 0 0 12px 12px; font-size: 9px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.zz-footer a { color: #19200e !important; }
+.pp-uc-about-me a:focus-visible, .pp-uc-about-me summary:focus-visible { outline: 3px solid #f8ffae; outline-offset: 4px; }
+@media (max-width: 800px) {
+  .zz-navigation { padding: 9px 8px; min-height: 58px; }
+  .zz-nav { width: 100%; justify-content: space-between; gap: 3px; }
+  .zz-tab { padding: 9px 12px; gap: 6px; font-size: 11px; }
+  .zz-nav-meta { display: none; }
+  .zz-screen { min-height: 610px; }
+}
+@media (max-width: 430px) { .zz-tab { padding: 9px 10px; font-size: 10px; } .zz-tab small { display: none; } .zz-footer { font-size: 8px; } }
+/* @jai:component menu:end */
+
+/* @jai:component characters:start */
+/* The native roster is hidden only when this replacement is present. Native
+   navigation and profile controls live outside these specific gallery nodes. */
+body:has(.zz-agents) .profile-tabs-chakra-tabs,
+body:has(.zz-agents) .pp-cc-list-container,
+body:has(.zz-agents) .profile-filters-flex-outer,
+body:has(.zz-agents) .profile-pagination-flex-outer { display: none !important; }
+.zz-agents { position: relative; }
+.zz-stage-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 19px 24px 0; color: #8b9480; font-size: 9px; font-weight: 900; letter-spacing: .16em; text-transform: uppercase; }
+.zz-stage-heading b { color: #d7f22a; }
+.cs-shell { position: relative; isolation: isolate; display: flex; min-height: 615px; width: 100%; margin: 0; overflow: hidden; color: #eeeede; background: #10120f; }
+.cs-shell::before { content: "AGENT\A ARCHIVE"; white-space: pre; position: absolute; top: 57px; left: -15px; z-index: 0; color: #272b24; font-size: clamp(80px, 14vw, 190px); line-height: .8; font-weight: 1000; letter-spacing: -.095em; font-style: italic; transform: rotate(-11deg); pointer-events: none; }
+.cs-shell::after { content: "SELECT / CONNECT / REPEAT"; position: absolute; z-index: 7; top: 0; right: 0; bottom: 0; width: 28px; background: #d7f22a; color: #151b0b; writing-mode: vertical-rl; text-align: center; font-size: 10px; font-weight: 1000; letter-spacing: .25em; transform: skewY(-12deg); pointer-events: none; }
+.cs-key { position: fixed; top: 72px; left: 0; width: 1px; height: 1px; pointer-events: none; }
+.cs-scene { position: absolute; inset: 28px 36% 35px 24px; z-index: 0; overflow: hidden; border: 1px solid #4e5442; border-radius: 140px 18px 18px 18px; background: #171c14; transform: rotate(-2deg); }
+.cs-scene-art { position: absolute; inset: 0; display: block; width: 100%; height: 100%; max-width: none !important; max-height: none !important; object-fit: cover; object-position: center center; opacity: 0; transition: opacity .24s ease; }
+.cs-scene-shade { position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(0deg, #090d08 0%, #090d08e8 7%, #090d0820 48%, #090d0825 100%); }
+.cs-scene-mark { display: none !important; }
+.cs-topline { position: absolute; z-index: 6; top: 53px; left: 56px; display: flex; gap: 12px; color: #ecf6d6; font-size: 8px; font-weight: 900; text-transform: uppercase; letter-spacing: .11em; pointer-events: none; }
+.cs-topline-status { border: 1px solid #788559; padding: 7px 10px; border-radius: 99px; background: #111b10df; }
+.cs-topline-status i { display: inline-block; width: 5px; height: 5px; margin-right: 6px; border-radius: 50%; background: #d7f22a; }
+.cs-topline-file { display: none !important; }
+.cs-identity { position: absolute; z-index: 6; left: 51px; bottom: 62px; width: calc(64% - 96px); pointer-events: none; }
+.cs-code { display: inline-block; margin-bottom: 12px; padding: 5px 9px; background: #d7f22a; color: #17200c; font-size: 9px; font-weight: 1000; text-transform: uppercase; transform: skewX(-10deg); }
+.cs-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; margin: 0; color: #fffef0; font-size: clamp(24px, 3.6vw, 48px); font-weight: 1000; letter-spacing: -.065em; line-height: .97; font-style: italic; text-transform: uppercase; text-shadow: 2px 3px #091006; overflow-wrap: anywhere; }
+.cs-title { margin: 10px 0 0 !important; font-size: 11px; color: #d7f22a; text-transform: uppercase; }
+.cs-desc, .cs-quote { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; max-width: 470px; margin: 12px 0 0 !important; color: #d6ddca; font-size: 12px; line-height: 1.5; }
+/* These ancestors stay static: previews use the shell as their containing block. */
+.cs-roster { flex: 0 0 36%; width: 36%; margin-left: 64%; padding: 30px 50px 40px 28px; display: flex; flex-direction: column; justify-content: center; gap: 0; }
+.cs-roster-head, .cs-grid, .cs-filters, .cs-select-line, .cs-tags { z-index: 5; }
+.cs-roster-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.cs-roster-head strong { color: #f0f0df; font-size: clamp(19px, 2.7vw, 36px); font-style: italic; font-weight: 1000; letter-spacing: -.055em; line-height: .85; text-transform: uppercase; }
+.cs-roster-head strong br { display: none; }
+.cs-roster-head span { max-width: 64px; text-align: right; color: #d7f22a; font-size: 8px; line-height: 1.3; font-weight: 900; text-transform: uppercase; }
+.cs-filters { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 15px; order: 1; padding-top: 12px; }
+.cs-filter { padding: 5px 7px; border: 1px solid #424b35; border-radius: 3px; font-size: 8px; line-height: 1.1; color: #bcc6aa !important; font-weight: 800; text-transform: uppercase; }
+.cs-filter:hover { background: #d7f22a; color: #152009 !important; }
+.cs-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 10px 8px; max-height: 352px !important; padding: 8px 10px 12px 6px; overflow-y: auto; }
+.cs-slot { position: static; display: block; min-width: 0; text-decoration: none !important; }
+.cs-slot-face { position: relative; display: block; width: 100%; aspect-ratio: .82; overflow: hidden; border: 2px solid #42493a; border-radius: 3px; background: #232b1c; transform: skewY(-5deg); transition: border-color .18s ease, transform .18s ease; }
+.cs-slot-thumb { position: absolute; inset: 0; display: block; width: 100%; height: 100%; max-width: none !important; max-height: none !important; object-fit: cover; object-position: center center; filter: saturate(.75) brightness(.83); }
+.cs-slot-face::before { content: "+"; position: absolute; z-index: 3; left: 3px; top: 3px; background: #11180cdf; color: #e5ff77; padding: 2px 4px; font-size: 9px; font-weight: 1000; font-style: italic; }
+.cs-slot-face::after { content: "NO SIGNAL"; position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; display: block; overflow: hidden; padding: 16px 4px 4px; white-space: nowrap; text-overflow: ellipsis; color: #fff; background: linear-gradient(transparent, #070c03); font-size: 8px; font-weight: 900; letter-spacing: -.02em; }
+.cs-slot-live:hover .cs-slot-face, .cs-slot-live:focus-visible .cs-slot-face { border-color: #d7f22a; transform: skewY(-5deg) translateY(-3px); }
+.cs-slot-live:hover .cs-slot-thumb { filter: saturate(1.05) brightness(1.05); }
+.cs-stage-preview { position: absolute; z-index: 1; left: 24px; top: 28px; width: calc(64% - 24px); height: calc(100% - 63px); object-fit: cover; object-position: center center; border-radius: 140px 18px 18px 18px; opacity: 0; pointer-events: none; transform: rotate(-2deg); transition: opacity .18s ease; }
+.cs-slot-live::after { content: ""; position: absolute; z-index: 2; inset: 28px 36% 35px 24px; border-radius: 140px 18px 18px 18px; background: linear-gradient(0deg, #090d08 0%, transparent 70%); transform: rotate(-2deg); opacity: 0; pointer-events: none; }
+.cs-slot-live:hover .cs-stage-preview, .cs-slot-live:hover::after { opacity: 1; }
+.cs-tags { order: 2; padding: 11px 0; }
+.cs-tags::before { display: none; }
+.cs-tags a, .cs-tags span { display: inline-block; margin: 2px 3px 0 0; font-size: 8px; color: #adb996 !important; line-height: 1.3; }
+.cs-tags a::before, .cs-tags span::before { content: "#"; color: #d7f22a; }
+.cs-select-line { display: flex; align-items: center; gap: 6px; order: 3; padding-top: 13px; border-top: 1px solid #353d29; }
+.cs-select-line > span { display: none !important; }
+.cs-launch { display: block; width: 100%; padding: 13px 12px; border: 2px solid #d7f22a; border-radius: 5px; color: #151e0b !important; background: #d7f22a; font-size: 11px; font-style: italic; font-weight: 1000; text-align: center; text-transform: uppercase; box-shadow: 3px 3px 0 #54651a; }
+.cs-launch:hover { background: #efffac; }
+.cs-index { position: absolute; bottom: 12px; left: 28px; color: #899578; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; }
+/* @proxy:wiring */
+@media (max-width: 1050px) and (min-width: 701px) {
+  .cs-roster { flex-basis: 40%; width: 40%; margin-left: 60%; padding-left: 18px; padding-right: 39px; }
+  .cs-scene, .cs-slot-live::after { right: 40%; }
+  .cs-identity { width: calc(60% - 76px); left: 39px; }
+  .cs-stage-preview { width: calc(60% - 24px); }
+  .cs-grid { gap: 8px 5px; }
+}
+@media (max-width: 700px) {
+  .zz-stage-heading { padding: 14px 15px 0; font-size: 7px; }
+  .zz-stage-heading > span:last-child { display: none; }
+  .cs-shell { display: block; padding-top: 420px; min-height: 0; }
+  .cs-shell::before { top: 55px; font-size: 97px; }
+  .cs-shell::after { width: 13px; font-size: 8px; letter-spacing: .2em; }
+  .cs-scene { top: 22px; right: 25px; bottom: auto; left: 13px; height: 375px; border-radius: 75px 12px 12px 12px; }
+  .cs-topline { top: 40px; left: 33px; font-size: 7px; }
+  .cs-identity { top: 215px; bottom: auto; left: 29px; width: calc(100% - 71px); height: 160px; display: flex; flex-direction: column; justify-content: flex-end; }
+  .cs-name { font-size: clamp(22px, 6.4vw, 37px); }
+  .cs-desc, .cs-quote { font-size: 10px; margin-top: 8px !important; }
+  .cs-roster { width: 100%; margin: 0; padding: 0 29px 33px 18px; }
+  .cs-roster-head { margin-bottom: 10px; }
+  .cs-roster-head strong { font-size: 26px; }
+  .cs-roster-head span { max-width: none; }
+  .cs-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; max-height: 207px !important; gap: 9px 7px; }
+  .cs-filters { padding-top: 9px; margin-bottom: 3px; }
+  .cs-tags { padding: 7px 0; }
+  .cs-stage-preview { left: 13px; top: 22px; width: calc(100% - 38px); height: 375px; border-radius: 75px 12px 12px 12px; }
+  .cs-slot-live::after { left: 13px; top: 22px; right: 25px; bottom: auto; height: 375px; border-radius: 75px 12px 12px 12px; }
+  .cs-index { left: 18px; bottom: 10px; font-size: 7px; }
+}
+@media (prefers-reduced-motion: reduce) { .cs-scene-art, .cs-slot-face, .cs-slot-thumb, .cs-stage-preview, .zz-tab { transition: none !important; } }
+/* @jai:component characters:end */
+
+/* @jai:component personal:start */
+.zz-personal { position: relative; overflow: hidden; padding: 44px; background: radial-gradient(ellipse at 90% 0%, #455a2229, transparent 55%), repeating-linear-gradient(125deg, transparent 0 49px, #46543312 50px 51px), #11150f; }
+.zz-personal::before { content: "INTER-KNOT"; position: absolute; top: 20px; right: -30px; z-index: 0; pointer-events: none; font-size: 95px; font-weight: 1000; font-style: italic; letter-spacing: -.08em; color: #d7f22a08; transform: rotate(-8deg); }
+.zz-eyebrow { position: relative; color: #d7f22a; font-size: 10px; font-weight: 900; letter-spacing: .2em; text-transform: uppercase; }
+.zz-personal h2 { position: relative; margin: 14px 0 30px; color: #f0f3e2; font-size: clamp(36px, 6vw, 76px); font-weight: 1000; font-style: italic; letter-spacing: -.07em; line-height: .92; text-transform: uppercase; }
+.zz-personal h2 em { color: #d7f22a; }
+.zz-personal h3 { color: #e5ecd9; font-size: 17px; font-style: italic; text-transform: uppercase; }
+.zz-personal p { color: #b3bea3; font-size: 13px; line-height: 1.8; }
+.zz-about-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(220px, 1fr); gap: 28px; }
+.zz-bio-card { position: relative; padding: 27px; border: 1px solid #485239; border-top: 5px solid #d7f22a; border-radius: 7px; background: #1c2317; }
+.zz-bio-card p + p { margin-top: 17px; }
+.zz-bio-card .zz-big-copy { color: #e2e9d5; font-size: 22px; line-height: 1.35; letter-spacing: -.035em; font-weight: 700; }
+.zz-note { margin-top: 25px !important; padding-top: 18px; border-top: 1px solid #414d31; font-size: 11px !important; }
+.zz-log { padding: 19px 0; border-bottom: 1px solid #3b462d; }
+.zz-log:first-child { padding-top: 0; }
+.zz-log summary { display: flex; justify-content: space-between; gap: 15px; cursor: pointer; list-style: none; color: #dce7c8; font-size: 12px; font-weight: 900; text-transform: uppercase; }
+.zz-log summary::-webkit-details-marker { display: none; }
+.zz-log summary::after { content: "+"; color: #d7f22a; }
+.zz-log[open] summary::after { content: "−"; }
+.zz-log p { padding-top: 13px; font-size: 12px; }
+.zz-friend-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 25px; }
+.zz-friend { position: relative; min-height: 195px; padding: 23px; border: 1px dashed #607143; border-radius: 9px; background: #1a2214; }
+.zz-friend > span { display: flex; width: 50px; height: 50px; align-items: center; justify-content: center; margin-bottom: 21px; border: 1px solid #667846; border-radius: 50%; color: #d7f22a; font-size: 26px; font-weight: 300; }
+.zz-friend h3 { margin-bottom: 7px; }
+.zz-friend p { font-size: 11px; }
+.zz-friend-link { display: block; color: inherit; }
+.zz-friend-link:hover { border-color: #d7f22a; background: #25351a; }
+.zz-social-list { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(210px, 1fr); gap: 18px; margin-top: 26px; }
+.zz-social { display: flex; flex-direction: column; justify-content: space-between; gap: 32px; min-height: 182px; padding: 25px; border: 1px solid #5c7040; border-radius: 8px; background: #202c18; }
+.zz-social small { color: #c1d1a9; font-size: 10px; letter-spacing: .18em; font-weight: 900; }
+.zz-social strong { display: flex; align-items: center; justify-content: space-between; color: #eef3dc; font-size: 31px; font-weight: 1000; font-style: italic; letter-spacing: -.05em; }
+.zz-social b { color: #d7f22a; font-style: normal; }
+.zz-social:hover { border-color: #d7f22a; background: #2d3c20; }
+.zz-social-empty { border-style: dashed; background: #151c11; }
+.zz-social-empty strong { font-size: 22px; color: #96a682; }
+.zz-personal .zz-bottom-note { margin-top: 26px; color: #83956b; font-size: 10px; letter-spacing: .06em; }
+@media (max-width: 800px) { .zz-personal { padding: 30px 23px; } .zz-about-grid { grid-template-columns: 1fr; gap: 23px; } .zz-friend-grid { grid-template-columns: 1fr; } .zz-friend { min-height: 135px; } .zz-friend > span { float: left; margin: 0 20px 20px 0; } .zz-social-list { grid-template-columns: 1fr; } .zz-personal::before { font-size: 65px; } .zz-bio-card { padding: 22px; } }
+/* @jai:component personal:end */
+</style>
+
+<!-- @jai:component menu:start -->
+<div class="zz-navigation"><span class="zz-nav-key" id="zz-agents"></span><span class="zz-nav-key" id="zz-about"></span><span class="zz-nav-key" id="zz-friends"></span><span class="zz-nav-key" id="zz-links"></span><nav class="zz-nav" aria-label="Profile screens"><a class="zz-tab zz-tab-agents" href="#zz-agents"><small>01</small> Agents</a><a class="zz-tab zz-tab-about" href="#zz-about"><small>02</small> About me</a><a class="zz-tab zz-tab-friends" href="#zz-friends"><small>03</small> Friends</a><a class="zz-tab zz-tab-links" href="#zz-links"><small>04</small> Links</a></nav><span class="zz-nav-meta"><i></i> PERSONAL TERMINAL</span></div>
+<!-- @jai:component menu:end -->
+
+<!-- @jai:component characters:start -->
+<section class="zz-screen zz-agents" aria-label="Agent archive"><div class="zz-stage-heading"><span><b>CHARACTER ARCHIVE</b> &nbsp; / &nbsp; CHOOSE YOUR NEXT ENCOUNTER</span><span>SWEEPERCOM · PERSONAL COLLECTION</span></div><!-- @proxy:roster --></section>
+<!-- @jai:component characters:end -->
+
+<!-- @jai:component personal:start -->
+<section class="zz-screen zz-personal zz-about-screen" aria-label="About me"><span class="zz-eyebrow">02 / Personal file</span><h2>Behind the <em>screen.</em></h2><div class="zz-about-grid"><article class="zz-bio-card"><p class="zz-big-copy">A little introduction goes a long way.</p><p>This is your corner of the terminal. Add who you are, the worlds you like writing, and what people can expect from your characters.</p><p>Keep it casual. Make it yours.</p><p class="zz-note">Edit this bio in your About Me code. The menu takes care of the rest.</p></article><div><details class="zz-log" open><summary>Creator notes</summary><p>Room for your current projects, release notes, and the things you want visitors to know before they jump into a chat.</p></details><details class="zz-log"><summary>Before you connect</summary><p>Add your boundaries, content notes, or roleplay preferences here.</p></details><details class="zz-log"><summary>Current transmission</summary><p>A place for your latest update, next character teaser, or a note to your regulars.</p></details></div></div></section>
+<section class="zz-screen zz-personal zz-friends-screen" aria-label="Friends"><span class="zz-eyebrow">03 / Your people</span><h2>The <em>inner circle.</em></h2><p>Good stories. Better company. A space for your friends and favorite creators.</p><div class="zz-friend-grid"><article class="zz-friend"><span>+</span><h3>Open channel / 01</h3><p>A spot for a friend.<br>Add their name, profile link and a little introduction.</p></article><article class="zz-friend"><span>+</span><h3>Open channel / 02</h3><p>A spot for a creator you love.<br>Give visitors someone new to discover.</p></article><article class="zz-friend"><span>+</span><h3>Open channel / 03</h3><p>Keep your circle growing.<br>This channel is ready when you are.</p></article></div><p class="zz-bottom-note">Friend slots are left open for you to customize.</p></section>
+<section class="zz-screen zz-personal zz-links-screen" aria-label="Social links"><span class="zz-eyebrow">04 / Outside the terminal</span><h2>Stay <em>connected.</em></h2><p>Another channel. The same creator.</p><div class="zz-social-list"><a class="zz-social" href="https://discord.gg/e2HDbWXUBp" target="_blank" rel="noopener noreferrer"><small>COMMUNITY / INVITE</small><strong>Discord <b>↗</b></strong></a><div class="zz-social zz-social-empty"><small>YOUR NEXT CHANNEL</small><strong>Space for your socials <b>+</b></strong><p>Add your website, art page, or another social profile.</p></div></div><p class="zz-bottom-note">Add more links by duplicating a social card in the markup.</p></section>
+<div class="zz-footer"><span>PROXY TERMINAL / SWEEPERCOM</span><span>Choose a file. Enter a story. <a href="#zz-agents">↖ Back to agents</a></span></div>
+<!-- @jai:component personal:end -->

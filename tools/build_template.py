@@ -481,8 +481,14 @@ def package_manifests():
     manifests = []
     for name in sorted(os.listdir(directory)):
         path = os.path.join(directory, name, "manifest.json")
-        if os.path.isfile(path):
-            manifests.append(path)
+        if not os.path.isfile(path):
+            continue
+        # A creator's own profile can live here for local work without being
+        # published: js/templates.js ships with the site on every push.
+        with io.open(path, encoding="utf-8") as fh:
+            if json.load(fh).get("private"):
+                continue
+        manifests.append(path)
     return manifests
 
 

@@ -94,7 +94,51 @@
     });
   }
 
-  function profileFromDocument(doc, resources, importedCss) {
+  function profileFromDocument(doc, resources, capturedStyles) {
+    // MHTML stores stylesheets as separate MIME parts, but MIME part order is
+    // not cascade order. Rebuild the cascade from the links/styles in <head>,
+    // which is the order the saved page actually rendered them in.
+    var importedStyles = [];
+    var creatorStyles = [];
+    var usedStyles = {};
+    var aboutClassNames = {};
+    var aboutIds = {};
+    var aboutMarkup = (doc.querySelector('.pp-uc-about-me, .profile-about-me') || {}).innerHTML || '';
+    aboutMarkup.replace(/class\s*=\s*["']([^"']+)["']/gi, function (_, classes) {
+      classes.split(/\s+/).forEach(function (name) {
+        if (name && !/^(pp|profile|css|chakra|_)/i.test(name)) aboutClassNames[name] = true;
+      });
+      return _;
+    });
+    aboutMarkup.replace(/id\s*=\s*["']([^"']+)["']/gi, function (_, id) {
+      if (id && !/^(root|app|profile)/i.test(id)) aboutIds[id] = true;
+      return _;
+    });
+    function isCreatorStylesheet(css) {
+      var hasClassRule = Object.keys(aboutClassNames).some(function (name) {
+        return new RegExp('\\.' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w-])').test(css);
+      });
+      if (hasClassRule) return true;
+      return Object.keys(aboutIds).some(function (id) {
+        return new RegExp('#' + id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w-])').test(css);
+      });
+    }
+    Array.prototype.forEach.call(doc.head ? doc.head.querySelectorAll('style, link[rel~="stylesheet"]') : [], function (node) {
+      if (node.tagName === 'STYLE') {
+        var inlineCss = rewriteResources(node.textContent || '', resources);
+        if (isCreatorStylesheet(inlineCss)) creatorStyles.push(inlineCss);
+        else importedStyles.push(inlineCss);
+        return;
+      }
+      var href = node.getAttribute('href') || '';
+      var css = capturedStyles[href] || capturedStyles[href.replace(/^cid:/i, '')];
+      if (css != null && !usedStyles[href]) {
+        if (isCreatorStylesheet(css)) creatorStyles.push(css);
+        else importedStyles.push(css);
+        usedStyles[href] = true;
+      }
+    });
+
     Array.prototype.forEach.call(doc.querySelectorAll('script, noscript, base'), function (node) { node.remove(); });
     // The import is a saved webpage, not executable application code. Keep its
     // visual markup but discard inline event handlers and javascript: URLs.
@@ -108,25 +152,38 @@
     });
     Array.prototype.forEach.call(doc.querySelectorAll('[src], [poster], [href], [srcset]'), function (node) {
       ['src', 'poster', 'href', 'srcset'].forEach(function (attr) {
-        if (node.hasAttribute(attr)) node.setAttribute(attr, rewriteResources(node.getAttribute(attr), resources));
+        if (!node.hasAttribute(attr)) return;
+        var original = node.getAttribute(attr);
+        // MHTML resources become blob: URLs so the private local preview works
+        // offline. Keep an image's public address alongside that temporary URL:
+        // the Cards detector can safely publish the former, never the latter.
+        if (attr === 'src' && node.tagName === 'IMG' && node.closest('.pp-cc-wrapper') &&
+            /^(https?:)?\/\//i.test(original || '')) {
+          node.setAttribute('data-jai-source-src', original);
+        }
+        node.setAttribute(attr, rewriteResources(original, resources));
       });
     });
     Array.prototype.forEach.call(doc.querySelectorAll('[style]'), function (node) {
       node.setAttribute('style', rewriteResources(node.getAttribute('style'), resources));
     });
 
-    var importedStyles = [];
-    Array.prototype.forEach.call(doc.head ? doc.head.querySelectorAll('style') : [], function (style) {
-      importedStyles.push(rewriteResources(style.textContent || '', resources));
-    });
-    if (importedCss) importedStyles.push(importedCss);
-
     var root = doc.getElementById('root');
     if (!doc.querySelector('.pp-uc-title, .profile-info-stack, .pp-cc-list-container')) {
       throw new Error('This does not look like a JanitorAI profile page. Save the profile page itself, then try again.');
     }
-    var content = root ? root.outerHTML : doc.body.innerHTML;
     var about = doc.querySelector('.pp-uc-about-me, .profile-about-me');
+    var aboutMe = about ? about.innerHTML : null;
+    if (aboutMe && creatorStyles.length) {
+      aboutMe = '<style>\n' + creatorStyles.join('\n') + '\n</style>\n' + aboutMe;
+    }
+    // About Me is the user's document, not part of the captured site canvas.
+    // Keep it in `aboutMe` for the editor, but remove its <style> blocks from
+    // the snapshot so toggling custom CSS really can show the base profile.
+    if (about) {
+      Array.prototype.forEach.call(about.querySelectorAll('style'), function (style) { style.remove(); });
+    }
+    var content = root ? root.outerHTML : doc.body.innerHTML;
     var title = doc.querySelector('.pp-uc-title');
     var avatar = doc.querySelector('.pp-uc-avatar');
     var followers = doc.querySelector('.pp-uc-followers-count');
@@ -138,7 +195,7 @@
     return {
       html: content,
       css: importedStyles.join('\n'),
-      aboutMe: about ? about.innerHTML : null,
+      aboutMe: aboutMe,
       data: {
         username: title ? title.textContent.replace(/^\s*@/, '').trim() : null,
         avatar: avatar ? avatar.getAttribute('src') : null,
@@ -154,30 +211,43 @@
 
   function makeResources(parts, urls) {
     var resources = {};
-    var css = [];
+    var capturedStyles = {};
+
+    // Binary resources first, so url(...) references inside captured CSS can
+    // be rewritten to their local object URLs in the second pass.
     parts.forEach(function (part) {
-      if (part.type === 'text/html') return;
-      if (part.type === 'text/css') {
-        // The preview already links every font stylesheet JanitorAI loads, so
-        // re-injecting them adds a couple of megabytes of @font-face rules for
-        // no visual difference at all.
-        if (!/fonts\.googleapis\.com/i.test(part.location || '')) {
-          css.push(textFromBytes(part.bytes));
-        }
-        return;
-      }
+      if (part.type === 'text/html' || part.type === 'text/css') return;
       if (!part.location && !part.id) return;
       var url = URL.createObjectURL(new Blob([part.bytes], { type: part.type || 'application/octet-stream' }));
       urls.push(url);
       if (part.location) resources[part.location] = url;
       if (part.id) resources[part.id] = url;
     });
-    return { map: resources, css: css.join('\n') };
+
+    parts.forEach(function (part) {
+      if (part.type !== 'text/css') return;
+      // The preview already loads JanitorAI's font catalogue. Avoid adding the
+      // multi-megabyte Google Fonts capture again.
+      if (/fonts\.googleapis\.com/i.test(part.location || '')) return;
+      var css = rewriteResources(textFromBytes(part.bytes), resources);
+      if (part.location) capturedStyles[part.location] = css;
+      if (part.id) {
+        capturedStyles[part.id] = css;
+        capturedStyles['cid:' + part.id] = css;
+      }
+    });
+    return { map: resources, styles: capturedStyles };
   }
 
   function release() {
     objectUrls.forEach(function (url) { URL.revokeObjectURL(url); });
     objectUrls = [];
+  }
+
+  function releaseSome(urls) {
+    if (!urls || !urls.length) return;
+    urls.forEach(function (url) { URL.revokeObjectURL(url); });
+    objectUrls = objectUrls.filter(function (url) { return urls.indexOf(url) === -1; });
   }
 
   function read(file) {
@@ -188,9 +258,9 @@
       var parsed = isMhtml ? parseMhtml(buffer) : { html: textFromBytes(new Uint8Array(buffer)), parts: [] };
       var resources = makeResources(parsed.parts, nextUrls);
       var doc = new DOMParser().parseFromString(parsed.html, 'text/html');
-      var profile = profileFromDocument(doc, resources.map, rewriteResources(resources.css, resources.map));
-      release();
-      objectUrls = nextUrls;
+      var profile = profileFromDocument(doc, resources.map, resources.styles);
+      objectUrls = objectUrls.concat(nextUrls);
+      profile.release = function () { releaseSome(nextUrls); };
       return profile;
     }).catch(function (error) {
       nextUrls.forEach(function (url) { URL.revokeObjectURL(url); });

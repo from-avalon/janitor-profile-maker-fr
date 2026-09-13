@@ -39,7 +39,13 @@
     ['click', 'auxclick'].forEach(function (type) {
       doc.addEventListener(type, function (e) {
         var a = e.target.closest && e.target.closest('a');
-        if (a) e.preventDefault();
+        if (!a) return;
+        // Creator menus use local hash targets for persistent CSS-only state.
+        // Keep those working inside About Me, while captured site links remain inert.
+        var href = a.getAttribute('href') || '';
+        if (a.closest('.pp-uc-about-me') && /^#[^#]+$/.test(href) &&
+            doc.getElementById(href.slice(1))) return;
+        e.preventDefault();
       }, true);
     });
     doc.addEventListener('submit', function (e) { e.preventDefault(); }, true);

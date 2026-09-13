@@ -9,6 +9,108 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-09-13 — Proxy Terminal profile template
+
+**Proxy Terminal** is a complete ZZZ-inspired profile surface: the real Janitor
+header stays at the top, the creator identity becomes a player card, and a
+CSS-only menu switches between Agents, About Me, Friends and Links. The Agents
+screen uses the Cards roster for a large centered stage, clipped portraits and
+contact links, with room for personal copy and social channels around it.
+
+Proxy Terminal is also available directly from **Cards → Layout & theme**. Its
+profile label, watermark, About Me copy, creator notes, Friends heading, social
+URL and footer text can be edited there and are written into the generated
+hardcoded profile.
+
+## 2026-09-13 — Contact images fill themselves in
+
+**Detect from profile** now carries each bot's normal image into the hardcoded
+contact automatically. It fills both the roster portrait and the stage art,
+while either field can still be overridden. Portraits and stage images are
+centered and clipped with `object-fit: cover`, so extremely tall source art
+cannot stretch or break the selector.
+
+## 2026-09-12 — Cards can bring their own stylesheet
+
+**Layout & theme** gains a **Style** picker. *Contact select* writes a complete
+layout — the page breakout, the stage, the roster, the tiles — so inserting
+cards into an empty About Me now produces something that looks like a profile
+instead of a stack of bare divs. *None* writes markup and wiring only, for a
+document that already has its own CSS, and switching to it takes the stylesheet
+back out again. The panel picks for you the first time: a document already
+styling `.cs-shell` keeps its own look, an empty one gets the shipped style.
+
+A roster is no longer allowed to stretch the page. However many characters are
+in it, tiles wrap by width and the grid scrolls inside the panel, so the layout
+keeps the height it was designed at. That rule travels with the generated block,
+so it applies to a hand-written stylesheet too.
+
+## 2026-09-12 — Cards update live, and the editor reaches the end of a long line
+
+Editing a card now rewrites the generated block as you type, so the preview
+stops showing the name you just changed. Reordering, removing, detecting and the
+Layout & theme options do the same.
+
+The editor no longer stops at the width of its pane. Hardcoded markup is one
+long line on purpose, and the text area used to end where the pane ended —
+everything you scrolled right to was impossible to click, select or type into.
+It is now as wide as the longest line.
+
+Two fixes for rosters bigger than a handful: the generated block is rewritten
+where it already sits rather than appended to the last stylesheet, and a roster
+that outgrows the panel now scrolls inside it instead of stretching the page.
+
+## 2026-09-12 — Cards: write characters into About Me without typing them five times
+
+A new **Cards** tab (and the **Hard coding** button, no longer greyed out) keeps
+a roster of characters — name, tagline, quote, description, tags, link and the
+images — and writes them into your About Me as your own markup. **Detect from
+profile** reads the characters already in your preview and fills in everything a
+card can know: name, description, tags and the link. Tagline, quote and the wide
+art are yours to add, as is any image URL — a captured profile carries its
+pictures as local copies that mean nothing once published.
+
+Inserting writes two marked blocks, one in your stylesheet and one below it, and
+only ever rewrites those: the rest of your code is left exactly as you wrote it,
+so you can regenerate after every roster change. The generated CSS is the part
+that scales with the roster — which file is the default, what each `:target`
+shows, the tag filter chips — themed by the accent and hover colours in **Layout
+& theme**. Tag chips are linked for you from JanitorAI's own tag ids, and
+anything the site doesn't have a number for is linked as a custom tag.
+
+A layout warning in the editor now also comes with a **Remove** button, which
+deletes the whitespace that was going to show up as a gap.
+
+## 2026-09-12 — The linter now catches invisible whitespace gaps
+
+Two inline elements written one per line — a common, readable way to write a
+row of tag chips or badges — can end up with an unwanted gap between them: the
+newline and indentation count as a real space once both elements render
+inline. The editor now flags this as a **layout warning**, separate from the
+existing "blocked" issues, since nothing here is stripped by JanitorAI — it's
+a plain HTML/CSS quirk the preview already renders faithfully, just easy to
+miss reading the code. Layout warnings get their own amber underline and
+gutter marker instead of the red "blocked" one, and the copy-button toast and
+issue count call them out separately so a warning is never mistaken for
+something JanitorAI will delete.
+
+## 2026-09-12 — Celeste enters Signal Select
+
+**Signal Select: Celeste** is a new hardcoded character-selector template with a
+cinematic 16:9 stage, a selected portrait tile, six empty roster slots and a
+direct launch link. Its desktop, tablet and mobile layouts are all purpose-built,
+and visitors who prefer reduced motion get a still version automatically. The
+selector now also carries Celeste's captured profile tags as linked chips.
+
+## 2026-09-12 — Field Notes joins Advanced Templates
+
+**Field Notes** is a new light-mode template: a naturalist's expedition
+journal in warm parchment tones, with a page-turn loading sequence, a
+compass-rose hero, stamped and taped paper panels, and specimen-tag character
+cards. Add the complete profile or choose its individual backdrop, layout,
+loading sequence, hero, content panels, site chrome, character gallery, or
+credit — the same part-by-part pattern as Velvet Nocturne and Dark Hour Menu.
+
 ## 2026-09-12 — Sidebar reorganized, edit the preview directly
 
 The sidebar is reorganized around what people actually reach for. **View** is a

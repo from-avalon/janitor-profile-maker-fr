@@ -50,14 +50,24 @@
     viewport: 'desktop',
     enforce: true,
     inspector: false,
-    panel: 'design',
+    panel: 'presets',
     zoom: 'fit',
+    zoomScale: 1,
+    previewCss: true,
     customWidth: 1600,
+    sidebarWidth: null,
+    inspectorWidth: null,
+    sidebarHidden: false,
+    inspectorHidden: false,
     autoParts: []          // template part ids added only because another part needed them
   };
 
   var importedProfile = false;
   var hadSavedData = false;
+  var profileSnapshots = [];
+  var activeProfileId = null;
+  var keepDefaultProfile = true;
+  var profileIdSeq = 0;
 
   var frameReady = false;
   var index = {};          // normalised selector -> { property: value }
@@ -69,7 +79,10 @@
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify({
         code: state.code, data: state.data, viewport: state.viewport,
-        enforce: state.enforce, customWidth: state.customWidth, autoParts: state.autoParts
+        enforce: state.enforce, customWidth: state.customWidth, zoom: state.zoom,
+        zoomScale: state.zoomScale, previewCss: state.previewCss, autoParts: state.autoParts,
+        sidebarWidth: state.sidebarWidth, inspectorWidth: state.inspectorWidth,
+        sidebarHidden: state.sidebarHidden, inspectorHidden: state.inspectorHidden
       }));
     } catch (e) { /* private mode, quota — not worth interrupting the user */ }
   }
@@ -81,6 +94,13 @@
       var saved = JSON.parse(raw);
       if (typeof saved.code === 'string') state.code = saved.code;
       if (typeof saved.customWidth === 'number') state.customWidth = saved.customWidth;
+      if (saved.zoom === 'fit' || saved.zoom === 'actual' || saved.zoom === 'manual') state.zoom = saved.zoom;
+      if (typeof saved.zoomScale === 'number') state.zoomScale = Math.max(0.25, Math.min(2, saved.zoomScale));
+      if (typeof saved.previewCss === 'boolean') state.previewCss = saved.previewCss;
+      if (typeof saved.sidebarWidth === 'number') state.sidebarWidth = saved.sidebarWidth;
+      if (typeof saved.inspectorWidth === 'number') state.inspectorWidth = saved.inspectorWidth;
+      if (typeof saved.sidebarHidden === 'boolean') state.sidebarHidden = saved.sidebarHidden;
+      if (typeof saved.inspectorHidden === 'boolean') state.inspectorHidden = saved.inspectorHidden;
       if (Array.isArray(saved.autoParts)) state.autoParts = saved.autoParts;
       if (saved.data) {
         state.data = Object.assign({}, DEFAULT_DATA, saved.data);
@@ -113,7 +133,7 @@
       // on every keystroke.
       post({
         type: 'payload',
-        css: window.JaiPayload.allCss(payload),
+        css: state.previewCss ? window.JaiPayload.allCss(payload) : '',
         html: stripStyleBlocks(payload)
       });
     }, 60);
@@ -218,7 +238,10 @@
     var avail = scroll.clientWidth - 32;
     // clientWidth can read as 0 mid-relayout (toggling the code pane), which
     // would otherwise flash a nonsense zoom figure.
-    var scale = state.zoom === 'actual' ? 1 : Math.max(0.05, Math.min(1, avail / vp.w));
+    var fitScale = Math.max(0.05, Math.min(1, avail / vp.w));
+    var scale = state.zoom === 'actual' ? 1
+      : state.zoom === 'manual' ? state.zoomScale
+      : fitScale;
 
     frame.style.width = vp.w + 'px';
     frame.style.height = vp.h + 'px';
@@ -231,8 +254,9 @@
     sizer.style.height = Math.round(vp.h * scale) + 'px';
 
     $('#stage-size').textContent = vp.w + ' × ' + vp.h;
-    $('#stage-zoom').textContent = Math.round(scale * 100) + '%';
-    $('#stage-zoom').classList.toggle('is-on', state.zoom === 'actual');
+    $('#stage-zoom').textContent = state.zoom === 'fit' ? 'Fit · ' + Math.round(scale * 100) + '%' : Math.round(scale * 100) + '%';
+    $('#stage-zoom').classList.toggle('is-on', state.zoom !== 'fit');
+    $('#stage-zoom-slider').value = Math.round(scale * 100);
     // JanitorAI's mobile chrome lives below 576px and was not in the capture.
     $('#stage-notice').hidden = vp.w >= 576;
   }
@@ -336,26 +360,38 @@
     var css = state.code;
     var html = '';
     var cursor = 0;
-    // Blocked ranges are painted first so the wavy underline wraps whole
-    // declarations rather than individual tokens.
+    // Blocked and advisory ranges are painted first so the underline wraps
+    // whole declarations rather than individual tokens.
     lintIssues.forEach(function (it) {
       if (it.start < cursor) return;
+      var tok = it.severity === 'advisory' ? 'tok-advisory' : 'tok-blocked';
       html += tokeniseMixed(css.slice(cursor, it.start));
-      html += '<span class="tok-blocked">' + tokeniseMixed(css.slice(it.start, it.end)) + '</span>';
+      html += '<span class="' + tok + '">' + tokeniseMixed(css.slice(it.start, it.end)) + '</span>';
       cursor = it.end;
     });
     html += tokeniseMixed(css.slice(cursor));
     highlight.innerHTML = html + '\n';
 
     var lines = css.split('\n').length;
+    // A line with any blocked issue reads as blocked even if it also has an
+    // advisory one; only advisory-only lines get the milder amber marker.
     var bad = {};
-    lintIssues.forEach(function (it) { bad[it.line] = true; });
+    lintIssues.forEach(function (it) {
+      if (bad[it.line] !== 'blocked') bad[it.line] = it.severity === 'advisory' ? 'advisory' : 'blocked';
+    });
     var g = '';
-    for (var i = 1; i <= lines; i++) g += '<div' + (bad[i] ? ' class="has-issue"' : '') + '>' + i + '</div>';
+    for (var i = 1; i <= lines; i++) {
+      var cls = bad[i] === 'blocked' ? ' class="has-issue"' : bad[i] === 'advisory' ? ' class="has-advisory"' : '';
+      g += '<div' + cls + '>' + i + '</div>';
+    }
     gutter.innerHTML = g;
 
     input.style.height = 'auto';
     input.style.height = Math.max(highlightPre.scrollHeight, editorScroll.clientHeight) + 'px';
+    // Match the textarea's box to the widest line. Hardcoded markup is one long
+    // line by design, and a textarea left at pane width makes everything you
+    // scroll right to impossible to click, select or type into.
+    input.style.width = Math.max(highlightPre.scrollWidth, editorScroll.clientWidth) + 'px';
     $('#code-stats').textContent = lines + ' lines · ' + css.length + ' chars';
   }
 
@@ -366,13 +402,29 @@
   function renderLint() {
     var box = $('#lint');
     if (!lintIssues.length) {
-      box.innerHTML = '<div class="lint-clean"><b>✓ Clean</b> — nothing here gets stripped by JanitorAI.</div>';
+      box.innerHTML = '<div class="lint-clean"><b>✓ Clean</b> — nothing here gets stripped by JanitorAI, ' +
+        'and no layout gaps either.</div>';
       return;
     }
-    var html = '<div class="lint-head">' + lintIssues.length +
-      (lintIssues.length === 1 ? ' blocked rule' : ' blocked rules') + '</div>';
+    // Blocked (JanitorAI strips it) and advisory (nothing stripped, but a
+    // whitespace-only text node between two inline elements will render as a
+    // gap — see js/lint.js's analyseSpacing) are counted separately: the
+    // wording for one would be wrong for the other.
+    var blocked = lintIssues.filter(function (it) { return it.severity !== 'advisory'; }).length;
+    var advisory = lintIssues.length - blocked;
+    var head = [];
+    if (blocked) head.push(blocked + (blocked === 1 ? ' blocked rule' : ' blocked rules'));
+    if (advisory) head.push(advisory + (advisory === 1 ? ' layout warning' : ' layout warnings'));
+    // Amber heading only when there is nothing worse to report — a mix, or
+    // blocked issues alone, keeps the more urgent red.
+    var html = '<div class="lint-head' + (!blocked && advisory ? ' lint-head--advisory' : '') + '">' +
+      head.join(' · ') +
+      (advisory ? '<button type="button" class="lint-fix" id="lint-fix-all">Remove ' +
+        (advisory === 1 ? 'it' : 'all ' + advisory) + '</button>' : '') +
+      '</div>';
     lintIssues.forEach(function (it, i) {
-      html += '<button type="button" class="lint-item" data-issue="' + i + '">' +
+      html += '<button type="button" class="lint-item' + (it.severity === 'advisory' ? ' lint-item--advisory' : '') +
+        '" data-issue="' + i + '">' +
         // Titles quote the offending markup, e.g. `<button>`, so escape first
         // and only then turn the backticks into <code>.
         '<div class="lint-title">' +
@@ -384,7 +436,25 @@
     box.innerHTML = html;
   }
 
+  /*
+   * A layout warning marks a run of whitespace that renders as a gap, so the
+   * fix is simply to delete that run — the same edit by hand is fiddly to do
+   * without disturbing the tags on either side. Cuts run back-to-front so the
+   * earlier offsets stay valid.
+   */
+  function removeGapWhitespace() {
+    var gaps = lintIssues.filter(function (it) { return it.severity === 'advisory'; });
+    if (!gaps.length) return;
+    var next = state.code;
+    for (var i = gaps.length - 1; i >= 0; i--) {
+      next = next.slice(0, gaps[i].start) + next.slice(gaps[i].end);
+    }
+    setCode(next, 'lint-fix');
+    toast(gaps.length === 1 ? 'Whitespace removed.' : gaps.length + ' gaps closed up.');
+  }
+
   $('#lint').addEventListener('click', function (e) {
+    if (e.target.id === 'lint-fix-all') { removeGapWhitespace(); return; }
     var btn = e.target.closest('.lint-item');
     if (!btn) return;
     var it = lintIssues[+btn.dataset.issue];
@@ -528,6 +598,7 @@
   // --------------------------------------------------------------- controls
 
   var controlNodes = [];
+  var selectedControlTokens = [];
 
   function el(tag, cls, html) {
     var n = document.createElement(tag);
@@ -827,18 +898,23 @@
     });
   }
 
-  $('#control-search').addEventListener('input', function (e) {
-    var q = e.target.value.trim().toLowerCase();
+  function filterControls() {
+    var q = $('#control-search').value.trim().toLowerCase();
     controlNodes.forEach(function (c) {
       var hay = (c.def.label + ' ' + c.def.sel + ' ' + c.def.prop).toLowerCase();
-      c.node.style.display = !q || hay.indexOf(q) !== -1 ? '' : 'none';
+      var selected = !selectedControlTokens.length || selectedControlTokens.some(function (token) {
+        return hay.indexOf('.' + token.toLowerCase()) !== -1;
+      });
+      c.node.style.display = selected && (!q || hay.indexOf(q) !== -1) ? '' : 'none';
     });
     $$('.group').forEach(function (g) {
       var visible = $$('.ctrl', g).some(function (n) { return n.style.display !== 'none'; });
       g.style.display = visible ? '' : 'none';
-      if (q && visible) g.classList.add('is-open');
+      if ((q || selectedControlTokens.length) && visible) g.classList.add('is-open');
     });
-  });
+  }
+
+  $('#control-search').addEventListener('input', filterControls);
 
   // ---------------------------------------------------------------- presets
 
@@ -1211,25 +1287,83 @@
     host.appendChild(reset);
   }
 
-  function updateImportStatus(message, imported) {
+  function updateImportStatus(message) {
     $('#profile-import-status').textContent = message;
-    $('#reset-import').hidden = !imported;
+  }
+
+  function copyData(data) {
+    return Object.assign({}, DEFAULT_DATA, data || {});
+  }
+
+  function activeSnapshot() {
+    return profileSnapshots.filter(function (entry) { return entry.id === activeProfileId; })[0] || null;
+  }
+
+  function visibleSnapshots() {
+    return profileSnapshots.filter(function (entry) { return !entry.builtin || keepDefaultProfile; });
+  }
+
+  function saveActiveSnapshot() {
+    var entry = activeSnapshot();
+    if (!entry) return;
+    entry.code = state.code;
+    entry.data = copyData(state.data);
+    entry.cssEnabled = state.previewCss;
+  }
+
+  function renderProfileSwitcher() {
+    var select = $('#profile-switcher');
+    var snapshots = visibleSnapshots();
+    select.innerHTML = '';
+    snapshots.forEach(function (entry) {
+      var option = document.createElement('option');
+      option.value = entry.id;
+      option.textContent = entry.label;
+      select.appendChild(option);
+    });
+    select.disabled = !snapshots.length;
+    if (activeProfileId && snapshots.some(function (entry) { return entry.id === activeProfileId; })) {
+      select.value = activeProfileId;
+    }
+    var entry = activeSnapshot();
+    $('#remove-profile').hidden = !entry || entry.builtin || profileSnapshots.length < 2;
+    $('#profile-css-toggle').disabled = !entry;
+    $('#profile-css-toggle').textContent = state.previewCss ? 'Hide custom CSS' : 'Show custom CSS';
+    $('#keep-default-profile').checked = keepDefaultProfile;
+  }
+
+  function activateSnapshot(entry, message) {
+    if (!entry) return;
+    saveActiveSnapshot();
+    activeProfileId = entry.id;
+    state.data = copyData(entry.data);
+    state.previewCss = entry.cssEnabled !== false;
+    setCode(typeof entry.code === 'string' ? entry.code : (entry.profile.aboutMe || window.JaiPayload.STARTER));
+    renderProfileFields();
+    pushProfile(entry.profile);
+    pushData();
+    pushPayload();
+    renderProfileSwitcher();
+    updateImportStatus(message || ('Using ' + entry.label + '. Snapshots stay loaded until you remove them or reload.'), true);
+    save();
   }
 
   function applyImportedProfile(profile, filename) {
     importedProfile = true;
-    Object.keys(profile.data).forEach(function (key) {
-      if (profile.data[key] != null && profile.data[key] !== '') state.data[key] = profile.data[key];
-    });
-    if (typeof profile.aboutMe === 'string') setCode(profile.aboutMe);
-    renderProfileFields();
-    pushProfile(profile);
-    pushData();
-    pushPayload();
-    save();
+    var username = profile.data && profile.data.username ? ' @' + profile.data.username : '';
+    var entry = {
+      id: 'profile-' + (++profileIdSeq),
+      label: filename.replace(/\.(m?html?)$/i, '') + username,
+      profile: profile,
+      data: copyData(profile.data),
+      code: typeof profile.aboutMe === 'string' ? profile.aboutMe : window.JaiPayload.STARTER,
+      cssEnabled: true,
+      builtin: false
+    };
+    profileSnapshots.push(entry);
+    activateSnapshot(entry, 'Using “' + filename + '”. Switch profiles above whenever you want; the snapshot stays loaded until you remove it or reload.');
     reportToHost('profile_imported');
-    updateImportStatus('Using “' + filename + '” in this preview. Your file was read locally and is not kept after a refresh.', true);
-    toast('Profile imported — your About Me content is now in the editor');
+    toast('Profile snapshot added — you can now switch between profiles');
   }
 
   function handleProfileFileChange() {
@@ -1251,17 +1385,53 @@
   $('#profile-file').addEventListener('change', handleProfileFileChange);
   $('#profile-file-presets').addEventListener('change', handleProfileFileChange);
 
-  $('#reset-import').addEventListener('click', function () {
-    importedProfile = false;
-    window.JaiProfileImport.release();
-    state.data = Object.assign({}, DEFAULT_DATA);
-    hadSavedData = false;
-    renderProfileFields();
-    post({ type: 'profile', reset: true });
-    pushData();
+  $('#profile-switcher').addEventListener('change', function () {
+    var entry = activeSnapshot();
+    var next = profileSnapshots.filter(function (candidate) { return candidate.id === this.value; }, this)[0];
+    if (next && (!entry || next.id !== entry.id)) activateSnapshot(next);
+  });
+
+  $('#profile-css-toggle').addEventListener('click', function () {
+    state.previewCss = !state.previewCss;
+    var entry = activeSnapshot();
+    if (entry) entry.cssEnabled = state.previewCss;
     pushPayload();
-    loadBundledProfile();
-    toast('Switched back to ' + DEFAULT_PROFILE_LABEL);
+    renderProfileSwitcher();
+    save();
+  });
+
+  $('#keep-default-profile').addEventListener('change', function () {
+    if (!this.checked && !profileSnapshots.some(function (entry) { return !entry.builtin; })) {
+      this.checked = true;
+      toast('Import another profile before hiding Sweepercom.');
+      return;
+    }
+    keepDefaultProfile = this.checked;
+    var entry = activeSnapshot();
+    renderProfileSwitcher();
+    if (!keepDefaultProfile && entry && entry.builtin) {
+      activateSnapshot(visibleSnapshots()[0]);
+    }
+  });
+
+  $('#remove-profile').addEventListener('click', function () {
+    var entry = activeSnapshot();
+    if (!entry || entry.builtin) return;
+    saveActiveSnapshot();
+    if (entry.profile.release) entry.profile.release();
+    profileSnapshots = profileSnapshots.filter(function (candidate) { return candidate.id !== entry.id; });
+    var next = visibleSnapshots()[0];
+    if (!next) {
+      // Never leave the canvas without a source profile. If the user hid the
+      // built-in snapshot and then removes their last imported one, restore
+      // Sweepercom as the safe fallback so the preview remains useful.
+      keepDefaultProfile = true;
+      next = visibleSnapshots()[0];
+    }
+    activeProfileId = null;
+    if (next) activateSnapshot(next, 'Removed the snapshot. Using ' + next.label + '.');
+    else renderProfileSwitcher();
+    toast('Removed ' + entry.label + ' from the profile switcher');
   });
 
   // ------------------------------------------------------------- My presets
@@ -1448,7 +1618,6 @@
   }
 
   function loadBundledProfile() {
-    if (importedProfile) return Promise.resolve(false);
     updateImportStatus('Loading ' + DEFAULT_PROFILE_LABEL + '…', false);
 
     return fetch(DEFAULT_PROFILE_URL)
@@ -1462,20 +1631,32 @@
       })
       .then(function (profile) {
         profile.css = withoutPageBackground(profile.html, profile.css);
-        // Only fill in fields the creator has not already set for themselves.
-        if (!hadSavedData) {
-          Object.keys(profile.data).forEach(function (key) {
-            if (profile.data[key] != null && profile.data[key] !== '') {
-              state.data[key] = profile.data[key];
-            }
-          });
-          renderProfileFields();
-        }
-        pushProfile(profile);
-        pushData();
-        pushPayload();
-        updateImportStatus('Using ' + DEFAULT_PROFILE_LABEL +
-          '. Pick a file below to design against a different one.', false);
+        var existing = profileSnapshots.filter(function (entry) { return entry.builtin; })[0];
+        if (existing && existing.profile.release) existing.profile.release();
+        // Blob URLs are intentionally used while an imported MHTML snapshot is
+        // alive, but they cannot survive a reload. Do not restore a stale
+        // imported About Me document into the bundled profile after that URL
+        // has expired; the built-in capture is the safe source of truth.
+        var savedCode = state.code;
+        var defaultCode = /\bblob:/i.test(savedCode || '')
+          ? (profile.aboutMe || window.JaiPayload.STARTER)
+          : (savedCode || window.JaiPayload.STARTER);
+        var defaultData = hadSavedData ? copyData(state.data) : copyData(profile.data);
+        if (/^blob:/i.test(defaultData.avatar || '') && profile.data.avatar) defaultData.avatar = profile.data.avatar;
+        if (/^blob:/i.test(defaultData.background || '')) defaultData.background = profile.data.background || '';
+        var entry = {
+          id: 'default',
+          label: 'Sweepercom' + (profile.data.username ? ' @' + profile.data.username : ''),
+          profile: profile,
+          data: defaultData,
+          code: defaultCode,
+          cssEnabled: state.previewCss,
+          builtin: true
+        };
+        profileSnapshots = profileSnapshots.filter(function (candidate) { return !candidate.builtin; });
+        profileSnapshots.unshift(entry);
+        if (!activeProfileId) activateSnapshot(entry, 'Using ' + DEFAULT_PROFILE_LABEL + '. Import another profile to add it to the switcher.');
+        else renderProfileSwitcher();
         return true;
       })
       .catch(function (error) {
@@ -1535,13 +1716,32 @@
 
   function onPick(msg) {
     var t = msg.target;
-    var label = t.selector;
+    // Text often lands on a plain span inside the useful component. Prefer the
+    // nearest ancestor carrying one of JanitorAI's stable labels so the user
+    // sees and edits a meaningful element, not an anonymous HTML tag.
+    var labelledTarget = (msg.chain || []).filter(function (part) {
+      return part.labels && part.labels.length;
+    })[0] || t;
+    var label = labelledTarget.selector;
     var out = $('#pick-result');
     out.textContent = label + '  ↵ add rule';
     out.dataset.sel = label;
-    out.title = 'Labels: ' + (t.labels.join(' ') || '—') +
-                '\nEmotion: ' + (t.emotion.join(' ') || '—') +
+    out.title = 'Labels: ' + (labelledTarget.labels.join(' ') || '—') +
+                '\nEmotion: ' + (labelledTarget.emotion.join(' ') || '—') +
                 '\nClick to add a rule for this element.';
+
+    selectedControlTokens = [];
+    (msg.chain || [t]).slice(0, 4).forEach(function (part) {
+      (part.labels || []).forEach(function (token) {
+        if (selectedControlTokens.indexOf(token) === -1) selectedControlTokens.push(token);
+      });
+    });
+    var selection = $('#inspector-selection');
+    selection.classList.add('has-selection');
+    $('.inspector-selection-label', selection).textContent = label;
+    $('#inspector-show-all').hidden = false;
+    showWorkspacePanel('design');
+    filterControls();
   }
 
   $('#pick-result').addEventListener('click', function () {
@@ -1566,6 +1766,7 @@
       caret = window.JaiPayload.cssOffsetToPayload(state.code, offset);
     }
     $('.layout').classList.remove('code-hidden');
+    $('#show-code').classList.add('is-active');
     layoutStage();
     input.focus();
     input.setSelectionRange(caret, caret);
@@ -1575,6 +1776,108 @@
   // ------------------------------------------------------------- toolbar
 
   var customWidth = $('#custom-width');
+
+  function applyPanelLayout() {
+    var root = document.documentElement;
+    var layout = $('.layout');
+    if (state.sidebarWidth) root.style.setProperty('--sidebar-w', state.sidebarWidth + 'px');
+    if (state.inspectorWidth) root.style.setProperty('--inspector-w', state.inspectorWidth + 'px');
+    layout.classList.toggle('sidebar-hidden', state.sidebarHidden);
+    layout.classList.toggle('inspector-hidden', state.inspectorHidden);
+
+    var sidebarButton = $('#toggle-sidebar');
+    sidebarButton.title = state.sidebarHidden ? 'Show library' : 'Hide library';
+    sidebarButton.setAttribute('aria-label', sidebarButton.title);
+    sidebarButton.setAttribute('aria-expanded', String(!state.sidebarHidden));
+    var inspectorButton = $('#toggle-inspector');
+    inspectorButton.title = state.inspectorHidden ? 'Show properties' : 'Hide properties';
+    inspectorButton.setAttribute('aria-label', inspectorButton.title);
+    inspectorButton.setAttribute('aria-expanded', String(!state.inspectorHidden));
+  }
+
+  function resizePanel(handle, stateKey, variable, direction, min, max) {
+    handle.addEventListener('pointerdown', function (down) {
+      if (window.matchMedia('(max-width: 1150px)').matches) return;
+      down.preventDefault();
+      var startX = down.clientX;
+      var start = state[stateKey] || parseFloat(getComputedStyle(document.documentElement)
+        .getPropertyValue(variable));
+      document.body.classList.add('is-resizing');
+
+      function move(event) {
+        var width = Math.max(min, Math.min(max, Math.round(start + (event.clientX - startX) * direction)));
+        state[stateKey] = width;
+        document.documentElement.style.setProperty(variable, width + 'px');
+        layoutStage();
+      }
+      function end() {
+        document.body.classList.remove('is-resizing');
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', end);
+        save();
+      }
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', end, { once: true });
+    });
+  }
+
+  $('#toggle-sidebar').addEventListener('click', function () {
+    state.sidebarHidden = !state.sidebarHidden;
+    applyPanelLayout();
+    layoutStage();
+    save();
+  });
+  $('#toggle-inspector').addEventListener('click', function () {
+    state.inspectorHidden = !state.inspectorHidden;
+    applyPanelLayout();
+    layoutStage();
+    save();
+  });
+  resizePanel($('#resize-sidebar'), 'sidebarWidth', '--sidebar-w', 1, 240, 520);
+  resizePanel($('#resize-inspector'), 'inspectorWidth', '--inspector-w', -1, 280, 560);
+
+  var workspaceTitles = {
+    design: 'Design',
+    view: 'Preview',
+    reference: 'Selectors',
+    help: 'Help'
+  };
+
+  /* The four utility panels live in the right-hand inspector. Keeping their
+   * existing DOM nodes (rather than cloning them) preserves every established
+   * listener and lets older saved themes keep using the same controls. */
+  var inspectorBody = $('#inspectorpane-body');
+  $$('.panel[data-workspace-panel]').forEach(function (panel) {
+    inspectorBody.appendChild(panel);
+  });
+
+  function showWorkspacePanel(name) {
+    name = workspaceTitles[name] ? name : 'design';
+    $$('.panel[data-workspace-panel]', inspectorBody).forEach(function (panel) {
+      panel.hidden = panel.dataset.workspacePanel !== name;
+    });
+    $$('.workspace-tool').forEach(function (button) {
+      button.classList.toggle('is-active', button.dataset.workspacePanel === name);
+    });
+    $('#inspector-title').textContent = workspaceTitles[name];
+    $('#inspector-home').hidden = name === 'design';
+  }
+
+  $$('.workspace-tool').forEach(function (button) {
+    button.addEventListener('click', function () {
+      showWorkspacePanel(button.dataset.workspacePanel);
+    });
+  });
+  $('#inspector-home').addEventListener('click', function () { showWorkspacePanel('design'); });
+  $('#inspector-show-all').addEventListener('click', function () {
+    selectedControlTokens = [];
+    var selection = $('#inspector-selection');
+    selection.classList.remove('has-selection');
+    $('.inspector-selection-label', selection).textContent = 'All properties';
+    this.hidden = true;
+    filterControls();
+  });
+  showWorkspacePanel('design');
 
   $$('.viewport-switch button').forEach(function (b) {
     b.addEventListener('click', function () {
@@ -1601,14 +1904,36 @@
       $$('.sidebar-tabs button').forEach(function (x) { x.classList.remove('is-active'); });
       b.classList.add('is-active');
       state.panel = b.dataset.panel;
-      $$('.panel').forEach(function (p) { p.hidden = p.dataset.panel !== state.panel; });
+      $$('.panel', $('.sidebar-body')).forEach(function (p) { p.hidden = p.dataset.panel !== state.panel; });
     });
   });
 
   $('#stage-zoom').addEventListener('click', function () {
     state.zoom = state.zoom === 'fit' ? 'actual' : 'fit';
     layoutStage();
+    save();
   });
+
+  $('#stage-zoom-slider').addEventListener('input', function () {
+    state.zoom = 'manual';
+    state.zoomScale = Math.max(0.25, Math.min(2, Number(this.value) / 100));
+    layoutStage();
+    save();
+  });
+
+  /* Keep browser zoom untouched: Ctrl/Cmd + wheel only changes the canvas
+   * while the pointer is over it. Ordinary wheel events still scroll the
+   * captured profile vertically or pan it horizontally as usual. */
+  $('#stage-scroll').addEventListener('wheel', function (event) {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    var current = Number($('#stage-zoom-slider').value) / 100;
+    var next = current + (event.deltaY < 0 ? 0.05 : -0.05);
+    state.zoom = 'manual';
+    state.zoomScale = Math.max(0.25, Math.min(2, Math.round(next * 20) / 20));
+    layoutStage();
+    save();
+  }, { passive: false });
 
   $('#enforce').addEventListener('change', function () {
     state.enforce = this.checked;
@@ -1620,12 +1945,13 @@
     state.inspector = !state.inspector;
     this.classList.toggle('is-on', state.inspector);
     post({ type: 'inspector', on: state.inspector });
+    if (state.inspector) showWorkspacePanel('design');
     if (!state.inspector) $('#pick-result').textContent = '';
   });
 
   function toggleCodePane() {
     var hidden = $('.layout').classList.toggle('code-hidden');
-    $('#show-code').hidden = !hidden;
+    $('#show-code').classList.toggle('is-active', !hidden);
     setTimeout(layoutStage, 0);
   }
   $('#toggle-code').addEventListener('click', toggleCodePane);
@@ -1633,12 +1959,19 @@
 
   $('#copy-css').addEventListener('click', function () {
     copy(state.code);
-    reportToHost('css_copied', blocked_label(lintIssues.length));
-    var blocked = lintIssues.length;
-    toast(blocked
-      ? 'Copied — but ' + blocked + ' thing' + (blocked > 1 ? 's' : '') +
-        ' in it will be stripped by JanitorAI'
-      : 'Copied. Paste into JanitorAI → profile settings → About Me.');
+    var blocked = lintIssues.filter(function (it) { return it.severity !== 'advisory'; }).length;
+    var advisory = lintIssues.length - blocked;
+    reportToHost('css_copied', blocked_label(blocked));
+    var msg;
+    if (blocked) {
+      msg = 'Copied — but ' + blocked + ' thing' + (blocked > 1 ? 's' : '') + ' in it will be stripped by JanitorAI';
+    } else if (advisory) {
+      msg = 'Copied — but ' + advisory + ' spot' + (advisory > 1 ? 's show' : ' shows') +
+        ' an extra gap, see the layout warning below';
+    } else {
+      msg = 'Copied. Paste into JanitorAI → profile settings → About Me.';
+    }
+    toast(msg);
   });
 
   $('#clear-css').addEventListener('click', function () {
@@ -1701,9 +2034,400 @@
     toastTimer = setTimeout(function () { t.hidden = true; }, 2600);
   }
 
+  // ------------------------------------------------------------------ cards
+  //
+  // The roster of hardcoded characters. It is deliberately *not* part of the
+  // document: the document is the output, this is the source it is generated
+  // from, so it lives in its own storage key and survives clearing the editor.
+  // js/hardcode.js turns it into markup and the slice of CSS that scales with
+  // it; everything else in the stylesheet stays hand-written.
+
+  var CARDS_KEY = 'jai-css-studio:cards';
+  var FIELDS = [
+    { key: 'name', label: 'Name', placeholder: 'Celeste' },
+    { key: 'tagline', label: 'Tagline', placeholder: 'The “Bully” · Awkward friendship route' },
+    { key: 'quote', label: 'Quote (optional)', placeholder: '“MON DIEU!”' },
+    { key: 'description', label: 'Short description', type: 'textarea', placeholder: 'One or two lines.' },
+    { key: 'tags', label: 'Tags (comma separated)', placeholder: 'Female, OC, AnyPOV, Fluff' },
+    { key: 'link', label: 'Character link', placeholder: 'https://janitorai.com/characters/…' },
+    { key: 'portrait', label: 'Portrait override (optional)', placeholder: 'Defaults to the bot image' },
+    { key: 'art', label: 'Stage art override (optional)', placeholder: 'Defaults to the bot image; any aspect ratio works' },
+    { key: 'hover', label: 'Hover art override (optional)', placeholder: 'Any aspect ratio; centered and clipped' }
+  ];
+
+  var cards = { roster: [], options: {}, search: '', selected: {} };
+  var cardIdSeq = 0;
+
+  function ensureCardId(entry) {
+    if (!entry || entry._studioId) return entry && entry._studioId;
+    Object.defineProperty(entry, '_studioId', {
+      value: 'card-' + (++cardIdSeq), enumerable: false, configurable: false
+    });
+    return entry._studioId;
+  }
+
+  function ensureCardIds() {
+    cards.roster.forEach(ensureCardId);
+  }
+
+  function cardIsSelected(entry) {
+    return !!(entry && cards.selected[ensureCardId(entry)]);
+  }
+
+  function setCardSelected(entry, selected) {
+    if (!entry) return;
+    var id = ensureCardId(entry);
+    if (selected) cards.selected[id] = true;
+    else delete cards.selected[id];
+  }
+
+  function visibleCardEntries() {
+    var query = cards.search.trim().toLowerCase();
+    return cards.roster.filter(function (entry) {
+      return !query || String(entry.name || '').toLowerCase().indexOf(query) !== -1;
+    });
+  }
+
+  function updateCardSelectionUi() {
+    var visible = visibleCardEntries();
+    var selected = cards.roster.filter(cardIsSelected);
+    var visibleSelected = visible.filter(cardIsSelected);
+    var selectAll = $('#cards-select-all');
+    if (selectAll) {
+      selectAll.checked = !!visible.length && visibleSelected.length === visible.length;
+      selectAll.indeterminate = !!visibleSelected.length && visibleSelected.length < visible.length;
+      selectAll.disabled = !visible.length;
+    }
+    var count = $('#cards-selection-count');
+    if (count) count.textContent = selected.length + ' selected';
+    var clear = $('#cards-clear-selection');
+    if (clear) clear.disabled = !selected.length;
+    var remove = $('#cards-delete-selected');
+    if (remove) remove.disabled = !selected.length;
+  }
+
+  function loadCards() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(CARDS_KEY) || 'null');
+      if (saved && Array.isArray(saved.roster)) {
+        cards.roster = saved.roster;
+        cards.options = saved.options || {};
+      }
+    } catch (e) { /* corrupt or private mode: start with an empty roster */ }
+    ensureCardIds();
+  }
+
+  function saveCards() {
+    try {
+      localStorage.setItem(CARDS_KEY, JSON.stringify({ roster: cards.roster, options: cards.options }));
+    } catch (e) { /* quota or private mode — not worth interrupting the user */ }
+  }
+
+  /*
+   * Which layout stylesheet to write. Left alone, the panel guesses: a document
+   * that already styles .cs-shell has a look of its own and should keep it,
+   * an empty one would otherwise produce a pile of unstyled divs.
+   */
+  function effectiveStyle() {
+    if (cards.options.style) return cards.options.style;
+    // Once a style has been written, its own .cs-shell rules are in the
+    // document — so the guess has to stop guessing, or the next write would
+    // decide the document is hand-styled and take the stylesheet back out.
+    if (state.code.indexOf(window.JaiHardcode.markers.styleStart) !== -1) return 'contact-select';
+    return /\.cs-shell\s*[,{]/.test(state.code) ? 'none' : 'contact-select';
+  }
+
+  /* Writing is the moment a guess becomes a decision. */
+  function commitStyle() {
+    if (!cards.options.style) { cards.options.style = effectiveStyle(); saveCards(); }
+  }
+
+  function cardOption(key) {
+    return cards.options[key] != null && cards.options[key] !== ''
+      ? cards.options[key] : window.JaiHardcode.defaults[key];
+  }
+
+  /* The emitter takes a chip count; the panel spells it as "0 turns it off". */
+  function cardEmitOptions() {
+    var opts = {};
+    Object.keys(window.JaiHardcode.defaults).forEach(function (k) { opts[k] = cardOption(k); });
+    opts.style = effectiveStyle();
+    var chips = parseInt(cards.options.filterChips, 10);
+    var listed = String(cards.options.filterList || '').trim();
+    opts.filters = listed ? listed : (isNaN(chips) ? true : chips > 0);
+    opts.filterLimit = isNaN(chips) ? undefined : chips;
+    return opts;
+  }
+
+  function renderCards() {
+    var list = $('#cards-list');
+    ensureCardIds();
+    var query = cards.search.trim().toLowerCase();
+    if (!cards.roster.length) {
+      list.innerHTML = '<p class="cards-empty">No characters yet. <b>Detect from profile</b> reads the ' +
+        'cards already in your preview; <b>Add blank card</b> starts one by hand.</p>';
+    } else {
+      list.innerHTML = cards.roster.map(function (entry, i) {
+        var name = entry.name || 'Untitled';
+        if (query && name.toLowerCase().indexOf(query) === -1) return '';
+        var tagCount = (typeof entry.tags === 'string'
+          ? entry.tags.split(',').filter(function (t) { return t.trim(); })
+          : (entry.tags || [])).length;
+        return '<details class="card-row" data-index="' + i + '">' +
+          '<summary><input type="checkbox" class="card-select" data-select aria-label="Select ' + escapeHtml(name) + '"' +
+          (cardIsSelected(entry) ? ' checked' : '') + '><span class="card-row-name">' + escapeHtml(name) + '</span>' +
+          '<span class="card-row-meta">' + (i + 1 < 10 ? '0' : '') + (i + 1) +
+          (tagCount ? ' · ' + tagCount + ' tag' + (tagCount === 1 ? '' : 's') : '') +
+          (entry.art || entry.portrait ? '' : ' · no image') + '</span></summary>' +
+          FIELDS.map(function (f) {
+            var value = entry[f.key];
+            if (f.key === 'tags' && Array.isArray(value)) value = value.join(', ');
+            return '<label class="field">' + escapeHtml(f.label) +
+              (f.type === 'textarea'
+                ? '<textarea rows="3" data-field="' + f.key + '" placeholder="' +
+                  escapeHtml(f.placeholder) + '">' + escapeHtml(value || '') + '</textarea>'
+                : '<input type="text" data-field="' + f.key + '" placeholder="' +
+                  escapeHtml(f.placeholder) + '" value="' + escapeHtml(value || '') + '">') +
+              '</label>';
+          }).join('') +
+          '<div class="card-row-buttons">' +
+            '<button type="button" class="btn btn-ghost btn-sm" data-move="-1" title="Move up">↑</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm" data-move="1" title="Move down">↓</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm card-remove" data-remove>Remove</button>' +
+          '</div></details>';
+      }).join('') || '<p class="cards-empty">No character matches “' + escapeHtml(cards.search) + '”.</p>';
+    }
+
+    var styleSelect = $('#cards-opt-style');
+    if (!styleSelect.options.length) {
+      styleSelect.innerHTML = window.JaiHardcodeStyles.list.map(function (style) {
+        return '<option value="' + style.id + '">' + escapeHtml(style.name) + '</option>';
+      }).join('');
+    }
+      styleSelect.value = effectiveStyle();
+    $('#cards-style-hint').textContent = window.JaiHardcodeStyles.get(effectiveStyle()).blurb;
+
+    $('#cards-opt-title').value = cards.options.title || '';
+    $('#cards-opt-kicker').value = cards.options.kicker || '';
+    $('#cards-opt-launch').value = cards.options.launch || '';
+    $('#cards-opt-slots').value = cardOption('slots');
+    $('#cards-opt-filters').value = cards.options.filterChips != null ? cards.options.filterChips : 8;
+    $('#cards-opt-filterlist').value = cards.options.filterList || '';
+    $('#cards-opt-accent').value = cardOption('accent');
+    $('#cards-opt-preview').value = cardOption('preview');
+    ['profileLabel', 'profileMark', 'aboutTitle', 'aboutBody', 'creatorNotes', 'friendsTitle', 'discord', 'footerText']
+      .forEach(function (key) { $('#cards-opt-' + key).value = cardOption(key); });
+
+    var applied = window.JaiHardcode.isApplied(state.code);
+    $('#cards-insert').textContent = applied ? 'Update About Me' : 'Insert into About Me';
+    $('#cards-insert').disabled = !cards.roster.length;
+    $('#cards-insert-hint').textContent = !cards.roster.length ? ''
+      : applied ? 'Rewrites only the generated block.'
+      : 'Adds a generated block; the rest of your code is untouched.';
+    updateCardSelectionUi();
+  }
+
+  function cardsStatus(message) { $('#cards-status').textContent = message || ''; }
+
+  /*
+   * Once the generated block is in the document, the roster and the document
+   * have to stay in step: typing a new name and watching the old one sit in the
+   * preview is just a bug with extra steps. Debounced, because every keystroke
+   * would otherwise rebuild the payload and re-render the preview.
+   */
+  var reapplyTimer = null;
+  function reapplyCards(delay) {
+    if (!window.JaiHardcode.isApplied(state.code)) return;
+    clearTimeout(reapplyTimer);
+    reapplyTimer = setTimeout(function () {
+      var next = cards.roster.length
+        ? window.JaiHardcode.apply(state.code, cards.roster, cardEmitOptions())
+        : window.JaiHardcode.remove(state.code);
+      if (next !== state.code) setCode(next, 'cards');
+    }, delay == null ? 260 : delay);
+  }
+
+  $('#cards-list').addEventListener('input', function (e) {
+    var row = e.target.closest('.card-row');
+    var field = e.target.dataset.field;
+    if (!row || !field) return;
+    var entry = cards.roster[+row.dataset.index];
+    if (!entry) return;
+    entry[field] = e.target.value;
+    if (field === 'name') $('.card-row-name', row).textContent = e.target.value || 'Untitled';
+    saveCards();
+    reapplyCards();
+  });
+
+  $('#cards-list').addEventListener('change', function (e) {
+    if (!e.target.matches('[data-select]')) return;
+    var row = e.target.closest('.card-row');
+    if (!row) return;
+    var entry = cards.roster[+row.dataset.index];
+    if (!entry) return;
+    setCardSelected(entry, e.target.checked);
+    updateCardSelectionUi();
+  });
+
+  $('#cards-list').addEventListener('click', function (e) {
+    var row = e.target.closest('.card-row');
+    if (!row) return;
+    if (e.target.matches('[data-select]')) {
+      // Selecting a card should not also open/close its details row.
+      e.preventDefault();
+      e.stopPropagation();
+      var entry = cards.roster[+row.dataset.index];
+      var checked = !e.target.checked;
+      e.target.checked = checked;
+      setCardSelected(entry, checked);
+      updateCardSelectionUi();
+      return;
+    }
+    var index = +row.dataset.index;
+    if (e.target.dataset.remove != null) {
+      if (!confirm('Remove ' + (cards.roster[index].name || 'this card') + ' from the roster?')) return;
+      delete cards.selected[ensureCardId(cards.roster[index])];
+      cards.roster.splice(index, 1);
+    } else if (e.target.dataset.move) {
+      var to = index + (+e.target.dataset.move);
+      if (to < 0 || to >= cards.roster.length) return;
+      cards.roster.splice(to, 0, cards.roster.splice(index, 1)[0]);
+    } else {
+      return;
+    }
+    saveCards();
+    renderCards();
+    reapplyCards(0);
+  });
+
+  $('#cards-select-all').addEventListener('change', function () {
+    visibleCardEntries().forEach(function (entry) {
+      var id = ensureCardId(entry);
+      if ($('#cards-select-all').checked) cards.selected[id] = true;
+      else delete cards.selected[id];
+    });
+    renderCards();
+  });
+
+  $('#cards-clear-selection').addEventListener('click', function () {
+    cards.selected = {};
+    renderCards();
+  });
+
+  $('#cards-delete-selected').addEventListener('click', function () {
+    var selected = cards.roster.filter(cardIsSelected);
+    if (!selected.length) return;
+    var noun = selected.length === 1 ? 'card' : 'cards';
+    if (!confirm('Delete ' + selected.length + ' selected ' + noun + ' from the roster?')) return;
+    cards.roster = cards.roster.filter(function (entry) { return !cardIsSelected(entry); });
+    cards.selected = {};
+    saveCards();
+    renderCards();
+    reapplyCards(0);
+    cardsStatus('Deleted ' + selected.length + ' ' + noun + '.');
+  });
+
+  $('#cards-search').addEventListener('input', function () {
+    cards.search = this.value;
+    renderCards();
+  });
+
+  $('#cards-add').addEventListener('click', function () {
+    cards.roster.push({ name: '', tagline: '', quote: '', description: '', tags: '', link: '', portrait: '', art: '', hover: '' });
+    cards.search = '';
+    $('#cards-search').value = '';
+    saveCards();
+    renderCards();
+    var last = $$('.card-row').pop();
+    if (last) { last.open = true; last.scrollIntoView({ block: 'nearest' }); }
+    cardsStatus('');
+  });
+
+  /*
+   * The preview iframe holds the real captured profile, so the cards in it are
+   * the site's own markup — name, description, tags, link and avatar come
+   * straight off them. The bot image fills both portrait and stage art by
+   * default; tagline, quote and optional art overrides stay creator-controlled.
+   */
+  $('#cards-detect').addEventListener('click', function () {
+    var doc = frame.contentDocument;
+    var found = doc ? window.JaiHardcode.fromDocument(doc) : [];
+    if (!found.length) {
+      cardsStatus('No cards found in the preview. Import a profile in Settings first.');
+      return;
+    }
+    var have = {};
+    cards.roster.forEach(function (entry) { have[String(entry.name || '').toLowerCase()] = entry; });
+    var added = 0, updated = 0;
+    found.forEach(function (entry) {
+      var key = entry.name.toLowerCase();
+      var existing = have[key];
+      if (existing) {
+        var changed = false;
+        ['portrait', 'art'].forEach(function (field) {
+          if (!existing[field] && entry[field]) { existing[field] = entry[field]; changed = true; }
+        });
+        if (changed) updated++;
+        return;
+      }
+      entry.tags = entry.tags.join(', ');
+      cards.roster.push(entry);
+      have[key] = entry;
+      added++;
+    });
+    saveCards();
+    renderCards();
+    reapplyCards(0);
+    reportToHost('cards_detected', String(added));
+    cardsStatus(added || updated
+      ? (added ? 'Added ' + added + ' character' + (added === 1 ? '' : 's') + '. ' : '') +
+        (updated ? 'Filled the missing images for ' + updated + ' existing character' +
+          (updated === 1 ? '. ' : 's. ') : '') +
+        'Bot images fill the portraits and centered stage art by default; taglines, quotes and optional overrides are still yours.'
+      : 'Every character in the preview is already in the roster.');
+  });
+
+  $('#cards-opt-style').addEventListener('change', function () {
+    cards.options.style = this.value;
+    saveCards();
+    renderCards();
+    reapplyCards(0);
+  });
+
+  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-aboutTitle, #cards-opt-aboutBody, #cards-opt-creatorNotes, #cards-opt-friendsTitle, #cards-opt-discord, #cards-opt-footerText')
+    .forEach(function (input) {
+      input.addEventListener('input', function () {
+        var key = input.id.replace('cards-opt-', '');
+        if (key === 'filters') cards.options.filterChips = input.value;
+        else if (key === 'filterlist') cards.options.filterList = input.value;
+        else if (key === 'slots') cards.options.slots = parseInt(input.value, 10) || 1;
+        else cards.options[key] = input.value;
+        saveCards();
+        reapplyCards();
+      });
+    });
+
+  $('#cards-insert').addEventListener('click', function () {
+    commitStyle();
+    var next = window.JaiHardcode.apply(state.code, cards.roster, cardEmitOptions());
+    if (next === state.code) { toast('About Me already matches the roster.'); return; }
+    setCode(next, 'cards');
+    reportToHost('cards_inserted', String(cards.roster.length));
+    toast(cards.roster.length + ' character' + (cards.roster.length === 1 ? '' : 's') + ' written into About Me.');
+    renderCards();
+  });
+
+  $('#hardcoding-toggle').addEventListener('click', function () {
+    var tab = $('.sidebar-tabs button[data-panel="cards"]');
+    if (tab) tab.click();
+    $('#cards-search').focus();
+  });
+
   // ------------------------------------------------------------------ start
 
   load();
+  renderProfileSwitcher();
+  applyPanelLayout();
   $('#enforce').checked = state.enforce;
   $$('.viewport-switch button').forEach(function (b) {
     b.classList.toggle('is-active', b.dataset.viewport === state.viewport);
@@ -1711,10 +2435,12 @@
   $('#custom-width').value = state.customWidth;
   $('#custom-width').hidden = state.viewport !== 'custom';
 
+  loadCards();
   renderControls();
   renderPresets();
   renderTemplates();
   renderCustomPresets();
+  renderCards();
   renderProfileFields();
   renderReference('');
   setCode(state.code || window.JaiPayload.STARTER);

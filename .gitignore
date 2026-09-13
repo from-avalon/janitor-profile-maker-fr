@@ -34,3 +34,6 @@ Thumbs.db
 
 # CI staging dir used by .github/workflows/deploy.yml
 .deploy/
+
+# Private templates: kept locally, never committed or deployed.
+templates/eridu-channel/

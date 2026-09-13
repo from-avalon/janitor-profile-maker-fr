@@ -58,7 +58,7 @@ try {
       .catch(() => fail("captured profile was never mounted in the preview (#root missing)"));
   }
 
-  /* global document, window -- this callback is serialised and run inside the page */
+  /* global document, window, getComputedStyle, PointerEvent, WheelEvent -- this callback is serialised and run inside the page */
   const counts = await page.evaluate(() => ({
     controls:      document.querySelectorAll("#control-groups *").length,
     presets:       document.getElementById("preset-list").children.length,
@@ -106,10 +106,55 @@ try {
     if (!notifications || !notifications.startsClosed || !notifications.opens || !notifications.closes) {
       fail(`notification popover controls failed (${JSON.stringify(notifications)})`);
     }
+
+    // Selection mode turns the preview into a canvas: clicking an element
+    // focuses the right inspector and narrows it to relevant visual controls.
+    await page.click('#inspect-toggle');
+    await preview.click('.pp-uc-title');
+    await page.waitForFunction(() =>
+      document.querySelector('#inspector-selection')?.classList.contains('has-selection'));
+    const selectedInspector = await page.evaluate(() => ({
+      label: document.querySelector('.inspector-selection-label')?.textContent || '',
+      visibleControls: [...document.querySelectorAll('#control-groups .ctrl')]
+        .filter((node) => node.style.display !== 'none').length,
+      designVisible: !document.querySelector('section[data-workspace-panel="design"]').hidden,
+    }));
+    if (!selectedInspector.label.includes('pp-uc-title') || !selectedInspector.visibleControls ||
+        !selectedInspector.designVisible) {
+      fail(`selection did not focus the inspector (${JSON.stringify(selectedInspector)})`);
+    }
+    await page.click('#inspector-show-all');
+    await page.click('#inspect-toggle');
+
+    // MHTML images render from temporary blob URLs in the preview, but Cards
+    // must retain their original public address for paste-ready hardcoding.
+    const hardcodeImages = await page.evaluate(() => {
+      const frame = document.querySelector('#preview');
+      const found = window.JaiHardcode.fromDocument(frame && frame.contentDocument);
+      const first = found[0] || {};
+      const sample = 'https://ella.janitorai.com/bot-avatars/tall.webp';
+      const generated = window.JaiHardcode.markup([{ name: 'Tall test', portrait: sample }]);
+      return {
+        detected: found.length,
+        portrait: first.portrait || '',
+        art: first.art || '',
+        fallbackPortraits: (generated.match(/cs-slot-thumb/g) || []).length,
+        fallbackStages: (generated.match(/cs-scene-art/g) || []).length,
+        sameFallback: generated.split(sample).length - 1,
+      };
+    });
+    if (!hardcodeImages.detected || !/^https?:\/\//.test(hardcodeImages.portrait) ||
+        hardcodeImages.art !== hardcodeImages.portrait) {
+      fail(`hardcode detector did not preserve the bot image (${JSON.stringify(hardcodeImages)})`);
+    }
+    if (hardcodeImages.fallbackPortraits !== 1 || hardcodeImages.fallbackStages !== 1 ||
+        hardcodeImages.sameFallback !== 2) {
+      fail(`one-image contact fallback failed (${JSON.stringify(hardcodeImages)})`);
+    }
   }
 
   // Advanced template parts can be narrowed to a specific profile region, and
-  // the long-form guidance lives in the Help tab instead of crowding the editor.
+  // the long-form guidance lives in the top utility bar instead of the left rail.
   await page.click('button[data-panel="presets"]');
   await page.locator('.preset-section').nth(1).locator(':scope > summary').click();
   const filterCount = await page.locator('.template-filter').count();
@@ -144,34 +189,133 @@ try {
   await togglePart('velvet-nocturne-hero');
   await togglePart('velvet-nocturne-characters');
   if (await partsOn() !== startParts) fail(`removing Velvet parts left some behind (${await partsOn()})`);
-  await page.click('button[data-panel="help"]');
+  await page.click('.workspace-tool[data-workspace-panel="help"]');
   const help = await page.evaluate(() => ({
-    visible: !document.querySelector('section[data-panel="help"]').hidden,
+    visible: !document.querySelector('section[data-workspace-panel="help"]').hidden,
     topics: document.querySelectorAll('.help-panel details').length,
   }));
   if (!help.visible || help.topics < 4) fail(`help panel incomplete (${JSON.stringify(help)})`);
 
-  // The sidebar was reorganized: Updates/Migrate are gone, replaced by a View
-  // tab (viewport switch) and a renamed Settings tab; My presets lives inside
-  // Presets. Confirm the old panels are actually gone and the new ones render.
+  // The Figma-style shell keeps only three content tabs on the left. Design is
+  // the permanent right inspector; View, Selectors and Help live in the toolbar.
   const panels = await page.evaluate(() => ({
-    updates: !!document.querySelector('button[data-panel="updates"]'),
-    migrate: !!document.querySelector('button[data-panel="migrate"]'),
-    view: !!document.querySelector('button[data-panel="view"]'),
+    left: [...document.querySelectorAll('.sidebar-tabs button')].map((button) => button.textContent.trim()),
+    designRight: !!document.querySelector('#inspectorpane #control-groups'),
+    utilities: document.querySelectorAll('.workspace-tool[data-workspace-panel]').length,
+    codeHidden: document.querySelector('.layout').classList.contains('code-hidden'),
   }));
-  if (panels.updates || panels.migrate) fail('Updates/Migrate tabs are still present');
-  if (!panels.view) fail('View tab is missing');
+  if (panels.left.join(',') !== 'Presets,Cards,Settings') fail(`left rail is ${panels.left.join(',')}`);
+  if (!panels.designRight) fail('Design controls are not in the right inspector');
+  if (panels.utilities !== 3) fail(`top utility menu has ${panels.utilities} items`);
+  if (!panels.codeHidden) fail('raw code should be hidden initially');
 
-  await page.click('button[data-panel="view"]');
+  // Both rails can get out of the way when someone needs the largest possible
+  // live preview, and their desktop widths can be changed by dragging handles.
+  await page.click('#toggle-sidebar');
+  if (!await page.locator('.layout').evaluate((node) => node.classList.contains('sidebar-hidden'))) {
+    fail('library hide button did not collapse the left rail');
+  }
+  await page.click('#toggle-sidebar');
+  await page.click('#toggle-inspector');
+  if (!await page.locator('.layout').evaluate((node) => node.classList.contains('inspector-hidden'))) {
+    fail('properties hide button did not collapse the right rail');
+  }
+  await page.click('#toggle-inspector');
+
+  const resizeHandle = await page.locator('#resize-sidebar').boundingBox();
+  if (!resizeHandle) fail('library resize handle is missing');
+  else {
+    const startX = resizeHandle.x + 3;
+    await page.locator('#resize-sidebar').dispatchEvent('pointerdown', { clientX: startX });
+    await page.evaluate((nextX) => window.dispatchEvent(new PointerEvent('pointermove', { clientX: nextX })), startX + 40);
+    await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerup')));
+    const resizedWidth = await page.evaluate(() => parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w')));
+    if (resizedWidth < 340) fail(`library did not resize (${resizedWidth}px)`);
+  }
+
+  // An actual-size canvas wider than the stage must begin at a reachable left
+  // edge and provide a horizontal scroll range.
+  await page.click('#stage-zoom');
+  const canvasPan = await page.evaluate(() => {
+    const scroll = document.getElementById('stage-scroll');
+    const frame = document.getElementById('stage-frame');
+    scroll.scrollLeft = 0;
+    const leftAtStart = frame.getBoundingClientRect().left - scroll.getBoundingClientRect().left;
+    scroll.scrollLeft = scroll.scrollWidth;
+    return { leftAtStart, scrollLeft: scroll.scrollLeft, scrollWidth: scroll.scrollWidth, clientWidth: scroll.clientWidth };
+  });
+  if (canvasPan.leftAtStart < 10 || canvasPan.scrollWidth <= canvasPan.clientWidth || !canvasPan.scrollLeft) {
+    fail(`wide preview cannot pan horizontally (${JSON.stringify(canvasPan)})`);
+  }
+  await page.click('#stage-zoom');
+
+  // The slider provides precise manual zoom, while Ctrl/Cmd-wheel is captured
+  // by the canvas instead of changing the browser's page zoom.
+  await page.locator('#stage-zoom-slider').evaluate((input) => {
+    input.value = '125';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  const canvasZoom = await page.evaluate(() => {
+    const slider = document.getElementById('stage-zoom-slider');
+    const event = new WheelEvent('wheel', { deltaY: -100, ctrlKey: true, cancelable: true });
+    document.getElementById('stage-scroll').dispatchEvent(event);
+    return { value: Number(slider.value), prevented: event.defaultPrevented };
+  });
+  if (canvasZoom.value !== 130 || !canvasZoom.prevented) {
+    fail(`canvas zoom controls failed (${JSON.stringify(canvasZoom)})`);
+  }
+
+  await page.click('.workspace-tool[data-workspace-panel="view"]');
   const viewportButtons = await page.locator('.viewport-switch button').count();
-  if (viewportButtons < 5) fail(`View tab is missing the viewport switch (${viewportButtons} buttons)`);
+  if (viewportButtons < 5) fail(`View utility is missing the viewport switch (${viewportButtons} buttons)`);
+
+  await page.click('#show-code');
+  if (await page.locator('.layout').evaluate((node) => node.classList.contains('code-hidden'))) {
+    fail('Code toolbar button did not open the editor');
+  }
+  await page.click('#toggle-code');
 
   await page.click('button[data-panel="profile"]');
   const settings = await page.evaluate(() => ({
     enforce: !!document.getElementById('enforce'),
     import: !!document.getElementById('profile-file'),
+    switcher: document.getElementById('profile-switcher'),
+    snapshotCount: document.getElementById('profile-switcher')?.options.length || 0,
+    cssToggle: document.getElementById('profile-css-toggle')?.textContent || '',
+    removeHidden: !!document.getElementById('remove-profile')?.hidden,
   }));
   if (!settings.enforce || !settings.import) fail(`Settings tab incomplete (${JSON.stringify(settings)})`);
+  if (!settings.switcher || settings.snapshotCount < 1 || settings.cssToggle !== 'Hide custom CSS' || !settings.removeHidden) {
+    fail(`Profile snapshot controls incomplete (${JSON.stringify({
+      count: settings.snapshotCount, cssToggle: settings.cssToggle, removeHidden: settings.removeHidden,
+    })})`);
+  }
+
+  // Cards can be selected as a filtered group and removed in one operation.
+  await page.click('button[data-panel="cards"]');
+  await page.click('#cards-add');
+  await page.click('#cards-add');
+  await page.click('#cards-add');
+  await page.click('#cards-select-all');
+  const selectedCards = await page.evaluate(() => ({
+    count: document.querySelectorAll('.card-select:checked').length,
+    label: document.querySelector('#cards-selection-count')?.textContent || '',
+    enabled: !document.querySelector('#cards-delete-selected')?.disabled,
+  }));
+  if (selectedCards.count !== 3 || selectedCards.label !== '3 selected' || !selectedCards.enabled) {
+    fail(`card selection controls failed (${JSON.stringify(selectedCards)})`);
+  }
+  await page.evaluate(() => { window.confirm = () => true; });
+  await page.click('#cards-delete-selected');
+  const cardsAfterDelete = await page.evaluate(() => ({
+    rows: document.querySelectorAll('.card-row').length,
+    selected: document.querySelectorAll('.card-select:checked').length,
+    disabled: document.querySelector('#cards-delete-selected')?.disabled,
+  }));
+  if (cardsAfterDelete.rows !== 0 || cardsAfterDelete.selected !== 0 || !cardsAfterDelete.disabled) {
+    fail(`bulk card deletion failed (${JSON.stringify(cardsAfterDelete)})`);
+  }
 
   // Link previews: the Open Graph image is served and the tags point at it.
   const og = await page.request.get(`${ORIGIN}/assets/og.png`);
