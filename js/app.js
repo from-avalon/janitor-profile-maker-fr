@@ -17,6 +17,9 @@
   };
 
   var STORE_KEY = 'jai-css-studio:v2';
+  // Captures themselves live in IndexedDB (see profile-library.js); this
+  // small record only remembers which one was open and the library options.
+  var PROFILE_LIBRARY_KEY = 'jai-css-studio:profile-library-settings';
 
   var VIEWPORTS = {
     wide: { w: 1920, h: 1080, label: 'Wide' },
@@ -68,6 +71,9 @@
   var activeProfileId = null;
   var keepDefaultProfile = true;
   var profileIdSeq = 0;
+  var profileBootPromise = null;
+  var profileSaveTimers = {};
+  var appReady = false;
 
   var frameReady = false;
   var index = {};          // normalised selector -> { property: value }
@@ -85,30 +91,54 @@
         sidebarHidden: state.sidebarHidden, inspectorHidden: state.inspectorHidden
       }));
     } catch (e) { /* private mode, quota — not worth interrupting the user */ }
+    saveProfileLibrarySettings();
+    queueSnapshotPersist(activeSnapshot());
+  }
+
+  function saveProfileLibrarySettings() {
+    try {
+      localStorage.setItem(PROFILE_LIBRARY_KEY, JSON.stringify({
+        activeProfileId: activeProfileId,
+        keepDefaultProfile: keepDefaultProfile,
+        profileIdSeq: profileIdSeq
+      }));
+    } catch { /* IndexedDB remains useful even if this preference cannot persist */ }
+  }
+
+  function loadProfileLibrarySettings() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(PROFILE_LIBRARY_KEY) || 'null');
+      if (!saved) return;
+      if (typeof saved.activeProfileId === 'string') activeProfileId = saved.activeProfileId;
+      if (typeof saved.keepDefaultProfile === 'boolean') keepDefaultProfile = saved.keepDefaultProfile;
+      if (typeof saved.profileIdSeq === 'number') profileIdSeq = saved.profileIdSeq;
+    } catch { /* invalid settings should not stop the editor opening */ }
   }
 
   function load() {
     try {
       var raw = localStorage.getItem(STORE_KEY);
-      if (!raw) return;
-      var saved = JSON.parse(raw);
-      if (typeof saved.code === 'string') state.code = saved.code;
-      if (typeof saved.customWidth === 'number') state.customWidth = saved.customWidth;
-      if (saved.zoom === 'fit' || saved.zoom === 'actual' || saved.zoom === 'manual') state.zoom = saved.zoom;
-      if (typeof saved.zoomScale === 'number') state.zoomScale = Math.max(0.25, Math.min(2, saved.zoomScale));
-      if (typeof saved.previewCss === 'boolean') state.previewCss = saved.previewCss;
-      if (typeof saved.sidebarWidth === 'number') state.sidebarWidth = saved.sidebarWidth;
-      if (typeof saved.inspectorWidth === 'number') state.inspectorWidth = saved.inspectorWidth;
-      if (typeof saved.sidebarHidden === 'boolean') state.sidebarHidden = saved.sidebarHidden;
-      if (typeof saved.inspectorHidden === 'boolean') state.inspectorHidden = saved.inspectorHidden;
-      if (Array.isArray(saved.autoParts)) state.autoParts = saved.autoParts;
-      if (saved.data) {
-        state.data = Object.assign({}, DEFAULT_DATA, saved.data);
-        hadSavedData = true;
+      if (raw) {
+        var saved = JSON.parse(raw);
+        if (typeof saved.code === 'string') state.code = saved.code;
+        if (typeof saved.customWidth === 'number') state.customWidth = saved.customWidth;
+        if (saved.zoom === 'fit' || saved.zoom === 'actual' || saved.zoom === 'manual') state.zoom = saved.zoom;
+        if (typeof saved.zoomScale === 'number') state.zoomScale = Math.max(0.25, Math.min(2, saved.zoomScale));
+        if (typeof saved.previewCss === 'boolean') state.previewCss = saved.previewCss;
+        if (typeof saved.sidebarWidth === 'number') state.sidebarWidth = saved.sidebarWidth;
+        if (typeof saved.inspectorWidth === 'number') state.inspectorWidth = saved.inspectorWidth;
+        if (typeof saved.sidebarHidden === 'boolean') state.sidebarHidden = saved.sidebarHidden;
+        if (typeof saved.inspectorHidden === 'boolean') state.inspectorHidden = saved.inspectorHidden;
+        if (Array.isArray(saved.autoParts)) state.autoParts = saved.autoParts;
+        if (saved.data) {
+          state.data = Object.assign({}, DEFAULT_DATA, saved.data);
+          hadSavedData = true;
+        }
+        if (saved.viewport && VIEWPORTS[saved.viewport]) state.viewport = saved.viewport;
+        if (typeof saved.enforce === 'boolean') state.enforce = saved.enforce;
       }
-      if (saved.viewport && VIEWPORTS[saved.viewport]) state.viewport = saved.viewport;
-      if (typeof saved.enforce === 'boolean') state.enforce = saved.enforce;
     } catch (e) { /* corrupt payload; fall back to defaults */ }
+    loadProfileLibrarySettings();
   }
 
   // ---------------------------------------------------------------- preview
@@ -189,7 +219,7 @@
     pushData();
     pushPayload();
     post({ type: 'inspector', on: state.inspector });
-    loadBundledProfile();
+    bootProfiles();
   }
 
   frame.addEventListener('load', connectFrame);
@@ -1481,12 +1511,40 @@
     return profileSnapshots.filter(function (entry) { return !entry.builtin || keepDefaultProfile; });
   }
 
+  function snapshotRecord(entry) {
+    return {
+      id: entry.id,
+      label: entry.label,
+      filename: entry.filename || entry.label + '.mhtml',
+      data: copyData(entry.data),
+      code: typeof entry.code === 'string' ? entry.code : '',
+      sourceCode: typeof entry.sourceCode === 'string' ? entry.sourceCode : '',
+      cssEnabled: entry.cssEnabled !== false,
+      createdAt: entry.createdAt || Date.now()
+    };
+  }
+
+  function queueSnapshotPersist(entry, now) {
+    if (!entry || entry.builtin || !entry.persisted || !window.JaiProfileLibrary) return;
+    var write = function () {
+      delete profileSaveTimers[entry.id];
+      window.JaiProfileLibrary.update(snapshotRecord(entry)).catch(function () {
+        // The capture is already on disk. A later editor change can retry this
+        // compact metadata write without disrupting the work in progress.
+      });
+    };
+    clearTimeout(profileSaveTimers[entry.id]);
+    if (now) write();
+    else profileSaveTimers[entry.id] = setTimeout(write, 250);
+  }
+
   function saveActiveSnapshot() {
     var entry = activeSnapshot();
     if (!entry) return;
     entry.code = state.code;
     entry.data = copyData(state.data);
     entry.cssEnabled = state.previewCss;
+    queueSnapshotPersist(entry);
   }
 
   function renderProfileSwitcher() {
@@ -1505,14 +1563,25 @@
     }
     var entry = activeSnapshot();
     $('#remove-profile').hidden = !entry || entry.builtin || profileSnapshots.length < 2;
-    $('#profile-css-toggle').disabled = !entry;
+    $('#profile-css-toggle').disabled = !entry || !entry.profile;
     $('#profile-css-toggle').textContent = state.previewCss ? 'Hide custom CSS' : 'Show custom CSS';
     $('#keep-default-profile').checked = keepDefaultProfile;
   }
 
   function activateSnapshot(entry, message) {
-    if (!entry) return;
+    if (!entry) return Promise.resolve(false);
     saveActiveSnapshot();
+    if (!entry.profile) {
+      updateImportStatus('Opening “' + entry.label + '” from local storage…', false);
+      renderProfileSwitcher();
+      return rehydrateSnapshot(entry).then(function () {
+        return activateSnapshot(entry, message);
+      }).catch(function (error) {
+        updateImportStatus('Could not open “' + entry.label + '”: ' + error.message, false);
+        renderProfileSwitcher();
+        return false;
+      });
+    }
     activeProfileId = entry.id;
     state.data = copyData(entry.data);
     state.previewCss = entry.cssEnabled !== false;
@@ -1522,30 +1591,48 @@
     pushData();
     pushPayload();
     renderProfileSwitcher();
-    updateImportStatus(message || ('Using ' + entry.label + '. Snapshots stay loaded until you remove them or reload.'), true);
+    updateImportStatus(message || ('Using ' + entry.label + '. It is saved locally until you remove it.'), true);
     save();
+    return Promise.resolve(true);
   }
 
-  function applyImportedProfile(profile, filename) {
+  function applyImportedProfile(profile, file) {
     importedProfile = true;
+    var filename = file.name;
     var username = profile.data && profile.data.username ? ' @' + profile.data.username : '';
     var entry = {
       id: 'profile-' + (++profileIdSeq),
       label: filename.replace(/\.(m?html?)$/i, '') + username,
+      filename: filename,
       profile: profile,
       data: copyData(profile.data),
       code: typeof profile.aboutMe === 'string' ? profile.aboutMe : window.JaiPayload.STARTER,
+      sourceCode: typeof profile.aboutMe === 'string' ? profile.aboutMe : window.JaiPayload.STARTER,
       cssEnabled: true,
-      builtin: false
+      builtin: false,
+      createdAt: Date.now(),
+      persisted: false
     };
     profileSnapshots.push(entry);
-    activateSnapshot(entry, 'Using “' + filename + '”. Switch profiles above whenever you want; the snapshot stays loaded until you remove it or reload.');
-    reportToHost('profile_imported');
-    // Importing is the creator saying "this is my profile", so Profile
-    // information fills in from the file itself; the preview only catches up
-    // once the frame has processed the new snapshot.
-    fillInfo(new DOMParser().parseFromString(profile.html, 'text/html'), '“' + filename + '”');
-    toast('Profile snapshot added — you can now switch between profiles');
+    updateImportStatus('Saving “' + filename + '” locally…', false);
+    window.JaiProfileLibrary.put(snapshotRecord(entry), file).then(function () {
+      entry.persisted = true;
+      saveProfileLibrarySettings();
+      return activateSnapshot(entry, 'Using “' + filename + '”. It will reopen from local storage next time.');
+    }).then(function () {
+      reportToHost('profile_imported');
+      // Importing is the creator saying "this is my profile", so Profile
+      // information fills in from the file itself; the preview only catches up
+      // once the frame has processed the new snapshot.
+      fillInfo(new DOMParser().parseFromString(profile.html, 'text/html'), '“' + filename + '”');
+      toast('Profile saved locally — you can switch between profiles');
+    }).catch(function (error) {
+      profileSnapshots = profileSnapshots.filter(function (candidate) { return candidate.id !== entry.id; });
+      if (entry.profile.release) entry.profile.release();
+      updateImportStatus('Could not save this profile locally: ' + error.message, !!activeSnapshot());
+      renderProfileSwitcher();
+      toast('Could not save that profile locally');
+    });
   }
 
   function handleProfileFileChange() {
@@ -1553,7 +1640,7 @@
     if (!file) return;
     updateImportStatus('Reading “' + file.name + '”…', false);
     window.JaiProfileImport.read(file).then(function (profile) {
-      applyImportedProfile(profile, file.name);
+      applyImportedProfile(profile, file);
     }).catch(function (error) {
       updateImportStatus('Could not import this file: ' + error.message, importedProfile);
       toast('Could not import that profile file');
@@ -1588,6 +1675,7 @@
       return;
     }
     keepDefaultProfile = this.checked;
+    saveProfileLibrarySettings();
     var entry = activeSnapshot();
     renderProfileSwitcher();
     if (!keepDefaultProfile && entry && entry.builtin) {
@@ -1601,6 +1689,9 @@
     saveActiveSnapshot();
     if (entry.profile.release) entry.profile.release();
     profileSnapshots = profileSnapshots.filter(function (candidate) { return candidate.id !== entry.id; });
+    window.JaiProfileLibrary.remove(entry.id).catch(function () {
+      toast('The profile was removed here, but its local file could not be cleared.');
+    });
     var next = visibleSnapshots()[0];
     if (!next) {
       // Never leave the canvas without a source profile. If the user hid the
@@ -1610,6 +1701,7 @@
       next = visibleSnapshots()[0];
     }
     activeProfileId = null;
+    saveProfileLibrarySettings();
     if (next) activateSnapshot(next, 'Removed the snapshot. Using ' + next.label + '.');
     else renderProfileSwitcher();
     toast('Removed ' + entry.label + ' from the profile switcher');
@@ -1798,10 +1890,30 @@
     return css;
   }
 
+  function ensureDefaultSnapshot() {
+    var entry = profileSnapshots.filter(function (candidate) { return candidate.builtin; })[0];
+    if (!entry) {
+      entry = {
+        id: 'default',
+        label: 'Sweepercom @' + DEFAULT_DATA.username,
+        profile: null,
+        data: copyData(hadSavedData ? state.data : DEFAULT_DATA),
+        code: state.code || window.JaiPayload.STARTER,
+        cssEnabled: state.previewCss,
+        builtin: true
+      };
+      profileSnapshots.unshift(entry);
+    }
+    return entry;
+  }
+
   function loadBundledProfile() {
+    var entry = ensureDefaultSnapshot();
+    if (entry.profile) return Promise.resolve(entry);
+    if (entry.loading) return entry.loading;
     updateImportStatus('Loading ' + DEFAULT_PROFILE_LABEL + '…', false);
 
-    return fetch(DEFAULT_PROFILE_URL)
+    entry.loading = fetch(DEFAULT_PROFILE_URL)
       .then(function (response) {
         if (!response.ok) throw new Error('HTTP ' + response.status);
         return response.blob();
@@ -1812,40 +1924,122 @@
       })
       .then(function (profile) {
         profile.css = withoutPageBackground(profile.html, profile.css);
-        var existing = profileSnapshots.filter(function (entry) { return entry.builtin; })[0];
-        if (existing && existing.profile.release) existing.profile.release();
+        if (entry.profile && entry.profile.release) entry.profile.release();
         // Blob URLs are intentionally used while an imported MHTML snapshot is
         // alive, but they cannot survive a reload. Do not restore a stale
         // imported About Me document into the bundled profile after that URL
         // has expired; the built-in capture is the safe source of truth.
-        var savedCode = state.code;
+        var savedCode = entry.code || state.code;
         var defaultCode = /\bblob:/i.test(savedCode || '')
           ? (profile.aboutMe || window.JaiPayload.STARTER)
           : (savedCode || window.JaiPayload.STARTER);
-        var defaultData = hadSavedData ? copyData(state.data) : copyData(profile.data);
+        var defaultData = entry.data ? copyData(entry.data) : copyData(profile.data);
         if (/^blob:/i.test(defaultData.avatar || '') && profile.data.avatar) defaultData.avatar = profile.data.avatar;
         if (/^blob:/i.test(defaultData.background || '')) defaultData.background = profile.data.background || '';
-        var entry = {
-          id: 'default',
-          label: 'Sweepercom' + (profile.data.username ? ' @' + profile.data.username : ''),
-          profile: profile,
-          data: defaultData,
-          code: defaultCode,
-          cssEnabled: state.previewCss,
-          builtin: true
-        };
-        profileSnapshots = profileSnapshots.filter(function (candidate) { return !candidate.builtin; });
-        profileSnapshots.unshift(entry);
-        if (!activeProfileId) activateSnapshot(entry, 'Using ' + DEFAULT_PROFILE_LABEL + '. Import another profile to add it to the switcher.');
-        else renderProfileSwitcher();
-        return true;
+        entry.label = 'Sweepercom' + (profile.data.username ? ' @' + profile.data.username : '');
+        entry.profile = profile;
+        entry.data = defaultData;
+        entry.code = defaultCode;
+        entry.cssEnabled = entry.cssEnabled !== false;
+        delete entry.loading;
+        renderProfileSwitcher();
+        return entry;
       })
       .catch(function (error) {
-        // Not fatal: the built-in snapshot is the same profile, just captured
-        // at build time, so the preview is still correct without this.
-        updateImportStatus('Using the built-in snapshot (' + error.message + ').', false);
-        return false;
+        delete entry.loading;
+        throw error;
       });
+    return entry.loading;
+  }
+
+  function rehydrateSnapshot(entry) {
+    if (entry.profile) return Promise.resolve(entry);
+    if (entry.loading) return entry.loading;
+    if (entry.builtin) return loadBundledProfile();
+
+    entry.loading = window.JaiProfileLibrary.file(entry.id)
+      .then(function (file) {
+        return window.JaiProfileImport.read(new File([file], entry.filename || entry.label + '.mhtml', {
+          type: file.type || 'multipart/related'
+        }));
+      })
+      .then(function (profile) {
+        entry.profile = profile;
+        // MHTML resources are represented by fresh blob URLs each time it is
+        // parsed. Translate resource URLs from the original source into this
+        // fresh parse before falling back, so a creator's CSS edits survive a
+        // reload even when their imported markup references local images.
+        var freshSource = profile.aboutMe || window.JaiPayload.STARTER;
+        if (/\bblob:/i.test(entry.code || '')) {
+          var oldUrls = (entry.sourceCode || '').match(/blob:[^\s"')<>]+/gi) || [];
+          var newUrls = freshSource.match(/blob:[^\s"')<>]+/gi) || [];
+          if (oldUrls.length && oldUrls.length === newUrls.length) {
+            var replacements = {};
+            oldUrls.forEach(function (url, index) { replacements[url] = newUrls[index]; });
+            entry.code = entry.code.replace(/blob:[^\s"')<>]+/gi, function (url) {
+              return replacements[url] || url;
+            });
+          } else {
+            entry.code = freshSource;
+          }
+        }
+        entry.sourceCode = freshSource;
+        entry.data = copyData(entry.data);
+        if (/^blob:/i.test(entry.data.avatar || '')) entry.data.avatar = profile.data.avatar || '';
+        if (/^blob:/i.test(entry.data.background || '')) entry.data.background = profile.data.background || '';
+        delete entry.loading;
+        return entry;
+      })
+      .catch(function (error) {
+        delete entry.loading;
+        throw error;
+      });
+    return entry.loading;
+  }
+
+  function bootProfiles() {
+    if (!appReady || !frameReady) return Promise.resolve();
+    if (profileBootPromise) return profileBootPromise;
+    profileBootPromise = window.JaiProfileLibrary.list()
+      .then(function (records) {
+        ensureDefaultSnapshot();
+        records.sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); }).forEach(function (record) {
+          if (!record || !record.id || record.id === 'default' ||
+              profileSnapshots.some(function (entry) { return entry.id === record.id; })) return;
+          profileSnapshots.push({
+            id: record.id,
+            label: record.label || 'Saved profile',
+            filename: record.filename,
+            profile: null,
+            data: copyData(record.data),
+            code: typeof record.code === 'string' ? record.code : '',
+            sourceCode: typeof record.sourceCode === 'string' ? record.sourceCode : '',
+            cssEnabled: record.cssEnabled !== false,
+            createdAt: record.createdAt,
+            builtin: false,
+            persisted: true
+          });
+          var idNumber = /^profile-(\d+)$/.exec(record.id);
+          if (idNumber) profileIdSeq = Math.max(profileIdSeq, +idNumber[1]);
+        });
+        var selected = profileSnapshots.filter(function (entry) { return entry.id === activeProfileId; })[0];
+        if (!selected || (selected.builtin && !keepDefaultProfile)) {
+          selected = profileSnapshots.filter(function (entry) { return !entry.builtin; })[0] || ensureDefaultSnapshot();
+        }
+        renderProfileSwitcher();
+        return activateSnapshot(selected, selected.builtin
+          ? 'Using ' + DEFAULT_PROFILE_LABEL + '.'
+          : 'Restored “' + selected.label + '” from local storage.');
+      })
+      .catch(function (error) {
+        // Saving profiles is a convenience, never a reason to block the
+        // studio. Fall back to the bundled capture only if local storage is
+        // unavailable.
+        var fallback = ensureDefaultSnapshot();
+        renderProfileSwitcher();
+        return activateSnapshot(fallback, 'Local profile storage is unavailable (' + error.message + ').');
+      });
+    return profileBootPromise;
   }
 
   // -------------------------------------------------------------- reference
@@ -2805,6 +2999,8 @@
   renderReference('');
   setCode(state.code || window.JaiPayload.STARTER);
   layoutStage();
+  appReady = true;
+  bootProfiles();
   reportToHost('studio_ready');
   if (window.JaiControls.groups.length) $('.group').classList.add('is-open');
 })();

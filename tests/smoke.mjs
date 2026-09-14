@@ -390,6 +390,47 @@ try {
     fail(`Dark Red did not use Profile information (${JSON.stringify(darkRed)})`);
   }
 
+  // Imported MHTML captures are stored in IndexedDB alongside their editor
+  // state. Returning to the studio restores only the last selected capture,
+  // so it must not also fetch/mount the bundled Sweepercom capture.
+  await page.setInputFiles('#profile-file-info', 'preview/profiles/default.mhtml');
+  await page.waitForFunction(() =>
+    document.getElementById('profile-import-status')?.textContent.includes('will reopen from local storage'),
+    { timeout: 30_000 }
+  ).catch(() => fail('imported profile was not saved locally'));
+  const activeImportedId = await page.locator('#profile-switcher').inputValue();
+  if (!activeImportedId.startsWith('profile-')) fail(`import did not become active (${activeImportedId})`);
+  await page.evaluate(() => {
+    const editor = document.getElementById('css-input');
+    editor.value += '\n/* local-profile-sentinel */';
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  // Metadata writes are intentionally batched while typing.
+  await page.waitForTimeout(350);
+
+  let bundledRequestsOnRestore = 0;
+  const countBundledRestoreRequest = (request) => {
+    if (request.url().endsWith('/preview/profiles/default.mhtml')) bundledRequestsOnRestore++;
+  };
+  page.on('request', countBundledRestoreRequest);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() =>
+    document.getElementById('profile-import-status')?.textContent.includes('Restored') &&
+    document.getElementById('profile-switcher')?.value.startsWith('profile-'),
+    { timeout: 30_000 }
+  ).catch(() => fail('last imported profile was not restored after reload'));
+  page.off('request', countBundledRestoreRequest);
+  const restoredImportedId = await page.locator('#profile-switcher').inputValue();
+  if (restoredImportedId !== activeImportedId) {
+    fail(`reload selected ${restoredImportedId}, expected ${activeImportedId}`);
+  }
+  if (!await page.locator('#css-input').inputValue().then((value) => value.includes('local-profile-sentinel'))) {
+    fail('editor changes to the saved profile did not survive reload');
+  }
+  if (bundledRequestsOnRestore) {
+    fail(`bundled default profile was fetched ${bundledRequestsOnRestore} time(s) while restoring an import`);
+  }
+
   // Link previews: the Open Graph image is served and the tags point at it.
   const og = await page.request.get(`${ORIGIN}/assets/og.png`);
   if (og.status() !== 200 || !(og.headers()["content-type"] || "").includes("image/png")) fail(`assets/og.png: ${og.status()} ${og.headers()["content-type"]}`);
