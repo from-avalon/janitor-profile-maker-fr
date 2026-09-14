@@ -738,23 +738,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .preset-section > div { padding-left: 10px; padding-right: 10px; }
 .preset-section > .panel-note { margin-top: 10px; }
 
-.template-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding: 0 10px 10px;
-}
-.template-filter {
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 10.5px;
-}
-.template-filter.is-active {
-  border-color: var(--accent-strong);
-  background: var(--accent-soft);
-  color: #e9d5ff;
-}
-
 .template {
   border: 1px solid var(--line-soft); border-radius: var(--radius);
   background: var(--panel); margin-bottom: 10px; overflow: hidden;
@@ -935,3 +918,47 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .cards-footer { display: flex; flex-direction: column; gap: 5px; padding-top: 4px; }
 .cards-footer .btn { width: 100%; }
+
+/* ------------------------------------------------------------ profile info */
+/* Profile information is long, so each section is closed until asked for and
+ * its summary carries a count of what is inside. */
+.info-import { display: flex; gap: 6px; margin-bottom: 8px; }
+.info-import .btn { flex: 1; text-align: center; }
+.info-section { margin-bottom: 8px; border: 1px solid var(--line-soft); border-radius: var(--radius); overflow: hidden; }
+.info-section[open] { border-color: var(--line); }
+.info-section > summary {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
+  background: var(--panel);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer; list-style: none;
+}
+.info-section > summary::-webkit-details-marker { display: none; }
+.info-section > summary::before { content: '›'; display: inline-block; color: var(--text-faint); transition: transform .15s; }
+.info-section[open] > summary::before { transform: rotate(90deg); }
+.info-section > summary:hover { background: #1f232b; }
+.info-section-name { flex: 1; }
+.info-count { font: 500 10px/1 var(--mono); padding: 3px 6px; border-radius: 4px; background: var(--bg-sunken); color: var(--text-faint); }
+.info-count:empty { display: none; }
+.info-body { padding: 10px 10px 2px; }
+.info-body label.field { display: block; margin-bottom: 10px; font-size: 11.5px; color: var(--text-dim); }
+.info-body label.field input, .info-body label.field textarea, .info-body label.field select { margin-top: 4px; color: var(--text); }
+.info-body input[type="url"] {
+  width: 100%; padding: 7px 9px;
+  border: 1px solid var(--line); border-radius: 7px;
+  background: var(--bg-sunken); font-size: 12.5px;
+}
+.info-body input[type="url"]:focus { outline: none; border-color: var(--accent-strong); }
+.info-body input[type="color"] {
+  width: 100%; height: 30px; padding: 2px;
+  border: 1px solid var(--line); border-radius: 7px;
+  background: var(--bg-sunken);
+}
+.info-body textarea { min-height: 64px; }
+.info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 8px; }
+.info-subhead { margin: 14px 0 7px; font: 600 10px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); }
+.info-add { width: 100%; margin: 2px 0 10px; }
+.info-thumb { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 5px; object-fit: cover; align-self: center; }
+.info-list .card-row > summary, #cards-list .card-row > summary { align-items: center; }
+/* Room for the Add all / Use button, which sits in the corner of the head. */
+.template-head { padding-right: 92px; }

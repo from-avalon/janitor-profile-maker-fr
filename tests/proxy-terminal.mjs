@@ -46,14 +46,28 @@ try {
     assert(hardcode.markup.includes(text), `Editable field reaches generated output: ${text}`);
   }
   assert(hardcode.markup.includes('zz-navigation') && hardcode.markup.includes('zz-agents'), 'Hardcoding emits the game menu shell');
-  await studio.locator('button[data-panel="cards"]').click();
-  assert(await studio.locator('#cards-opt-style option[value="proxy-terminal"]').count(), 'Cards UI lists Proxy Terminal');
-  await studio.locator('.cards-options > summary').click();
+  await studio.locator('button[data-panel="info"]').click();
+  assert(await studio.locator('#cards-opt-style option[value="proxy-terminal"]').count(), 'Profile information lists Proxy Terminal');
+  await studio.locator('#info-layout > summary').click();
   await studio.locator('#cards-opt-style').selectOption('proxy-terminal');
-  await studio.locator('#cards-opt-aboutTitle').fill('Edited from Cards');
-  const savedOptions = await studio.evaluate(() => JSON.parse(localStorage.getItem('jai-css-studio:cards')).options);
-  assert.equal(savedOptions.style, 'proxy-terminal');
-  assert.equal(savedOptions.aboutTitle, 'Edited from Cards');
+  await studio.locator('#info-about > summary').click();
+  await studio.locator('[data-about="title"]').fill('Edited from Profile information');
+  const savedInfo = await studio.evaluate(() => JSON.parse(localStorage.getItem('jai-css-studio:profile-info')));
+  assert.equal(savedInfo.layout.style, 'proxy-terminal');
+  assert.equal(savedInfo.about.title, 'Edited from Profile information');
+  const people = await studio.evaluate(() => window.JaiHardcode.markup(
+    [{ name: 'Contact', portrait: 'https://ella.janitorai.com/bot-avatars/test.webp' }],
+    { style: 'proxy-terminal', username: 'Tester',
+      friends: [{ name: 'Mira', image: 'https://example.com/mira.webp', link: 'https://janitorai.com/profiles/mira', note: 'Writes dragons' },
+        { name: 'No link' }],
+      socials: [{ label: 'Ko-fi', link: 'https://ko-fi.com/tester' }, { link: 'https://bsky.app/profile/tester' }],
+      sections: [{ title: 'Boundaries', body: 'Line one\nLine two' }] }));
+  for (const text of ['zz-friend-link" href="https://janitorai.com/profiles/mira"', 'src="https://example.com/mira.webp"',
+    '<article class="zz-friend">', '>Ko-fi <b>', '>bsky.app <b>', '<summary>Boundaries</summary><p>Line one<br>Line two</p>',
+    'PROXY TERMINAL / TESTER']) {
+    assert(people.includes(text), `Profile information reaches Proxy Terminal: ${text}`);
+  }
+  assert(!people.includes('Open channel / 01'), 'Real friends replace the open slots');
   const snapshot = await studio.evaluate(code => {
     const doc = document.querySelector('#preview').contentDocument;
     const css = [...code.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1]).join('\n');

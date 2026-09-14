@@ -40,11 +40,11 @@ document, which browsers block for pages opened directly from disk (`file://`).
 | Panel | What it does |
 | --- | --- |
 | **Design** | ~130 visual controls grouped by page element. Each one reads its value out of the `<style>` block in your About Me and writes back into it, so the code and the sliders never disagree. A `<style>` block is created for you if there isn't one. |
-| **Presets** | Three groups. **Basic** are colour schemes and accents — one labelled CSS block each. **Advanced** are complete community templates, split into parts you can apply one at a time. **My presets** are your own — select code in the editor, save it as a part with "Save selection…", and group parts into presets you name yourself. |
+| **Presets** | Three closed groups. **Layouts** holds the profile layouts built from your Profile information, then complete community templates — add one whole, or open *Choose parts* to take pieces of it. **Styles** are colour schemes and accents — one labelled CSS block each. **My presets** are your own — select code in the editor, save it as a part with "Save selection…", and group parts into presets you name yourself. |
 | **Settings** | Preview content only — how many bot cards to show, whether you are looking at your own profile or a visitor's view, and the "Enforce JAI rules" switch. Never touches your code. Username, avatar, follower count and member-since are edited directly in the preview: click the text to edit it, or right-click the avatar/background to swap the image. |
-| **Import your profile** | In the Settings or Presets panel, choose a browser save of your own JanitorAI profile. Use Chrome/Edge's **Save page as → Webpage, Single File** (`.mhtml`) — it includes the page's images and styles in one private local file. The app reads it only in your browser, loads its profile DOM into the preview, and copies the saved About Me contents into the editor. Plain `.html` is also accepted, but browsers cannot access its companion `_files` folder, so MHTML is the reliable option. |
+| **Import your profile** | In the Profile or Settings panel, choose a browser save of your own JanitorAI profile. Use Chrome/Edge's **Save page as → Webpage, Single File** (`.mhtml`) — it includes the page's images and styles in one private local file. The app reads it only in your browser, loads its profile DOM into the preview, and copies the saved About Me contents into the editor. Plain `.html` is also accepted, but browsers cannot access its companion `_files` folder, so MHTML is the reliable option. |
 | **View** | 1920 / 1440 / 1200 / tablet / mobile, plus a custom pixel width. Match it to your own monitor — a theme built at 1440 will look cramped on a 1920 screen and vice versa. |
-| **Cards** | A roster of hardcoded characters, written into About Me as your own markup. **Detect from profile** fills name, description, tags, link and the bot image from the characters already in your preview. That image becomes the centered, clipped tile portrait and stage art unless you override either one; you add only the optional tagline, quote and alternate art. Inserting writes two marked blocks and rewrites only those, so the roster can be regenerated any time. |
+| **Profile** | Profile information: everything a hardcoded profile is generated from, kept apart from your document. **Import profile** fills in your username, avatar, followers, member date, badges and every character (description, tags, image, link, chat and token counts); you add friends, social links and extra About Me sections. Captured facts refresh on the next import; what you wrote is never overwritten. Inserting writes marked blocks and rewrites only those. |
 | **Selectors** | All 418 elements from Puppy's reference guide, searchable. Click any selector to start a rule for it. |
 | **User menu** | The avatar dropdown is included and stylable. Open it from the Settings tab, or click the avatar in the preview. |
 | **Inspect** | Click anything in the preview to get its selector. |
@@ -87,11 +87,11 @@ can see the consequence.
 
 JanitorAI generates its character grid from its own React app, so its card class
 names change without notice and a theme pinned to them breaks. Writing the cards
-yourself fixes that. The **Cards** tab detects the repeated details for you,
+yourself fixes that. The **Profile** tab fills the repeated details in for you,
 including the bot image used for both portrait and stage by default, then emits
 each contact everywhere the selector needs it.
 
-It keeps a roster — separate from your document, so clearing the editor doesn't
+It keeps your Profile information — separate from your document, so clearing the editor doesn't
 lose it — and emits two things into your About Me, each between markers:
 
 - the **markup**, one line with no whitespace between tags (see *Layout warnings*
@@ -110,10 +110,11 @@ Everything a style owns — colours, spacing, media queries — stays editable i
 your document. Re-inserting rewrites only the marked blocks, so the roster can
 grow without touching a line you wrote.
 
-The **Proxy Terminal** style also exposes its profile label, watermark, About Me
-copy, creator notes, Friends heading, social URL and footer text in **Layout &
-theme**, so the complete profile can be edited without hand-searching the
-generated markup.
+The **Proxy Terminal** layout reads the rest of your Profile information too:
+About Me heading, introduction, creator notes and extra sections fill its About
+screen; friends (with their pictures and links) replace the open slots on its
+Friends screen; and social links, each with an optional icon, fill Links. Its
+profile label, watermark and footer text live under **Profile → Layout & theme**.
 
 Tag chips are linked from JanitorAI's own tag ids (`js/tags.js`); a tag the site
 has no number for is linked as a custom tag instead.
@@ -147,8 +148,8 @@ It supplies the canvas only:
   back to the build-time snapshot in `preview/snapshot.js`, which is the same
   profile — so the preview stays correct either way.
 
-To preview another capture, use **Choose profile file** in the Settings or
-Presets tab. Each import becomes a snapshot in the **Preview profile** switcher,
+To preview another capture, use **Import profile** in the Profile tab or **Choose profile file** in the Settings
+tab. Each import becomes a snapshot in the **Preview profile** switcher,
 so you can move between it and Sweepercom without losing your editor contents.
 The built-in profile can be hidden with **Keep Sweepercom in the switcher**;
 the imported snapshot can be removed when you are done. **Hide custom CSS**
@@ -157,11 +158,11 @@ profile DOM and base JanitorAI styling visible.
 
 ## Advanced templates
 
-An advanced preset is a whole profile design by a community creator — HTML *and*
+A community template (under **Presets → Layouts**) is a whole profile design by a community creator — HTML *and*
 CSS — cut into components. Open one and you get its parts; add the status box
 without inheriting the bot card redesign, or take the lot.
 
-Included: **Dark Red** by Hime (`@yourhighness08`), free to use and modify; **Dark Hour Menu** by Sweepercom, a Persona 3 Reload-inspired menu with a hardcoded 25-card gallery; **Signal Select: Celeste**, a ZZZ-inspired single-character selector with empty slots ready for future bots; and **Proxy Terminal**, a complete ZZZ-inspired profile with Agents, About Me, Friends and Links screens.
+Included: **Dark Red** by Hime (`@yourhighness08`), free to use and modify; **Dark Hour Menu** by Sweepercom, a Persona 3 Reload-inspired menu with a hardcoded 25-card gallery; **Signal Select: Celeste**, a ZZZ-inspired single-character selector with empty slots ready for future bots; and **Proxy Terminal**, a complete ZZZ-inspired profile with Agents, About Me, Friends and Links screens. When Dark Red is added, its username treatment, avatar cut-out, About Me panels, social pills and friends row are filled from **Profile** instead of its original example content.
 
 Dark Hour's cards live in About Me markup and link directly to JanitorAI, so their
 layout does not depend on Janitor's generated card classes. Replace each card's

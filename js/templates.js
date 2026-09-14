@@ -9,7 +9,7 @@ window.JAI_TEMPLATES = [
   "name": "Dark Red",
   "author": "Hime · @yourhighness08",
   "credit": "Template by Hime (@yourhighness08). Free to use and modify.",
-  "blurb": "A full profile rebuild: cinematic cover, tabbed panels, custom bot cards and restyled site chrome. Add the whole thing, or take only the pieces you want.",
+  "blurb": "A full profile rebuild: cinematic cover, tabbed panels, custom bot cards and restyled site chrome. When added, Profile fills its name, avatar, About Me, links and friends. Add the whole thing, or take only the pieces you want.",
   "components": [
    {
     "id": "hime-darkred-base",

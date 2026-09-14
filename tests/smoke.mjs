@@ -153,25 +153,24 @@ try {
     }
   }
 
-  // Advanced template parts can be narrowed to a specific profile region, and
-  // the long-form guidance lives in the top utility bar instead of the left rail.
+  // Presets start collapsed so the rail reads as a short menu, and Layouts
+  // offers the Profile-information layouts ahead of community templates.
   await page.click('button[data-panel="presets"]');
-  await page.locator('.preset-section').nth(1).locator(':scope > summary').click();
-  const filterCount = await page.locator('.template-filter').count();
-  if (filterCount < 2) fail(`template element filters missing (${filterCount})`);
-  await page.getByRole('button', { name: 'Character cards', exact: true }).click();
-  const filtered = await page.evaluate(() => ({
-    active: document.querySelector('.template-filter.is-active')?.textContent,
-    parts: document.querySelectorAll('.part').length,
-    open: document.querySelector('.template-parts')?.open,
+  const presetSections = await page.evaluate(() => ({
+    open: [...document.querySelectorAll('.preset-section')].filter((d) => d.open).length,
+    names: [...document.querySelectorAll('.preset-section-name')].map((n) => n.textContent.trim()),
+    layouts: document.querySelectorAll('#layout-list .template').length,
+    filters: document.querySelectorAll('.template-filter').length,
   }));
-  if (filtered.active !== 'Character cards' || filtered.parts === 0 || !filtered.open) {
-    fail(`template filter did not narrow parts (${JSON.stringify(filtered)})`);
+  if (presetSections.open !== 0) fail(`preset sections should start collapsed (${presetSections.open} open)`);
+  if (presetSections.names.join(',') !== 'Layouts,Styles,My presets') {
+    fail(`preset sections are ${presetSections.names.join(',')}`);
   }
+  if (presetSections.layouts < 2) fail(`profile layouts missing (${presetSections.layouts})`);
+  if (presetSections.filters) fail(`template part filters should be gone (${presetSections.filters})`);
 
   // Template parts add and remove cleanly: a part brings only what it needs,
   // and a dependency it pulled in goes again with it.
-  await page.getByRole('button', { name: 'All parts', exact: true }).click();
   const partsOn = () => page.evaluate(() =>
     [...document.querySelectorAll('.part.is-on')].map((r) => r.dataset.part).sort().join(','));
   const togglePart = (id) => page.evaluate((pid) =>
@@ -204,7 +203,7 @@ try {
     utilities: document.querySelectorAll('.workspace-tool[data-workspace-panel]').length,
     codeHidden: document.querySelector('.layout').classList.contains('code-hidden'),
   }));
-  if (panels.left.join(',') !== 'Presets,Cards,Settings') fail(`left rail is ${panels.left.join(',')}`);
+  if (panels.left.join(',') !== 'Presets,Profile,Settings') fail(`left rail is ${panels.left.join(',')}`);
   if (!panels.designRight) fail('Design controls are not in the right inspector');
   if (panels.utilities !== 3) fail(`top utility menu has ${panels.utilities} items`);
   if (!panels.codeHidden) fail('raw code should be hidden initially');
@@ -292,8 +291,15 @@ try {
     })})`);
   }
 
-  // Cards can be selected as a filtered group and removed in one operation.
-  await page.click('button[data-panel="cards"]');
+  // Profile information opens as a closed table of contents; its characters
+  // can be selected as a filtered group and removed in one operation.
+  await page.click('button[data-panel="info"]');
+  const infoSections = await page.evaluate(() =>
+    [...document.querySelectorAll('.info-section')].map((d) => d.id + (d.open ? ':open' : '')));
+  if (infoSections.join(',') !== 'info-identity,info-characters,info-about,info-friends,info-socials,info-layout') {
+    fail(`Profile information sections are ${infoSections.join(',')}`);
+  }
+  await page.click('#info-characters > summary');
   await page.click('#cards-add');
   await page.click('#cards-add');
   await page.click('#cards-add');
@@ -315,6 +321,73 @@ try {
   }));
   if (cardsAfterDelete.rows !== 0 || cardsAfterDelete.selected !== 0 || !cardsAfterDelete.disabled) {
     fail(`bulk card deletion failed (${JSON.stringify(cardsAfterDelete)})`);
+  }
+
+  // Profile information reads everything the page knows, keeping public image
+  // addresses rather than the preview's temporary blob: URLs.
+  const infoFound = await page.evaluate(() => {
+    const found = window.JaiProfileInfo.fromDocument(document.querySelector('#preview').contentDocument);
+    if (!found) return null;
+    const first = found.characters[0] || {};
+    const links = found.characters.map((c) => c.link);
+    return {
+      username: found.identity.username, followers: found.identity.followers,
+      badges: found.identity.badges.length, badgeImage: (found.identity.badges[0] || {}).image || '',
+      characters: found.characters.length, unique: new Set(links).size,
+      chats: first.chats, tokens: first.tokens,
+    };
+  });
+  if (!infoFound || !infoFound.username || !infoFound.followers || !infoFound.characters ||
+      !infoFound.chats || !infoFound.tokens) {
+    fail(`profile information import is incomplete (${JSON.stringify(infoFound)})`);
+  } else {
+    if (infoFound.badges && !/^https?:\/\//.test(infoFound.badgeImage)) {
+      fail(`badge images must keep their public address (${infoFound.badgeImage})`);
+    }
+    if (infoFound.unique !== infoFound.characters) {
+      fail(`preview filler cards were read as characters (${JSON.stringify(infoFound)})`);
+    }
+  }
+
+  // Dark Red is materialised from Profile information on use, rather than
+  // retaining Hime's example name, prose, contact links, friend cards or art.
+  await page.click('#info-identity > summary');
+  await page.locator('[data-identity="username"]').fill('Nyx Vale');
+  await page.locator('[data-identity="avatar"]').fill('https://example.com/nyx.png');
+  await page.locator('[data-identity="followers"]').fill('321');
+  await page.locator('[data-identity="characterCount"]').fill('8');
+  await page.locator('[data-identity="memberSince"]').fill('Oct 2025');
+  await page.click('#info-about > summary');
+  await page.locator('[data-about="title"]').fill('After dark');
+  await page.locator('[data-about="body"]').fill('Midnight stories and dangerous choices.');
+  await page.locator('[data-about="notes"]').fill('Read the content notes first.');
+  await page.click('#info-friends > summary');
+  await page.click('[data-add="friends"]');
+  await page.locator('.info-list[data-list="friends"] [data-field="name"]').fill('Mira');
+  await page.locator('.info-list[data-list="friends"] [data-field="link"]').fill('https://janitorai.com/profiles/mira');
+  await page.click('#info-socials > summary');
+  await page.click('[data-add="socials"]');
+  await page.locator('.info-list[data-list="socials"] [data-field="label"]').fill('Discord');
+  await page.locator('.info-list[data-list="socials"] [data-field="link"]').fill('https://discord.gg/nyx');
+  await page.click('button[data-panel="presets"]');
+  await page.click('#presets-layouts > summary');
+  await page.locator('.template[data-template="hime-darkred"] .template-actions button').click();
+  const darkRed = await page.evaluate(() => {
+    const code = document.getElementById('css-input').value;
+    return {
+      firstName: code.includes('content: "Nyx";'),
+      lastName: code.includes('content: "Vale";'),
+      avatar: code.includes('src="https://example.com/nyx.png" class="sona"'),
+      about: code.includes('Midnight stories and dangerous choices.'),
+      notes: code.includes('Read the content notes first.'),
+      social: code.includes('href="https://discord.gg/nyx"'),
+      friend: code.includes('Mira'),
+      placeholder: code.includes("content: 'USER';") || code.includes("content: 'NAME';"),
+    };
+  });
+  if (!darkRed.firstName || !darkRed.lastName || !darkRed.avatar || !darkRed.about ||
+      !darkRed.notes || !darkRed.social || !darkRed.friend || darkRed.placeholder) {
+    fail(`Dark Red did not use Profile information (${JSON.stringify(darkRed)})`);
   }
 
   // Link previews: the Open Graph image is served and the tags point at it.

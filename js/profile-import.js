@@ -156,8 +156,9 @@
         var original = node.getAttribute(attr);
         // MHTML resources become blob: URLs so the private local preview works
         // offline. Keep an image's public address alongside that temporary URL:
-        // the Cards detector can safely publish the former, never the latter.
-        if (attr === 'src' && node.tagName === 'IMG' && node.closest('.pp-cc-wrapper') &&
+        // Profile Information can safely publish the former, never the latter
+        // — for bot art, but also the avatar and badges.
+        if (attr === 'src' && node.tagName === 'IMG' &&
             /^(https?:)?\/\//i.test(original || '')) {
           node.setAttribute('data-jai-source-src', original);
         }

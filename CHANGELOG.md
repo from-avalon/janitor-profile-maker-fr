@@ -9,6 +9,22 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-09-14 — Profile information replaces Cards
+
+The **Cards** tab is now **Profile**: everything a hardcoded profile is built
+from, in one place. Importing your `.mhtml` fills in your username, avatar,
+followers, member date, badges and every character, with its description,
+tags, image, link, chat count and token count. On top of that you can add
+friends (a name, plus an optional picture and link), social links with
+optional icons, and extra About Me sections. Proxy Terminal shows them on its
+About, Friends and Links screens.
+
+**Presets** start collapsed and are easier to find your way around.
+**Layouts** lists the profile layouts built from your Profile information
+ahead of the community templates, whose parts now sit in one closed list
+instead of behind a row of filters, and the colour presets are called
+**Styles**.
+
 ## 2026-09-13 — Proxy Terminal profile template
 
 **Proxy Terminal** is a complete ZZZ-inspired profile surface: the real Janitor

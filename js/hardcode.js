@@ -55,7 +55,13 @@
     creatorNotes: 'Room for your current projects, release notes, and the things you want visitors to know before they jump into a chat.',
     friendsTitle: 'The inner circle.',
     discord: 'https://discord.gg/e2HDbWXUBp',
-    footerText: 'Choose a file. Enter a story.'
+    footerText: 'Choose a file. Enter a story.',
+    // Profile Information (js/profile-info.js). Every list is optional: a
+    // layout keeps its open slots until the creator adds their own.
+    username: '',
+    sections: null,
+    friends: null,
+    socials: null
   };
 
   // ------------------------------------------------------------------ text
@@ -329,13 +335,68 @@
       '<section class="zz-screen zz-agents" aria-label="Agent archive"><div class="zz-stage-heading"><span><b>CHARACTER ARCHIVE</b> &nbsp; / &nbsp; CHOOSE YOUR NEXT ENCOUNTER</span><span>PERSONAL COLLECTION</span></div>';
   }
 
+  /* Text typed into a textarea keeps its line breaks. */
+  function multiline(value) { return esc(value).replace(/\r?\n/g, '<br>'); }
+
+  function initial(name) { return String(name || '').trim().charAt(0).toUpperCase(); }
+
+  /* A link with no label of its own is named after its site. */
+  function siteName(link) {
+    return String(link || '').replace(/^https?:\/\/(www\.)?/i, '').split(/[/?#]/)[0];
+  }
+
   function proxyClose(o) {
-    var discord = usable(o.discord) ? attr(o.discord) : '#zz-links';
-    return '</section>' +
-      '<section class="zz-screen zz-personal zz-about-screen" aria-label="About me"><span class="zz-eyebrow">02 / Personal file</span><h2>' + esc(o.aboutTitle) + '</h2><div class="zz-about-grid"><article class="zz-bio-card"><p class="zz-big-copy">A little introduction goes a long way.</p><p>' + esc(o.aboutBody) + '</p><p class="zz-note">Edit this field in the Cards panel. The menu takes care of the rest.</p></article><div><details class="zz-log" open><summary>Creator notes</summary><p>' + esc(o.creatorNotes) + '</p></details><details class="zz-log"><summary>Before you connect</summary><p>Add your boundaries, content notes, or roleplay preferences here.</p></details></div></div></section>' +
-      '<section class="zz-screen zz-personal zz-friends-screen" aria-label="Friends"><span class="zz-eyebrow">03 / Your people</span><h2>' + esc(o.friendsTitle) + '</h2><p>Good stories. Better company. A space for your friends and favorite creators.</p><div class="zz-friend-grid"><article class="zz-friend"><span>+</span><h3>Open channel / 01</h3><p>A spot for a friend.<br>Add their name, profile link and a little introduction.</p></article><article class="zz-friend"><span>+</span><h3>Open channel / 02</h3><p>A spot for a creator you love.<br>Give visitors someone new to discover.</p></article><article class="zz-friend"><span>+</span><h3>Open channel / 03</h3><p>Keep your circle growing.<br>This channel is ready when you are.</p></article></div></section>' +
-      '<section class="zz-screen zz-personal zz-links-screen" aria-label="Social links"><span class="zz-eyebrow">04 / Outside the terminal</span><h2>Stay <em>connected.</em></h2><p>Another channel. The same creator.</p><div class="zz-social-list"><a class="zz-social" href="' + discord + '"><small>COMMUNITY / INVITE</small><strong>Discord <b>↗</b></strong></a><div class="zz-social zz-social-empty"><small>YOUR NEXT CHANNEL</small><strong>Space for your socials <b>+</b></strong><p>Add your website, art page, or another social profile.</p></div></div></section>' +
-      '<div class="zz-footer"><span>PROXY TERMINAL / SWEEPERCOM</span><span>' + esc(o.footerText) + ' <a href="#zz-agents">↖ Back to agents</a></span></div>';
+    var sections = (o.sections || []).filter(function (s) { return s && (s.title || s.body); });
+    var friends = (o.friends || []).filter(function (f) { return f && (f.name || usable(f.link)); });
+    var socials = (o.socials || []).filter(function (s) { return s && usable(s.link); });
+    return '</section>' + proxyAbout(o, sections) + proxyFriends(o, friends) + proxyLinks(o, socials) +
+      '<div class="zz-footer"><span>PROXY TERMINAL' +
+      (o.username ? ' / ' + esc(String(o.username).toUpperCase()) : '') +
+      '</span><span>' + esc(o.footerText) + ' <a href="#zz-agents">↖ Back to agents</a></span></div>';
+  }
+
+  function proxyAbout(o, sections) {
+    var logs = sections.length
+      ? sections.map(function (s) {
+        return '<details class="zz-log"><summary>' + esc(s.title || 'Notes') + '</summary><p>' +
+          multiline(s.body) + '</p></details>';
+      }).join('')
+      : '<details class="zz-log"><summary>Before you connect</summary><p>Add your boundaries, content notes, or roleplay preferences here.</p></details>';
+    return '<section class="zz-screen zz-personal zz-about-screen" aria-label="About me"><span class="zz-eyebrow">02 / Personal file</span><h2>' + esc(o.aboutTitle) + '</h2><div class="zz-about-grid"><article class="zz-bio-card"><p class="zz-big-copy">A little introduction goes a long way.</p><p>' + multiline(o.aboutBody) + '</p></article><div><details class="zz-log" open><summary>Creator notes</summary><p>' + multiline(o.creatorNotes) + '</p></details>' + logs + '</div></div></section>';
+  }
+
+  /* Open slots stay until the creator adds someone: an empty Friends screen
+   * reads as unfinished, three invitations read as intentional. */
+  function proxyFriends(o, friends) {
+    var cards = friends.length
+      ? friends.map(function (f, i) {
+        var face = usable(f.image)
+          ? '<img src="' + attr(f.image) + '" alt="' + attr(f.name || '') + '">'
+          : esc(initial(f.name) || '+');
+        var body = '<span>' + face + '</span><h3>' + esc(f.name || 'Friend / ' + pad(i + 1)) + '</h3>' +
+          (f.note ? '<p>' + multiline(f.note) + '</p>' : '');
+        return usable(f.link)
+          ? '<a class="zz-friend zz-friend-link" href="' + attr(f.link) + '">' + body + '</a>'
+          : '<article class="zz-friend">' + body + '</article>';
+      }).join('')
+      : '<article class="zz-friend"><span>+</span><h3>Open channel / 01</h3><p>A spot for a friend.<br>Add their name, profile link and a little introduction.</p></article><article class="zz-friend"><span>+</span><h3>Open channel / 02</h3><p>A spot for a creator you love.<br>Give visitors someone new to discover.</p></article><article class="zz-friend"><span>+</span><h3>Open channel / 03</h3><p>Keep your circle growing.<br>This channel is ready when you are.</p></article>';
+    return '<section class="zz-screen zz-personal zz-friends-screen" aria-label="Friends"><span class="zz-eyebrow">03 / Your people</span><h2>' + esc(o.friendsTitle) + '</h2><p>Good stories. Better company. A space for your friends and favorite creators.</p><div class="zz-friend-grid">' + cards + '</div></section>';
+  }
+
+  function proxyLinks(o, socials) {
+    var links;
+    if (socials.length) {
+      links = socials.map(function (s, i) {
+        var icon = usable(s.image) ? '<img class="zz-social-icon" src="' + attr(s.image) + '" alt="">' : '';
+        return '<a class="zz-social" href="' + attr(s.link) + '"><small>' + icon + 'Channel / ' + pad(i + 1) +
+          '</small><strong>' + esc(s.label || siteName(s.link)) + ' <b>↗</b></strong></a>';
+      }).join('');
+    } else {
+      // Rosters saved before Profile Information had a single Discord field.
+      var discord = usable(o.discord) ? attr(o.discord) : '#zz-links';
+      links = '<a class="zz-social" href="' + discord + '"><small>COMMUNITY / INVITE</small><strong>Discord <b>↗</b></strong></a><div class="zz-social zz-social-empty"><small>YOUR NEXT CHANNEL</small><strong>Space for your socials <b>+</b></strong><p>Add your website, art page, or another social profile.</p></div>';
+    }
+    return '<section class="zz-screen zz-personal zz-links-screen" aria-label="Social links"><span class="zz-eyebrow">04 / Outside the terminal</span><h2>Stay <em>connected.</em></h2><p>Another channel. The same creator.</p><div class="zz-social-list">' + links + '</div></section>';
   }
 
   // -------------------------------------------------------------------- css
@@ -472,6 +533,15 @@
       });
     }
 
+    if (o.style === 'proxy-terminal') {
+      out.push('');
+      out.push('/* Pictures from Profile Information: friend faces and social icons. */');
+      out.push('.zz-friend > span { overflow: hidden; }');
+      out.push('.zz-friend > span img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }');
+      out.push('.zz-social small { display: flex; align-items: center; gap: 9px; }');
+      out.push('.zz-social-icon { display: block; width: 26px; height: 26px; border-radius: 6px; object-fit: cover; object-position: center; }');
+    }
+
     return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
   }
 
@@ -565,6 +635,9 @@
     if (!doc) return [];
     var out = [];
     Array.prototype.forEach.call(doc.querySelectorAll('.pp-cc-wrapper'), function (card) {
+      // The preview pads a short capture with copies of real cards so the grid
+      // looks full; those are the same characters again, not new ones.
+      if (card.hasAttribute('data-sim-card-copy')) return;
       var name = text(card.querySelector('.pp-cc-name'));
       if (!name) return;
       var link = card.querySelector('a[href*="/characters/"]') ||
@@ -587,11 +660,17 @@
         art: defaultImage,
         hover: '',
         tagline: '',
-        quote: ''
+        quote: '',
+        chats: count(card.querySelector('.pp-cc-chats-count')),
+        publicChats: count(card.querySelector('.pp-cc-public-chats-count')),
+        tokens: count(card.querySelector('.pp-cc-tokens-count'))
       });
     });
     return out;
   }
+
+  /* Counts render as the site writes them ("1.2k"); keep them that way. */
+  function count(node) { return text(node).replace(/[^\d.,kKmM]/g, ''); }
 
   function text(node) { return node ? String(node.textContent || '').trim() : ''; }
 

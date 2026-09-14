@@ -218,6 +218,13 @@
       // directly in the preview now (click text to edit; right-click an image
       // to swap it) rather than through Settings-panel fields.
       state.data[m.key] = m.value;
+      // A name or count typed straight into the preview is profile info too.
+      if (['username', 'followers', 'memberSince'].indexOf(m.key) !== -1) {
+        info.identity[m.key] = m.value;
+        saveInfo();
+        renderIdentity();
+        reapplyCards();
+      }
       pushData();
       save();
     }
@@ -958,41 +965,155 @@
   // ------------------------------------------------------- advanced templates
   //
   // A template is a whole profile design by a community creator, cut into
-  // components (see tools/build_template.py). Each renders as a card that opens
-  // into its parts, so a creator can take the status box without inheriting the
-  // bot card redesign.
+  // components (see tools/build_template.py). Each renders as a card with one
+  // "Add all" button and a closed list of its parts, so a creator can still take
+  // the status box without inheriting the bot card redesign — but choosing a
+  // template no longer starts with a wall of area filters.
 
   function templateList() { return window.JaiPresets.templates(); }
-  var templateFilter = 'all';
 
-  /* Metadata belongs to a part, not a whole template: one theme can contribute
-   * a header, cards and a footer independently. New packages declare `affects`;
-   * the name fallback keeps older community packages browseable too. */
-  function partAreas(part) {
-    return part.affects && part.affects.length ? part.affects : [part.name];
+  /* Dark Red predates Profile information, so its source has example art,
+   * placeholder prose and literal USER / NAME CSS content. Keep Hime's visual
+   * design intact, but materialise those content-bearing parts from the
+   * creator's Profile data at the moment a part is added. The markers retain
+   * the original component ids, so ordinary remove/dependency logic still
+   * works exactly as it does for a static community template. */
+  function templateHtml(value) {
+    return escapeHtml(String(value == null ? '' : value)).replace(/\r?\n/g, '<br>');
   }
 
-  function renderTemplateFilters() {
-    var host = $('#template-filters');
-    if (!host) return;
-    var areas = {};
-    templateList().forEach(function (tpl) {
-      tpl.components.forEach(function (part) {
-        partAreas(part).forEach(function (area) { areas[area] = true; });
-      });
-    });
+  function templateAttr(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
 
-    host.innerHTML = '';
-    ['all'].concat(Object.keys(areas).sort()).forEach(function (area) {
-      var label = area === 'all' ? 'All parts' : area;
-      var button = el('button', 'btn btn-sm template-filter', label);
-      button.type = 'button';
-      button.classList.toggle('is-active', area === templateFilter);
-      button.addEventListener('click', function () {
-        templateFilter = area;
-        renderTemplates();
+  function templateCssString(value) {
+    return '"' + String(value == null ? '' : value)
+      .replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\r\n]+/g, '\\A ') + '"';
+  }
+
+  function darkRedIdentity() {
+    var identity = (info && info.identity) || {};
+    var username = String(identity.username || 'YOUR PROFILE').trim() || 'YOUR PROFILE';
+    var words = username.replace(/[_-]+/g, ' ').split(/\s+/).filter(Boolean);
+    return {
+      username: username,
+      first: words.shift() || username,
+      rest: words.join(' '),
+      avatar: String(identity.avatar || '').trim(),
+      followers: String(identity.followers || '').trim(),
+      memberSince: String(identity.memberSince || '').trim(),
+      characterCount: String(identity.characterCount || '').trim()
+    };
+  }
+
+  function darkRedFacts(identity) {
+    var facts = [];
+    if (identity.followers) facts.push(identity.followers + ' followers');
+    if (identity.characterCount) facts.push(identity.characterCount + ' characters');
+    if (identity.memberSince) facts.push('member since ' + identity.memberSince);
+    return facts.join(' · ');
+  }
+
+  function darkRedCover(part, identity) {
+    var html = part.html || '';
+    var avatar = identity.avatar;
+    // The author-supplied cover remains the decorative backdrop. The profile's
+    // avatar replaces the example cut-out, and is omitted cleanly when the
+    // creator has not supplied one yet.
+    return html.replace(/\s*<img\s+src="[^"]*"\s+class="sona"\s*>/i,
+      avatar ? '\n<img src="' + templateAttr(avatar) + '" class="sona" alt="">' : '');
+  }
+
+  function darkRedStatus(identity, about) {
+    var copy = String(about.notes || about.body || darkRedFacts(identity) ||
+      'Add a short introduction in Profile → About me.').trim();
+    return '<div class="status-box">\n<div class="status-head"><span>' +
+      templateHtml(about.title || 'PROFILE') + '</span></div>\n<div class="status-body"><p>' +
+      templateHtml(copy) + '</p></div>\n</div>\n';
+  }
+
+  function darkRedTabs(identity, about, sections) {
+    var tabs = [{ title: about.title || 'About', body: about.body || darkRedFacts(identity) }];
+    if (about.notes) tabs.push({ title: 'Notes', body: about.notes });
+    (sections || []).forEach(function (section) {
+      if (section && (section.title || section.body)) {
+        tabs.push({ title: section.title || 'More', body: section.body || '' });
+      }
+    });
+    if (!tabs[0].body) tabs[0].body = 'Add your introduction under Profile → About me.';
+    return '<div class="tab-box">\n<div class="tab-nav">\n' + tabs.map(function (tab, index) {
+      return '<div class="tab"><details name="darkred-tabs"' + (index === 0 ? ' open' : '') +
+        '><summary>' + templateHtml(tab.title) + '</summary><div class="tab-content"><h2>' +
+        templateHtml(tab.title).toUpperCase() + '</h2><div class="inside">' + templateHtml(tab.body) +
+        '</div></div></details></div>';
+    }).join('\n') + '\n</div>\n</div>\n';
+  }
+
+  function linkLabel(link, fallback) {
+    try {
+      var url = new URL(link);
+      return url.hostname.replace(/^www\./, '') || fallback;
+    } catch { return fallback; }
+  }
+
+  function darkRedLinks(socials) {
+    var links = (socials || []).filter(function (social) { return social && String(social.link || '').trim(); });
+    return '<div class="contact-links">\n' + links.map(function (social) {
+      var href = String(social.link).trim();
+      var label = String(social.label || linkLabel(href, 'Link')).trim();
+      return '<a href="' + templateAttr(href) + '"><span>' + templateHtml(label) +
+        '</span><small>' + templateHtml(linkLabel(href, 'contact')) + '</small></a>';
+    }).join('\n') + '\n</div>\n';
+  }
+
+  function darkRedFriends(friends) {
+    var people = (friends || []).filter(function (friend) { return friend && String(friend.name || '').trim(); });
+    var cards = people.map(function (friend) {
+      var name = String(friend.name).trim();
+      var image = String(friend.image || '').trim();
+      var note = String(friend.note || '').trim();
+      var open = friend.link ? '<a href="' + templateAttr(friend.link) + '" class="creator-card">' : '<div class="creator-card">';
+      var close = friend.link ? '</a>' : '</div>';
+      return open + (image ? '<img src="' + templateAttr(image) + '" alt="' + templateAttr(name) + '">' : '') +
+        '<span>' + templateHtml(name) + (note ? ' · ' + templateHtml(note) : '') + '</span>' + close;
+    });
+    return '<div class="creators-box">\n<div class="creators-heading">FRIENDS</div>\n<div class="creators-scroll">\n' +
+      cards.join('\n') + '\n</div>\n</div>\n';
+  }
+
+  function materialiseTemplatePart(part) {
+    if (!part || part.id.indexOf('hime-darkred-') !== 0) return part;
+    var identity = darkRedIdentity();
+    var about = (info && info.about) || {};
+    var copy = Object.assign({}, part);
+    if (part.id === 'hime-darkred-base') {
+      copy.css = String(part.css || '')
+        .replace("content: 'USER';", 'content: ' + templateCssString(identity.first) + ';')
+        .replace("content: 'NAME';", 'content: ' + templateCssString(identity.rest) + ';');
+    } else if (part.id === 'hime-darkred-cover') {
+      copy.html = darkRedCover(part, identity);
+    } else if (part.id === 'hime-darkred-status') {
+      copy.html = darkRedStatus(identity, about);
+    } else if (part.id === 'hime-darkred-tabs') {
+      copy.html = darkRedTabs(identity, about, info && info.sections);
+    } else if (part.id === 'hime-darkred-links') {
+      copy.html = darkRedLinks(info && info.socials);
+    } else if (part.id === 'hime-darkred-creators') {
+      copy.html = darkRedFriends(info && info.friends);
+    }
+    return copy;
+  }
+
+  /* A template that is also a profile layout is offered once, as the layout,
+   * where it is built from Profile information instead of pasted verbatim. It
+   * stays listed while any of its parts are applied, so they can come out. */
+  function communityTemplates() {
+    return templateList().filter(function (tpl) {
+      var isLayout = profileLayouts().some(function (style) { return style.id === tpl.id; });
+      return !isLayout || tpl.components.some(function (c) {
+        return window.JaiPresets.isPartApplied(state.code, c);
       });
-      host.appendChild(button);
     });
   }
 
@@ -1056,7 +1177,7 @@
 
   function applyParts(parts) {
     var code = state.code;
-    parts.forEach(function (p) { code = window.JaiPresets.applyPart(code, p); });
+    parts.forEach(function (p) { code = window.JaiPresets.applyPart(code, materialiseTemplatePart(p)); });
     setCode(code, 'presets');
     syncTemplates();
   }
@@ -1068,24 +1189,46 @@
     syncTemplates();
   }
 
+  function togglePart(comp) {
+    if (window.JaiPresets.isPartApplied(state.code, comp)) {
+      var dependants = dependantsOf(comp);
+      if (dependants.length) {
+        toast('Remove ' + dependants[0].name + ' first — it needs this');
+        return;
+      }
+      var removing = withOrphans(comp);
+      removing.forEach(function (p) { markAuto(p.id, false); });
+      removeParts(removing);
+      if (removing.length > 1) {
+        toast('Also removed ' + plural(removing.length - 1, 'part') + ' it had added');
+      }
+    } else {
+      // Only what is not already on: a dependency the user added
+      // themselves must not become "auto" and vanish with this part.
+      var needed = withDependencies(comp).filter(function (p) {
+        return !window.JaiPresets.isPartApplied(state.code, p);
+      });
+      needed.forEach(function (p) { markAuto(p.id, p.id !== comp.id); });
+      applyParts(needed);
+      reportToHost('template_part_applied', comp.id);
+      if (needed.length > 1) {
+        toast('Also added ' + plural(needed.length - 1, 'part') + ' it depends on');
+      }
+    }
+  }
+
   function renderTemplates() {
     var host = $('#template-list');
     if (!host) return;
-    renderTemplateFilters();
     host.innerHTML = '';
 
-    templateList().forEach(function (tpl) {
-      var visibleParts = tpl.components.filter(function (part) {
-        return templateFilter === 'all' || partAreas(part).indexOf(templateFilter) !== -1;
-      });
-      if (!visibleParts.length) return;
-
+    communityTemplates().forEach(function (tpl) {
       var card = el('article', 'template');
       card.dataset.template = tpl.id;
       card.title = tpl.blurb || '';
 
       var head = el('div', 'template-head',
-        '<div class="preset-cat">Advanced template</div>' +
+        '<div class="preset-cat">Community template</div>' +
         '<div class="preset-name">' + escapeHtml(tpl.name) + '</div>' +
         '<div class="template-credit">' + escapeHtml(tpl.credit) + '</div>');
 
@@ -1111,16 +1254,12 @@
       card.appendChild(head);
 
       var parts = el('details', 'template-parts');
-      var summary = el('summary', null,
-        '<span>Parts' + (templateFilter === 'all' ? '' : ' · ' + visibleParts.length + ' match') +
-        '</span><span class="template-parts-count">' + tpl.components.length + '</span>');
-      parts.appendChild(summary);
-      parts.open = templateFilter !== 'all';
+      parts.appendChild(el('summary', null,
+        '<span>Choose parts</span><span class="template-parts-count">' + tpl.components.length + '</span>'));
 
-      visibleParts.forEach(function (comp) {
+      tpl.components.forEach(function (comp) {
         var row = el('div', 'part');
         row.dataset.part = comp.id;
-        row.title = comp.blurb || comp.name;
 
         var badges = '';
         if (comp.required) badges += '<span class="part-badge">required</span>';
@@ -1128,37 +1267,12 @@
         if (comp.html) badges += '<span class="part-badge is-html">+ markup</span>';
 
         row.appendChild(el('div', 'part-main',
-          '<div class="part-name">' + escapeHtml(comp.name) + badges + '</div>'));
+          '<div class="part-name">' + escapeHtml(comp.name) + badges + '</div>' +
+          (comp.blurb ? '<p class="part-blurb">' + escapeHtml(comp.blurb) + '</p>' : '')));
 
         var toggle = el('button', 'btn btn-sm', 'Add');
         toggle.type = 'button';
-        toggle.addEventListener('click', function () {
-          if (window.JaiPresets.isPartApplied(state.code, comp)) {
-            var dependants = dependantsOf(comp);
-            if (dependants.length) {
-              toast('Remove ' + dependants[0].name + ' first — it needs this');
-              return;
-            }
-            var removing = withOrphans(comp);
-            removing.forEach(function (p) { markAuto(p.id, false); });
-            removeParts(removing);
-            if (removing.length > 1) {
-              toast('Also removed ' + plural(removing.length - 1, 'part') + ' it had added');
-            }
-          } else {
-            // Only what is not already on: a dependency the user added
-            // themselves must not become "auto" and vanish with this part.
-            var needed = withDependencies(comp).filter(function (p) {
-              return !window.JaiPresets.isPartApplied(state.code, p);
-            });
-            needed.forEach(function (p) { markAuto(p.id, p.id !== comp.id); });
-            applyParts(needed);
-            reportToHost('template_part_applied', comp.id);
-            if (needed.length > 1) {
-              toast('Also added ' + plural(needed.length - 1, 'part') + ' it depends on');
-            }
-          }
-        });
+        toggle.addEventListener('click', function () { togglePart(comp); });
         row.appendChild(toggle);
         parts.appendChild(row);
       });
@@ -1171,7 +1285,7 @@
   }
 
   function syncTemplates() {
-    $$('.template').forEach(function (card) {
+    $$('.template[data-template]').forEach(function (card) {
       var tpl = templateList().filter(function (t) { return t.id === card.dataset.template; })[0];
       if (!tpl) return;
 
@@ -1205,8 +1319,72 @@
       var onParts = window.JaiPresets.allParts().filter(function (p) {
         return window.JaiPresets.isPartApplied(state.code, p);
       }).length;
-      advanced.textContent = onParts ? onParts + ' parts on' : templateList().length;
+      advanced.textContent = onParts ? onParts + ' parts on' : communityTemplates().length + profileLayouts().length;
     }
+    syncLayouts();
+  }
+
+  // --------------------------------------------------------- profile layouts
+  //
+  // A profile layout is generated from Profile information instead of pasted
+  // in, so it grows with the roster and picks up friends and links as soon as
+  // they are added. Using one here is the same as choosing it under
+  // Profile → Layout & theme and inserting.
+
+  function profileLayouts() {
+    // "None" writes markup for a hand-made stylesheet: a Profile-tab choice,
+    // not something to offer as a design.
+    return window.JaiHardcodeStyles.list.filter(function (style) { return style.css; });
+  }
+
+  function renderLayouts() {
+    var host = $('#layout-list');
+    if (!host) return;
+    host.innerHTML = '';
+    profileLayouts().forEach(function (style) {
+      var card = el('article', 'template');
+      card.dataset.layout = style.id;
+      var head = el('div', 'template-head',
+        '<div class="preset-cat">Profile layout</div>' +
+        '<div class="preset-name">' + escapeHtml(style.name) + '</div>' +
+        '<div class="template-credit">' + escapeHtml(style.blurb) + '</div>');
+      var actions = el('div', 'template-actions');
+      var use = el('button', 'btn btn-sm', 'Use');
+      use.type = 'button';
+      use.addEventListener('click', function () { useLayout(style); });
+      actions.appendChild(use);
+      head.appendChild(actions);
+      card.appendChild(head);
+      host.appendChild(card);
+    });
+    syncLayouts();
+  }
+
+  function useLayout(style) {
+    if (!info.characters.length) {
+      toast('Add your characters first — Profile → Import profile fills them in.');
+      var tab = $('.sidebar-tabs button[data-panel="info"]');
+      if (tab) tab.click();
+      return;
+    }
+    info.layout.style = style.id;
+    saveInfo();
+    var next = window.JaiHardcode.apply(state.code, info.characters, cardEmitOptions());
+    if (next !== state.code) setCode(next, 'cards');
+    reportToHost('layout_applied', style.id);
+    renderCards();
+    syncLayouts();
+    toast('“' + style.name + '” is built from your Profile information.');
+  }
+
+  function syncLayouts() {
+    var applied = window.JaiHardcode.isApplied(state.code);
+    var current = effectiveStyle();
+    $$('.template[data-layout]').forEach(function (card) {
+      var on = applied && card.dataset.layout === current;
+      card.classList.toggle('is-on', on);
+      $('button', card).textContent = on ? 'In use' : 'Use';
+    });
   }
 
   // ------------------------------------------------------------ profile data
@@ -1363,6 +1541,10 @@
     profileSnapshots.push(entry);
     activateSnapshot(entry, 'Using “' + filename + '”. Switch profiles above whenever you want; the snapshot stays loaded until you remove it or reload.');
     reportToHost('profile_imported');
+    // Importing is the creator saying "this is my profile", so Profile
+    // information fills in from the file itself; the preview only catches up
+    // once the frame has processed the new snapshot.
+    fillInfo(new DOMParser().parseFromString(profile.html, 'text/html'), '“' + filename + '”');
     toast('Profile snapshot added — you can now switch between profiles');
   }
 
@@ -1379,11 +1561,10 @@
     this.value = '';
   }
 
-  // The same import lives in both the Settings and Presets panels, so a
-  // creator building off a template can pull in their own profile without
-  // switching tabs.
+  // The same import lives in the Settings and Profile panels; importing from
+  // either also fills in Profile information.
   $('#profile-file').addEventListener('change', handleProfileFileChange);
-  $('#profile-file-presets').addEventListener('change', handleProfileFileChange);
+  $('#profile-file-info').addEventListener('change', handleProfileFileChange);
 
   $('#profile-switcher').addEventListener('change', function () {
     var entry = activeSnapshot();
@@ -2034,29 +2215,273 @@
     toastTimer = setTimeout(function () { t.hidden = true; }, 2600);
   }
 
-  // ------------------------------------------------------------------ cards
+  // ------------------------------------------------------------ profile info
   //
-  // The roster of hardcoded characters. It is deliberately *not* part of the
-  // document: the document is the output, this is the source it is generated
-  // from, so it lives in its own storage key and survives clearing the editor.
-  // js/hardcode.js turns it into markup and the slice of CSS that scales with
-  // it; everything else in the stylesheet stays hand-written.
+  // Profile information is the source a hardcoded profile is generated from:
+  // identity, characters, About Me copy, friends and social links. It is
+  // deliberately *not* part of the document — the document is the output — so
+  // it lives in its own storage key (js/profile-info.js) and survives clearing
+  // the editor. js/hardcode.js turns it into markup and the slice of CSS that
+  // scales with it; everything else in the stylesheet stays hand-written.
 
-  var CARDS_KEY = 'jai-css-studio:cards';
   var FIELDS = [
     { key: 'name', label: 'Name', placeholder: 'Celeste' },
     { key: 'tagline', label: 'Tagline', placeholder: 'The “Bully” · Awkward friendship route' },
     { key: 'quote', label: 'Quote (optional)', placeholder: '“MON DIEU!”' },
     { key: 'description', label: 'Short description', type: 'textarea', placeholder: 'One or two lines.' },
     { key: 'tags', label: 'Tags (comma separated)', placeholder: 'Female, OC, AnyPOV, Fluff' },
-    { key: 'link', label: 'Character link', placeholder: 'https://janitorai.com/characters/…' },
-    { key: 'portrait', label: 'Portrait override (optional)', placeholder: 'Defaults to the bot image' },
-    { key: 'art', label: 'Stage art override (optional)', placeholder: 'Defaults to the bot image; any aspect ratio works' },
-    { key: 'hover', label: 'Hover art override (optional)', placeholder: 'Any aspect ratio; centered and clipped' }
+    { key: 'link', label: 'Character link', type: 'url', placeholder: 'https://janitorai.com/characters/…' },
+    { key: 'portrait', label: 'Portrait override (optional)', type: 'url', placeholder: 'Defaults to the bot image' },
+    { key: 'art', label: 'Stage art override (optional)', type: 'url', placeholder: 'Defaults to the bot image; any aspect ratio works' },
+    { key: 'hover', label: 'Hover art override (optional)', type: 'url', placeholder: 'Any aspect ratio; centered and clipped' },
+    { key: 'chats', label: 'Chats', half: true, placeholder: '752' },
+    { key: 'tokens', label: 'Tokens', half: true, placeholder: '1,845' }
   ];
 
-  var cards = { roster: [], options: {}, search: '', selected: {} };
+  /* The small repeatable lists. The first field names a row in its summary. */
+  var INFO_LISTS = {
+    badges: {
+      noun: 'badge',
+      empty: 'No badges. Importing your profile brings in the ones JanitorAI shows.',
+      fields: [
+        { key: 'name', label: 'Name', placeholder: 'Music Mania 2 Creator' },
+        { key: 'image', label: 'Image', type: 'url', placeholder: 'https://ella.janitorai.com/events/…' }
+      ]
+    },
+    sections: {
+      noun: 'section',
+      empty: 'Headings like “Before you connect” or “Commissions”, each with its own text.',
+      fields: [
+        { key: 'title', label: 'Heading', placeholder: 'Before you connect' },
+        { key: 'body', label: 'Text', type: 'textarea', placeholder: 'Boundaries, content notes, roleplay preferences…' }
+      ]
+    },
+    friends: {
+      noun: 'friend',
+      empty: 'No friends yet. Each one needs a name; a picture and a link are optional.',
+      fields: [
+        { key: 'name', label: 'Name', placeholder: 'Mira' },
+        { key: 'image', label: 'Picture (optional)', type: 'url', placeholder: 'https://…' },
+        { key: 'link', label: 'Link (optional)', type: 'url', placeholder: 'https://janitorai.com/profiles/…' },
+        { key: 'note', label: 'Note (optional)', type: 'textarea', placeholder: 'What visitors should know about them.' }
+      ]
+    },
+    socials: {
+      noun: 'link',
+      empty: 'No social links yet. Each one needs an address; the label and icon are optional.',
+      fields: [
+        { key: 'link', label: 'Link', type: 'url', placeholder: 'https://discord.gg/…' },
+        { key: 'label', label: 'Label (optional)', placeholder: 'Discord' },
+        { key: 'image', label: 'Icon (optional)', type: 'url', placeholder: 'https://…' }
+      ]
+    }
+  };
+
+  var info = window.JaiProfileInfo.load();
+  var cards = { search: '', selected: {} };
   var cardIdSeq = 0;
+
+  function saveInfo() { window.JaiProfileInfo.save(info); }
+
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+  function fieldHtml(f, value) {
+    if (f.key === 'tags' && Array.isArray(value)) value = value.join(', ');
+    var v = escapeHtml(value == null ? '' : value);
+    var placeholder = escapeHtml(f.placeholder || '');
+    return '<label class="field">' + escapeHtml(f.label) +
+      (f.type === 'textarea'
+        ? '<textarea rows="3" data-field="' + f.key + '" placeholder="' + placeholder + '">' + v + '</textarea>'
+        : '<input type="' + (f.type === 'url' ? 'url' : 'text') + '" data-field="' + f.key +
+          '" placeholder="' + placeholder + '" value="' + v + '">') +
+      '</label>';
+  }
+
+  /* Short fields marked `half` share a row instead of taking one each. */
+  function fieldsHtml(fields, entry) {
+    var html = '';
+    var grid = [];
+    fields.forEach(function (f) {
+      if (f.half) grid.push(fieldHtml(f, entry[f.key]));
+      else html += fieldHtml(f, entry[f.key]);
+    });
+    if (grid.length) html += '<div class="info-grid">' + grid.join('') + '</div>';
+    return html;
+  }
+
+  function rowButtons() {
+    return '<div class="card-row-buttons">' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-move="-1" title="Move up">↑</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-move="1" title="Move down">↓</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm card-remove" data-remove>Remove</button>' +
+      '</div>';
+  }
+
+  function thumb(src) {
+    return window.JaiHardcode.usable(src)
+      ? '<img class="info-thumb" src="' + escapeHtml(src) + '" alt="">' : '';
+  }
+
+  function updateCounts() {
+    $('#info-identity-count').textContent = info.identity.username ? '@' + info.identity.username : '';
+    $('#info-characters-count').textContent = info.characters.length || '';
+    $('#info-about-count').textContent = info.sections.length ? '+' + plural(info.sections.length, 'section') : '';
+    $('#info-friends-count').textContent = info.friends.length || '';
+    $('#info-socials-count').textContent = info.socials.length || '';
+  }
+
+  /* Leaves the field being typed in alone, so a re-render from elsewhere (an
+   * edit made in the preview, say) never yanks the caret. */
+  function fillInputs(selector, key, source) {
+    $$(selector).forEach(function (input) {
+      if (document.activeElement !== input) input.value = source[input.dataset[key]] || '';
+    });
+  }
+
+  function renderIdentity() {
+    fillInputs('[data-identity]', 'identity', info.identity);
+    updateCounts();
+  }
+
+  function renderAbout() {
+    fillInputs('[data-about]', 'about', info.about);
+    updateCounts();
+  }
+
+  function renderInfo() {
+    renderIdentity();
+    renderAbout();
+    Object.keys(INFO_LISTS).forEach(renderInfoList);
+    renderCards();
+    syncLayouts();
+  }
+
+  function cardsStatus(message) { $('#cards-status').textContent = message || ''; }
+
+  /*
+   * Reads a profile page into Profile information: the preview's own document,
+   * or a freshly imported file parsed on the spot. Captured facts refresh;
+   * anything the creator wrote stays (see JaiProfileInfo.merge).
+   */
+  function fillInfo(doc, source) {
+    var found = window.JaiProfileInfo.fromDocument(doc);
+    if (!found) {
+      cardsStatus('No JanitorAI profile found in ' + source + '.');
+      return;
+    }
+    var result = window.JaiProfileInfo.merge(info, found);
+    saveInfo();
+    renderInfo();
+    reapplyCards(0);
+    reportToHost('profile_info_filled', String(result.added));
+    var parts = [];
+    if (result.added) parts.push('added ' + plural(result.added, 'character'));
+    if (result.updated) parts.push('updated ' + plural(result.updated, 'character'));
+    if (found.identity.badges.length) parts.push(plural(found.identity.badges.length, 'badge'));
+    cardsStatus('Filled from ' + source + (parts.length ? ': ' + parts.join(', ') : '') +
+      '. Friends, social links and About Me sections are yours to add.');
+  }
+
+  $('#info-fill').addEventListener('click', function () {
+    fillInfo(frame.contentDocument, 'the preview');
+  });
+
+  $$('[data-identity]').forEach(function (input) {
+    input.addEventListener('input', function () {
+      info.identity[input.dataset.identity] = input.value;
+      saveInfo();
+      updateCounts();
+      reapplyCards();
+    });
+  });
+
+  $$('[data-about]').forEach(function (input) {
+    input.addEventListener('input', function () {
+      info.about[input.dataset.about] = input.value;
+      saveInfo();
+      reapplyCards();
+    });
+  });
+
+  // ------------------------------------------------ badges, sections, people
+
+  function listItems(name) { return name === 'badges' ? info.identity.badges : info[name]; }
+
+  function listHeading(name, item, index) {
+    var spec = INFO_LISTS[name];
+    var text = name === 'socials' ? (item.label || item.link) : item[spec.fields[0].key];
+    return text || spec.noun.charAt(0).toUpperCase() + spec.noun.slice(1) + ' ' + (index + 1);
+  }
+
+  function renderInfoList(name) {
+    var host = $('.info-list[data-list="' + name + '"]');
+    var spec = INFO_LISTS[name];
+    var items = listItems(name);
+    host.innerHTML = items.length
+      ? items.map(function (item, i) {
+        return '<details class="card-row" data-index="' + i + '"><summary>' + thumb(item.image) +
+          '<span class="card-row-name">' + escapeHtml(listHeading(name, item, i)) + '</span></summary>' +
+          fieldsHtml(spec.fields, item) + rowButtons() + '</details>';
+      }).join('')
+      : '<p class="cards-empty">' + escapeHtml(spec.empty) + '</p>';
+    updateCounts();
+  }
+
+  $$('.info-list').forEach(function (host) {
+    var name = host.dataset.list;
+
+    host.addEventListener('input', function (e) {
+      var row = e.target.closest('.card-row');
+      var field = e.target.dataset.field;
+      if (!row || !field) return;
+      var item = listItems(name)[+row.dataset.index];
+      if (!item) return;
+      item[field] = e.target.value;
+      $('.card-row-name', row).textContent = listHeading(name, item, +row.dataset.index);
+      saveInfo();
+      reapplyCards();
+    });
+
+    host.addEventListener('click', function (e) {
+      var row = e.target.closest('.card-row');
+      if (!row || (e.target.dataset.move == null && e.target.dataset.remove == null)) return;
+      var items = listItems(name);
+      var index = +row.dataset.index;
+      if (e.target.dataset.remove != null) {
+        var item = items[index];
+        var written = Object.keys(item).some(function (k) { return String(item[k] || '').trim(); });
+        if (written && !confirm('Remove this ' + INFO_LISTS[name].noun + '?')) return;
+        items.splice(index, 1);
+      } else {
+        var to = index + (+e.target.dataset.move);
+        if (to < 0 || to >= items.length) return;
+        items.splice(to, 0, items.splice(index, 1)[0]);
+      }
+      saveInfo();
+      renderInfoList(name);
+      reapplyCards(0);
+    });
+  });
+
+  $$('[data-add]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var name = button.dataset.add;
+      var item = {};
+      INFO_LISTS[name].fields.forEach(function (f) { item[f.key] = ''; });
+      listItems(name).push(item);
+      saveInfo();
+      renderInfoList(name);
+      var rows = $$('.info-list[data-list="' + name + '"] .card-row');
+      var last = rows[rows.length - 1];
+      if (last) {
+        last.open = true;
+        var first = $('input, textarea', last);
+        if (first) first.focus();
+      }
+    });
+  });
+
+  // ------------------------------------------------------------- characters
 
   function ensureCardId(entry) {
     if (!entry || entry._studioId) return entry && entry._studioId;
@@ -2067,7 +2492,7 @@
   }
 
   function ensureCardIds() {
-    cards.roster.forEach(ensureCardId);
+    info.characters.forEach(ensureCardId);
   }
 
   function cardIsSelected(entry) {
@@ -2083,44 +2508,22 @@
 
   function visibleCardEntries() {
     var query = cards.search.trim().toLowerCase();
-    return cards.roster.filter(function (entry) {
+    return info.characters.filter(function (entry) {
       return !query || String(entry.name || '').toLowerCase().indexOf(query) !== -1;
     });
   }
 
   function updateCardSelectionUi() {
     var visible = visibleCardEntries();
-    var selected = cards.roster.filter(cardIsSelected);
+    var selected = info.characters.filter(cardIsSelected);
     var visibleSelected = visible.filter(cardIsSelected);
     var selectAll = $('#cards-select-all');
-    if (selectAll) {
-      selectAll.checked = !!visible.length && visibleSelected.length === visible.length;
-      selectAll.indeterminate = !!visibleSelected.length && visibleSelected.length < visible.length;
-      selectAll.disabled = !visible.length;
-    }
-    var count = $('#cards-selection-count');
-    if (count) count.textContent = selected.length + ' selected';
-    var clear = $('#cards-clear-selection');
-    if (clear) clear.disabled = !selected.length;
-    var remove = $('#cards-delete-selected');
-    if (remove) remove.disabled = !selected.length;
-  }
-
-  function loadCards() {
-    try {
-      var saved = JSON.parse(localStorage.getItem(CARDS_KEY) || 'null');
-      if (saved && Array.isArray(saved.roster)) {
-        cards.roster = saved.roster;
-        cards.options = saved.options || {};
-      }
-    } catch (e) { /* corrupt or private mode: start with an empty roster */ }
-    ensureCardIds();
-  }
-
-  function saveCards() {
-    try {
-      localStorage.setItem(CARDS_KEY, JSON.stringify({ roster: cards.roster, options: cards.options }));
-    } catch (e) { /* quota or private mode — not worth interrupting the user */ }
+    selectAll.checked = !!visible.length && visibleSelected.length === visible.length;
+    selectAll.indeterminate = !!visibleSelected.length && visibleSelected.length < visible.length;
+    selectAll.disabled = !visible.length;
+    $('#cards-selection-count').textContent = selected.length + ' selected';
+    $('#cards-clear-selection').disabled = !selected.length;
+    $('#cards-delete-selected').disabled = !selected.length;
   }
 
   /*
@@ -2129,7 +2532,7 @@
    * an empty one would otherwise produce a pile of unstyled divs.
    */
   function effectiveStyle() {
-    if (cards.options.style) return cards.options.style;
+    if (info.layout.style) return info.layout.style;
     // Once a style has been written, its own .cs-shell rules are in the
     // document — so the guess has to stop guessing, or the next write would
     // decide the document is hand-styled and take the stylesheet back out.
@@ -2139,12 +2542,12 @@
 
   /* Writing is the moment a guess becomes a decision. */
   function commitStyle() {
-    if (!cards.options.style) { cards.options.style = effectiveStyle(); saveCards(); }
+    if (!info.layout.style) { info.layout.style = effectiveStyle(); saveInfo(); }
   }
 
   function cardOption(key) {
-    return cards.options[key] != null && cards.options[key] !== ''
-      ? cards.options[key] : window.JaiHardcode.defaults[key];
+    var options = info.layout.options;
+    return options[key] != null && options[key] !== '' ? options[key] : window.JaiHardcode.defaults[key];
   }
 
   /* The emitter takes a chip count; the panel spells it as "0 turns it off". */
@@ -2152,96 +2555,91 @@
     var opts = {};
     Object.keys(window.JaiHardcode.defaults).forEach(function (k) { opts[k] = cardOption(k); });
     opts.style = effectiveStyle();
-    var chips = parseInt(cards.options.filterChips, 10);
-    var listed = String(cards.options.filterList || '').trim();
+    var chips = parseInt(info.layout.options.filterChips, 10);
+    var listed = String(info.layout.options.filterList || '').trim();
     opts.filters = listed ? listed : (isNaN(chips) ? true : chips > 0);
     opts.filterLimit = isNaN(chips) ? undefined : chips;
-    return opts;
+    return window.JaiProfileInfo.emitOptions(info, opts);
   }
 
   function renderCards() {
     var list = $('#cards-list');
     ensureCardIds();
     var query = cards.search.trim().toLowerCase();
-    if (!cards.roster.length) {
-      list.innerHTML = '<p class="cards-empty">No characters yet. <b>Detect from profile</b> reads the ' +
-        'cards already in your preview; <b>Add blank card</b> starts one by hand.</p>';
+    if (!info.characters.length) {
+      list.innerHTML = '<p class="cards-empty"><b>Import profile</b> fills this in from your saved page; ' +
+        '<b>Add character</b> starts one by hand.</p>';
     } else {
-      list.innerHTML = cards.roster.map(function (entry, i) {
+      list.innerHTML = info.characters.map(function (entry, i) {
         var name = entry.name || 'Untitled';
         if (query && name.toLowerCase().indexOf(query) === -1) return '';
         var tagCount = (typeof entry.tags === 'string'
           ? entry.tags.split(',').filter(function (t) { return t.trim(); })
           : (entry.tags || [])).length;
+        var meta = [pad2(i + 1)];
+        if (entry.chats) meta.push(entry.chats + ' chats');
+        if (tagCount) meta.push(plural(tagCount, 'tag'));
+        if (!entry.art && !entry.portrait) meta.push('no image');
         return '<details class="card-row" data-index="' + i + '">' +
           '<summary><input type="checkbox" class="card-select" data-select aria-label="Select ' + escapeHtml(name) + '"' +
-          (cardIsSelected(entry) ? ' checked' : '') + '><span class="card-row-name">' + escapeHtml(name) + '</span>' +
-          '<span class="card-row-meta">' + (i + 1 < 10 ? '0' : '') + (i + 1) +
-          (tagCount ? ' · ' + tagCount + ' tag' + (tagCount === 1 ? '' : 's') : '') +
-          (entry.art || entry.portrait ? '' : ' · no image') + '</span></summary>' +
-          FIELDS.map(function (f) {
-            var value = entry[f.key];
-            if (f.key === 'tags' && Array.isArray(value)) value = value.join(', ');
-            return '<label class="field">' + escapeHtml(f.label) +
-              (f.type === 'textarea'
-                ? '<textarea rows="3" data-field="' + f.key + '" placeholder="' +
-                  escapeHtml(f.placeholder) + '">' + escapeHtml(value || '') + '</textarea>'
-                : '<input type="text" data-field="' + f.key + '" placeholder="' +
-                  escapeHtml(f.placeholder) + '" value="' + escapeHtml(value || '') + '">') +
-              '</label>';
-          }).join('') +
-          '<div class="card-row-buttons">' +
-            '<button type="button" class="btn btn-ghost btn-sm" data-move="-1" title="Move up">↑</button>' +
-            '<button type="button" class="btn btn-ghost btn-sm" data-move="1" title="Move down">↓</button>' +
-            '<button type="button" class="btn btn-ghost btn-sm card-remove" data-remove>Remove</button>' +
-          '</div></details>';
+          (cardIsSelected(entry) ? ' checked' : '') + '>' + thumb(entry.portrait || entry.art) +
+          '<span class="card-row-name">' + escapeHtml(name) + '</span>' +
+          '<span class="card-row-meta">' + escapeHtml(meta.join(' · ')) + '</span></summary>' +
+          fieldsHtml(FIELDS, entry) + rowButtons() + '</details>';
       }).join('') || '<p class="cards-empty">No character matches “' + escapeHtml(cards.search) + '”.</p>';
     }
+    renderLayoutOptions();
+    renderInsert();
+    updateCounts();
+    updateCardSelectionUi();
+  }
 
+  function renderLayoutOptions() {
     var styleSelect = $('#cards-opt-style');
     if (!styleSelect.options.length) {
       styleSelect.innerHTML = window.JaiHardcodeStyles.list.map(function (style) {
         return '<option value="' + style.id + '">' + escapeHtml(style.name) + '</option>';
       }).join('');
     }
-      styleSelect.value = effectiveStyle();
-    $('#cards-style-hint').textContent = window.JaiHardcodeStyles.get(effectiveStyle()).blurb;
+    var style = window.JaiHardcodeStyles.get(effectiveStyle());
+    styleSelect.value = style.id;
+    $('#cards-style-hint').textContent = style.blurb;
+    $('#info-layout-name').textContent = style.css ? style.name : '';
 
-    $('#cards-opt-title').value = cards.options.title || '';
-    $('#cards-opt-kicker').value = cards.options.kicker || '';
-    $('#cards-opt-launch').value = cards.options.launch || '';
+    var options = info.layout.options;
     $('#cards-opt-slots').value = cardOption('slots');
-    $('#cards-opt-filters').value = cards.options.filterChips != null ? cards.options.filterChips : 8;
-    $('#cards-opt-filterlist').value = cards.options.filterList || '';
+    $('#cards-opt-filters').value = options.filterChips != null ? options.filterChips : 8;
+    $('#cards-opt-filterlist').value = options.filterList || '';
     $('#cards-opt-accent').value = cardOption('accent');
     $('#cards-opt-preview').value = cardOption('preview');
-    ['profileLabel', 'profileMark', 'aboutTitle', 'aboutBody', 'creatorNotes', 'friendsTitle', 'discord', 'footerText']
-      .forEach(function (key) { $('#cards-opt-' + key).value = cardOption(key); });
-
-    var applied = window.JaiHardcode.isApplied(state.code);
-    $('#cards-insert').textContent = applied ? 'Update About Me' : 'Insert into About Me';
-    $('#cards-insert').disabled = !cards.roster.length;
-    $('#cards-insert-hint').textContent = !cards.roster.length ? ''
-      : applied ? 'Rewrites only the generated block.'
-      : 'Adds a generated block; the rest of your code is untouched.';
-    updateCardSelectionUi();
+    // Empty means "the layout's own wording", which the placeholders show.
+    ['title', 'kicker', 'launch', 'profileLabel', 'profileMark', 'friendsTitle', 'footerText'].forEach(function (key) {
+      $('#cards-opt-' + key).value = options[key] || '';
+    });
   }
 
-  function cardsStatus(message) { $('#cards-status').textContent = message || ''; }
+  function renderInsert() {
+    var applied = window.JaiHardcode.isApplied(state.code);
+    $('#cards-insert').textContent = applied ? 'Update About Me' : 'Insert into About Me';
+    $('#cards-insert').disabled = !info.characters.length;
+    $('#cards-insert-hint').textContent = !info.characters.length ? 'Add at least one character to build a profile.'
+      : applied ? 'Rewrites only the generated block.'
+      : 'Adds a generated block; the rest of your code is untouched.';
+  }
 
   /*
-   * Once the generated block is in the document, the roster and the document
-   * have to stay in step: typing a new name and watching the old one sit in the
-   * preview is just a bug with extra steps. Debounced, because every keystroke
-   * would otherwise rebuild the payload and re-render the preview.
+   * Once the generated block is in the document, Profile information and the
+   * document have to stay in step: typing a new name and watching the old one
+   * sit in the preview is just a bug with extra steps. Debounced, because every
+   * keystroke would otherwise rebuild the payload and re-render the preview.
    */
   var reapplyTimer = null;
   function reapplyCards(delay) {
     if (!window.JaiHardcode.isApplied(state.code)) return;
     clearTimeout(reapplyTimer);
     reapplyTimer = setTimeout(function () {
-      var next = cards.roster.length
-        ? window.JaiHardcode.apply(state.code, cards.roster, cardEmitOptions())
+      var next = info.characters.length
+        ? window.JaiHardcode.apply(state.code, info.characters, cardEmitOptions())
         : window.JaiHardcode.remove(state.code);
       if (next !== state.code) setCode(next, 'cards');
     }, delay == null ? 260 : delay);
@@ -2251,11 +2649,11 @@
     var row = e.target.closest('.card-row');
     var field = e.target.dataset.field;
     if (!row || !field) return;
-    var entry = cards.roster[+row.dataset.index];
+    var entry = info.characters[+row.dataset.index];
     if (!entry) return;
     entry[field] = e.target.value;
     if (field === 'name') $('.card-row-name', row).textContent = e.target.value || 'Untitled';
-    saveCards();
+    saveInfo();
     reapplyCards();
   });
 
@@ -2263,7 +2661,7 @@
     if (!e.target.matches('[data-select]')) return;
     var row = e.target.closest('.card-row');
     if (!row) return;
-    var entry = cards.roster[+row.dataset.index];
+    var entry = info.characters[+row.dataset.index];
     if (!entry) return;
     setCardSelected(entry, e.target.checked);
     updateCardSelectionUi();
@@ -2276,7 +2674,7 @@
       // Selecting a card should not also open/close its details row.
       e.preventDefault();
       e.stopPropagation();
-      var entry = cards.roster[+row.dataset.index];
+      var entry = info.characters[+row.dataset.index];
       var checked = !e.target.checked;
       e.target.checked = checked;
       setCardSelected(entry, checked);
@@ -2285,17 +2683,17 @@
     }
     var index = +row.dataset.index;
     if (e.target.dataset.remove != null) {
-      if (!confirm('Remove ' + (cards.roster[index].name || 'this card') + ' from the roster?')) return;
-      delete cards.selected[ensureCardId(cards.roster[index])];
-      cards.roster.splice(index, 1);
+      if (!confirm('Remove ' + (info.characters[index].name || 'this character') + '?')) return;
+      delete cards.selected[ensureCardId(info.characters[index])];
+      info.characters.splice(index, 1);
     } else if (e.target.dataset.move) {
       var to = index + (+e.target.dataset.move);
-      if (to < 0 || to >= cards.roster.length) return;
-      cards.roster.splice(to, 0, cards.roster.splice(index, 1)[0]);
+      if (to < 0 || to >= info.characters.length) return;
+      info.characters.splice(to, 0, info.characters.splice(index, 1)[0]);
     } else {
       return;
     }
-    saveCards();
+    saveInfo();
     renderCards();
     reapplyCards(0);
   });
@@ -2315,13 +2713,13 @@
   });
 
   $('#cards-delete-selected').addEventListener('click', function () {
-    var selected = cards.roster.filter(cardIsSelected);
+    var selected = info.characters.filter(cardIsSelected);
     if (!selected.length) return;
-    var noun = selected.length === 1 ? 'card' : 'cards';
-    if (!confirm('Delete ' + selected.length + ' selected ' + noun + ' from the roster?')) return;
-    cards.roster = cards.roster.filter(function (entry) { return !cardIsSelected(entry); });
+    var noun = selected.length === 1 ? 'character' : 'characters';
+    if (!confirm('Delete ' + selected.length + ' selected ' + noun + '?')) return;
+    info.characters = info.characters.filter(function (entry) { return !cardIsSelected(entry); });
     cards.selected = {};
-    saveCards();
+    saveInfo();
     renderCards();
     reapplyCards(0);
     cardsStatus('Deleted ' + selected.length + ' ' + noun + '.');
@@ -2333,93 +2731,55 @@
   });
 
   $('#cards-add').addEventListener('click', function () {
-    cards.roster.push({ name: '', tagline: '', quote: '', description: '', tags: '', link: '', portrait: '', art: '', hover: '' });
+    var entry = {};
+    FIELDS.forEach(function (f) { entry[f.key] = ''; });
+    info.characters.push(entry);
     cards.search = '';
     $('#cards-search').value = '';
-    saveCards();
+    saveInfo();
     renderCards();
-    var last = $$('.card-row').pop();
+    var last = $$('#cards-list .card-row').pop();
     if (last) { last.open = true; last.scrollIntoView({ block: 'nearest' }); }
     cardsStatus('');
   });
 
-  /*
-   * The preview iframe holds the real captured profile, so the cards in it are
-   * the site's own markup — name, description, tags, link and avatar come
-   * straight off them. The bot image fills both portrait and stage art by
-   * default; tagline, quote and optional art overrides stay creator-controlled.
-   */
-  $('#cards-detect').addEventListener('click', function () {
-    var doc = frame.contentDocument;
-    var found = doc ? window.JaiHardcode.fromDocument(doc) : [];
-    if (!found.length) {
-      cardsStatus('No cards found in the preview. Import a profile in Settings first.');
-      return;
-    }
-    var have = {};
-    cards.roster.forEach(function (entry) { have[String(entry.name || '').toLowerCase()] = entry; });
-    var added = 0, updated = 0;
-    found.forEach(function (entry) {
-      var key = entry.name.toLowerCase();
-      var existing = have[key];
-      if (existing) {
-        var changed = false;
-        ['portrait', 'art'].forEach(function (field) {
-          if (!existing[field] && entry[field]) { existing[field] = entry[field]; changed = true; }
-        });
-        if (changed) updated++;
-        return;
-      }
-      entry.tags = entry.tags.join(', ');
-      cards.roster.push(entry);
-      have[key] = entry;
-      added++;
-    });
-    saveCards();
-    renderCards();
-    reapplyCards(0);
-    reportToHost('cards_detected', String(added));
-    cardsStatus(added || updated
-      ? (added ? 'Added ' + added + ' character' + (added === 1 ? '' : 's') + '. ' : '') +
-        (updated ? 'Filled the missing images for ' + updated + ' existing character' +
-          (updated === 1 ? '. ' : 's. ') : '') +
-        'Bot images fill the portraits and centered stage art by default; taglines, quotes and optional overrides are still yours.'
-      : 'Every character in the preview is already in the roster.');
-  });
-
   $('#cards-opt-style').addEventListener('change', function () {
-    cards.options.style = this.value;
-    saveCards();
+    info.layout.style = this.value;
+    saveInfo();
     renderCards();
     reapplyCards(0);
+    syncLayouts();
   });
 
-  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-aboutTitle, #cards-opt-aboutBody, #cards-opt-creatorNotes, #cards-opt-friendsTitle, #cards-opt-discord, #cards-opt-footerText')
+  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText')
     .forEach(function (input) {
       input.addEventListener('input', function () {
         var key = input.id.replace('cards-opt-', '');
-        if (key === 'filters') cards.options.filterChips = input.value;
-        else if (key === 'filterlist') cards.options.filterList = input.value;
-        else if (key === 'slots') cards.options.slots = parseInt(input.value, 10) || 1;
-        else cards.options[key] = input.value;
-        saveCards();
+        var options = info.layout.options;
+        if (key === 'filters') options.filterChips = input.value;
+        else if (key === 'filterlist') options.filterList = input.value;
+        else if (key === 'slots') options.slots = parseInt(input.value, 10) || 1;
+        else options[key] = input.value;
+        saveInfo();
         reapplyCards();
       });
     });
 
   $('#cards-insert').addEventListener('click', function () {
     commitStyle();
-    var next = window.JaiHardcode.apply(state.code, cards.roster, cardEmitOptions());
-    if (next === state.code) { toast('About Me already matches the roster.'); return; }
+    var next = window.JaiHardcode.apply(state.code, info.characters, cardEmitOptions());
+    if (next === state.code) { toast('About Me already matches your Profile information.'); return; }
     setCode(next, 'cards');
-    reportToHost('cards_inserted', String(cards.roster.length));
-    toast(cards.roster.length + ' character' + (cards.roster.length === 1 ? '' : 's') + ' written into About Me.');
+    reportToHost('cards_inserted', String(info.characters.length));
+    toast(plural(info.characters.length, 'character') + ' written into About Me.');
     renderCards();
+    syncLayouts();
   });
 
   $('#hardcoding-toggle').addEventListener('click', function () {
-    var tab = $('.sidebar-tabs button[data-panel="cards"]');
+    var tab = $('.sidebar-tabs button[data-panel="info"]');
     if (tab) tab.click();
+    $('#info-characters').open = true;
     $('#cards-search').focus();
   });
 
@@ -2435,12 +2795,12 @@
   $('#custom-width').value = state.customWidth;
   $('#custom-width').hidden = state.viewport !== 'custom';
 
-  loadCards();
   renderControls();
   renderPresets();
   renderTemplates();
+  renderLayouts();
   renderCustomPresets();
-  renderCards();
+  renderInfo();
   renderProfileFields();
   renderReference('');
   setCode(state.code || window.JaiPayload.STARTER);
