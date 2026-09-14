@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "id": "field-notes",
+  "version": "1.0.0",
+  "status": "published",
+  "name": "Field Notes",
+  "author": "Sweepercom",
+  "license": "All rights reserved",
+  "credit": "Field Notes template by Sweepercom",
+  "description": "A naturalist's expedition journal in warm parchment tones: a page-turn loading sequence, a compass-rose hero, stamped and taped paper panels, and specimen-tag character cards.",
+  "tags": ["parchment", "light", "vintage", "journal", "naturalist", "animated"],
+  "entry": "source.txt",
+  "components": [
+    {
+      "key": "backdrop",
+      "name": "Parchment backdrop",
+      "blurb": "The warm paper page background, its grain texture, and the default ink text colour.",
+      "affects": ["Page background"]
+    },
+    {
+      "key": "layout",
+      "name": "Profile layout & identity",
+      "blurb": "The grid the hero, panels and credit are placed on, plus the username, follower count and badges. Includes its tablet and mobile layout.",
+      "affects": ["Page layout", "Profile identity", "Typography"]
+    },
+    {
+      "key": "loader",
+      "name": "Journal-opening sequence",
+      "blurb": "The opening cover-swing screen with a spinning compass needle.",
+      "affects": ["Loading screen", "Motion"]
+    },
+    {
+      "key": "hero",
+      "name": "Expedition cover hero",
+      "needs": ["layout"],
+      "blurb": "The compass-rose journal cover, title treatment, wax stamp and optional portrait slot.",
+      "affects": ["Hero & cover", "Profile identity"]
+    },
+    {
+      "key": "profile-content",
+      "name": "Journal content panels",
+      "needs": ["layout"],
+      "blurb": "The status log, section tabs, field report, specimen notes accordion, and correspondence links.",
+      "affects": ["About & status", "Content panels", "Links & social"]
+    },
+    {
+      "key": "site-chrome",
+      "name": "Header, menus and controls",
+      "blurb": "The site header, mobile navigation, user menu, notifications, and follow controls.",
+      "affects": ["Header & search", "Mobile navigation", "User menu", "Notifications", "Follow & options"]
+    },
+    {
+      "key": "characters",
+      "name": "Specimen character gallery",
+      "blurb": "The character heading, tagged specimen cards, filters, and pagination treatment.",
+      "affects": ["Character gallery", "Character cards", "Character filters", "Pagination"]
+    },
+    {
+      "key": "credit",
+      "name": "Template credit",
+      "recommended": true,
+      "needs": ["layout"],
+      "blurb": "A subtle typewritten credit line at the base of the profile.",
+      "affects": ["Credits"]
+    }
+  ],
+  "assets": [
+    {
+      "id": "hero-portrait",
+      "label": "Optional cut-out hero portrait",
+      "required": false,
+      "kind": "image",
+      "recommendedRatio": "4:5",
+      "recommendedMinimum": "1200x1500",
+      "placement": "Add an img with class fn-hero-art inside the fn-hero element"
+    }
+  ],
+  "compatibility": {
+    "platform": "JanitorAI public profile About Me",
+    "testedReferenceDate": "2026-09-12",
+    "requiresJavaScript": false,
+    "usesBlockedFeatures": false,
+    "notes": [
+      "The loading cover-swing is decorative and never receives pointer events.",
+      "Animations are disabled for visitors who prefer reduced motion.",
+      "No CSS background images or custom properties are used.",
+      "The character sort control uses the durable react-select__control hook instead of its generated Emotion class.",
+      "Every component carries its own responsive and reduced-motion rules, so parts can be added or removed independently."
+    ]
+  }
+}

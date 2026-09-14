@@ -202,6 +202,256 @@
     return html.length;   // unclosed; JanitorAI would drop the rest anyway
   }
 
+  // ---------------------------------------------------------------- SPACING
+  //
+  // Not a JanitorAI quirk — a plain HTML/CSS one that bites just as hard here:
+  // a whitespace-only text node between two inline-level siblings renders as a
+  // real space. Writing a row of chips one per line (the readable way to write
+  // markup) is exactly the shape that triggers it. This is advisory, not
+  // blocked — nothing is stripped, and the preview already renders the gap
+  // faithfully — it just points at where to look before wondering why a chip
+  // row has more air in it than the CSS asked for.
+
+  /* display for tags whose UA default isn't 'inline', for the tags this app's
+   * own markup actually uses. Anything missing falls back to 'inline', same
+   * as a browser's default for an unrecognised or custom tag. */
+  var DEFAULT_DISPLAY = {
+    style: 'none', script: 'none', template: 'none',
+    div: 'block', section: 'block', article: 'block', header: 'block',
+    footer: 'block', nav: 'block', aside: 'block', main: 'block', p: 'block',
+    h1: 'block', h2: 'block', h3: 'block', h4: 'block', h5: 'block', h6: 'block',
+    ul: 'block', ol: 'block', li: 'block', figure: 'block', figcaption: 'block',
+    blockquote: 'block', hr: 'block', details: 'block', summary: 'block'
+  };
+
+  var INLINE_LEVEL = { inline: 1, 'inline-block': 1, 'inline-flex': 1, 'inline-grid': 1, 'inline-table': 1 };
+  var FLOW_BREAKS_GAP = { flex: 1, 'inline-flex': 1, grid: 1, 'inline-grid': 1 };
+
+  /* Splits selector text on top-level occurrences of a character, skipping
+   * anything inside [], () or quotes so `:not(a, b)` and `[data-x=", "]`
+   * don't get cut in half. */
+  function splitOutside(text, ch) {
+    var out = [], depth = 0, quote = null, start = 0;
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (quote) { if (c === quote) quote = null; continue; }
+      if (c === '"' || c === "'") { quote = c; continue; }
+      if (c === '[' || c === '(') depth++;
+      else if (c === ']' || c === ')') depth--;
+      else if (depth === 0 && c === ch) { out.push(text.slice(start, i)); start = i + 1; }
+    }
+    out.push(text.slice(start));
+    return out;
+  }
+
+  /* Splits a selector chain into its combinator-separated compounds, e.g.
+   * `.cs-tags a` → ['.cs-tags', 'a']. The last one is the part that actually
+   * matches the element carrying the declaration; earlier ones name its
+   * ancestors. */
+  function combinatorParts(chain) {
+    var text = chain.trim();
+    var depth = 0, quote = null, start = 0, parts = [];
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (quote) { if (c === quote) quote = null; continue; }
+      if (c === '"' || c === "'") { quote = c; continue; }
+      if (c === '[' || c === '(') depth++;
+      else if (c === ']' || c === ')') depth--;
+      else if (depth === 0 && (c === '>' || c === '+' || c === '~' || /\s/.test(c))) {
+        if (i > start) parts.push(text.slice(start, i));
+        while (i < text.length && /[>+~\s]/.test(text[i])) i++;
+        start = i--;
+      }
+    }
+    if (start < text.length) parts.push(text.slice(start));
+    return parts;
+  }
+
+  /* Tag name and class list a compound simple selector matches, or null for a
+   * pseudo-element (::before, ::after — no DOM node of its own to gap). */
+  function tagAndClasses(compound) {
+    if (compound.indexOf('::') !== -1) return null;
+    var tag = /^[a-zA-Z][\w-]*/.exec(compound);
+    var classes = [], re = /\.([\w-]+)/g, m;
+    while ((m = re.exec(compound))) classes.push(m[1]);
+    if (!tag && !classes.length) return null;
+    return { tag: tag ? tag[0].toLowerCase() : null, classes: classes };
+  }
+
+  /*
+   * The display/position the creator's own CSS declares for a tag or class,
+   * last-declared-in-document-order wins within each map — a heuristic, not a
+   * cascade, good enough to warn with (these issues stay advisory and never
+   * feed sanitisePayload's removal logic).
+   *
+   * A *bare* key (`tag:a`, `class:cs-launch`) applies wherever that tag/class
+   * shows up, which is wrong when a selector only meant it under one ancestor
+   * — `.cs-tags span { display: inline-block }` and a later, unrelated
+   * `.roster-head span { display: none }` would otherwise fight over the same
+   * `tag:span` key. So a chain with more than one compound (`.cs-tags a`)
+   * also registers a *qualified* key scoping the tail to its nearest named
+   * ancestor (`class:cs-tags>tag:a`); resolving an element checks those
+   * against its real ancestor chain before falling back to the bare map.
+   */
+  function declaredStyles(payload) {
+    var display = {}, qDisplay = {}, position = {}, qPosition = {};
+    global.JaiPayload.styleBlocks(payload).forEach(function (block) {
+      global.CssModel.parse(block.css).forEach(function (node) {
+        if (node.type !== 'rule' || node.hasNestedBlock) return;
+        var disp = null, pos = null;
+        node.decls.forEach(function (d) {
+          var prop = d.prop.toLowerCase();
+          if (prop === 'display') disp = d.value.toLowerCase();
+          else if (prop === 'position') pos = d.value.toLowerCase();
+        });
+        if (!disp && !pos) return;
+        splitOutside(node.selectorRaw, ',').forEach(function (chain) {
+          var parts = combinatorParts(chain);
+          if (!parts.length) return;
+          var tail = tagAndClasses(parts[parts.length - 1]);
+          if (!tail) return;
+          var tailKeys = tail.classes.map(function (c) { return 'class:' + c; });
+          if (tail.tag) tailKeys.push('tag:' + tail.tag);
+          tailKeys.forEach(function (k) {
+            if (disp) display[k] = disp;
+            if (pos) position[k] = pos;
+          });
+
+          if (parts.length < 2) return;
+          var ancestor = tagAndClasses(parts[parts.length - 2]);
+          if (!ancestor) return;
+          var ancKeys = ancestor.classes.map(function (c) { return 'class:' + c; });
+          if (ancestor.tag) ancKeys.push('tag:' + ancestor.tag);
+          ancKeys.forEach(function (ak) {
+            tailKeys.forEach(function (tk) {
+              var key = ak + '>' + tk;
+              if (disp) qDisplay[key] = disp;
+              if (pos) qPosition[key] = pos;
+            });
+          });
+        });
+      });
+    });
+    return { display: display, qDisplay: qDisplay, position: position, qPosition: qPosition };
+  }
+
+  function readAttr(name, attrs) {
+    var m = new RegExp(name + '\\s*=\\s*("([^"]*)"|\'([^\']*)\')', 'i').exec(attrs || '');
+    return m ? (m[2] != null ? m[2] : m[3]) : '';
+  }
+
+  var SPACING_TAG_RE = /<!--[\s\S]*?-->|<\/([a-zA-Z][\w-]*)\s*>|<([a-zA-Z][\w-]*)\b([^>]*)>/g;
+
+  /*
+   * Finds whitespace-only text nodes between two sibling elements that are
+   * both inline-level inside a normal-flow parent — the shape that turns an
+   * indented, readable chip row into one with visible extra gaps. A comment
+   * between two tags is treated as breaking the adjacency rather than as
+   * transparent: it under-reports a rarer edge case in exchange for never
+   * flagging something that isn't really a sibling gap.
+   */
+  function analyseSpacing(payload) {
+    var styles = declaredStyles(payload);
+    var blocks = global.JaiPayload.styleBlocks(payload);
+    function inStyleCss(i) {
+      return blocks.some(function (b) { return i >= b.cssStart && i < b.cssEnd; });
+    }
+
+    function elementOf(tag, attrs) {
+      var classAttr = readAttr('class', attrs).trim();
+      return { tag: tag.toLowerCase(), classes: classAttr ? classAttr.split(/\s+/) : [] };
+    }
+    function tokensOf(el) {
+      var t = el.classes.map(function (c) { return 'class:' + c; });
+      if (el.tag) t.push('tag:' + el.tag);
+      return t;
+    }
+    /* Checks the qualified map against `el`'s real ancestor chain (nearest
+     * first) before falling back to the bare, ancestor-blind map. */
+    function effective(el, ancestors, bare, qualified, fallback) {
+      var elTokens = tokensOf(el);
+      for (var a = ancestors.length - 1; a >= 0; a--) {
+        var ancTokens = tokensOf(ancestors[a]);
+        for (var i = 0; i < ancTokens.length; i++) {
+          for (var j = 0; j < elTokens.length; j++) {
+            var v = qualified[ancTokens[i] + '>' + elTokens[j]];
+            if (v != null) return v;
+          }
+        }
+      }
+      var value = null;
+      el.classes.forEach(function (c) { if (bare['class:' + c] != null) value = bare['class:' + c]; });
+      if (value == null && bare['tag:' + el.tag] != null) value = bare['tag:' + el.tag];
+      return value == null ? fallback : value;
+    }
+    function displayOf(el, ancestors) {
+      return effective(el, ancestors, styles.display, styles.qDisplay, DEFAULT_DISPLAY[el.tag] || 'inline');
+    }
+    function outOfFlow(el, ancestors) {
+      var p = effective(el, ancestors, styles.position, styles.qPosition, 'static');
+      return p === 'absolute' || p === 'fixed';
+    }
+
+    var issues = [];
+    var stack = [{ tag: '', classes: [] }];   // synthetic root: whatever wraps About Me content
+    var lastEnd = 0;
+    var lastEl = null;   // the element that most recently finished (closed, void, or self-closing)
+    var m;
+
+    SPACING_TAG_RE.lastIndex = 0;
+    while ((m = SPACING_TAG_RE.exec(payload))) {
+      if (inStyleCss(m.index)) continue;   // raw CSS text: never a sibling gap
+
+      var gap = payload.slice(lastEnd, m.index);
+      var isComment = m[0].slice(0, 4) === '<!--';
+
+      if (!isComment && m[2] && lastEl && gap !== '' && /^\s+$/.test(gap)) {
+        // An element is about to open, right after another one finished, with
+        // nothing but whitespace between them: a real sibling-gap candidate.
+        var next = elementOf(m[2], m[3]);
+        var parent = stack[stack.length - 1];
+        if (!FLOW_BREAKS_GAP[displayOf(parent, stack.slice(0, -1))] &&
+            INLINE_LEVEL[displayOf(lastEl, stack)] && INLINE_LEVEL[displayOf(next, stack)] &&
+            !outOfFlow(lastEl, stack) && !outOfFlow(next, stack)) {
+          issues.push({
+            line: global.CssModel.lineOf(payload, m.index - gap.length),
+            start: m.index - gap.length,
+            end: m.index,
+            severity: 'advisory',
+            title: 'Whitespace between `<' + lastEl.tag + '>` and `<' + next.tag + '>` will show as a gap',
+            hint: 'Both sit inline in normal flow, so the blank space between their tags renders as ' +
+                  'a real space beyond any margin or gap you set. Close one tag and open the next with ' +
+                  'no space between `>` and `<`, or break the run with an HTML comment instead.',
+            context: '<' + lastEl.tag + '> … <' + next.tag + '>'
+          });
+        }
+      }
+
+      lastEnd = m.index + m[0].length;
+      if (isComment) { lastEl = null; continue; }
+
+      if (m[1]) {
+        // Closing tag: pop back to (and including) the element it closes.
+        var closed = null;
+        for (var s = stack.length - 1; s >= 1; s--) {
+          if (stack[s].tag === m[1].toLowerCase()) { closed = stack.splice(s)[0]; break; }
+        }
+        lastEl = closed || { tag: m[1].toLowerCase(), classes: [] };
+        continue;
+      }
+
+      var el = elementOf(m[2], m[3]);
+      if (VOID_TAGS[el.tag] || /\/\s*>$/.test(m[0])) {
+        lastEl = el;   // self-closing or void: opens and finishes in the same token
+      } else {
+        stack.push(el);
+        lastEl = null;   // now inside it — nothing has *finished* yet
+      }
+    }
+
+    return issues;
+  }
+
   /* Reports disabled elements, ignoring anything inside a <style> block. */
   function analyseHtml(payload) {
     var blocks = global.JaiPayload.styleBlocks(payload);
@@ -249,6 +499,7 @@
         issues.push(it);
       });
     });
+    issues = issues.concat(analyseSpacing(payload));
     issues.sort(function (a, b) { return a.start - b.start; });
 
     // A blocked element can contain more blocked elements (<svg> holds <path>).
@@ -270,7 +521,9 @@
    * preview renders, which is why the preview can be trusted.
    */
   function sanitisePayload(payload) {
-    var issues = analysePayload(payload);
+    // Advisory issues (see analyseSpacing) flag whitespace the preview should
+    // keep rendering exactly as JanitorAI would — nothing here gets removed.
+    var issues = analysePayload(payload).filter(function (it) { return it.severity !== 'advisory'; });
     var out = payload;
     for (var i = issues.length - 1; i >= 0; i--) {
       var it = issues[i];
@@ -294,6 +547,7 @@
     analyse: analyse,
     sanitise: sanitise,
     analyseHtml: analyseHtml,
+    analyseSpacing: analyseSpacing,
     analysePayload: analysePayload,
     sanitisePayload: sanitisePayload,
     blockedHtml: BLOCKED_HTML,

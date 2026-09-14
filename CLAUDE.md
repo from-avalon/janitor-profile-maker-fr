@@ -39,7 +39,11 @@ A local server is required — the preview iframe must be same-origin, so
   Regenerate them; don't hand-edit.
 - `preview/snapshot.html` is a build by-product and is gitignored.
 
-The list of CSS JanitorAI strips (the linter's rules) lives in `js/lint.js`.
+The list of CSS JanitorAI strips (the linter's rules) lives in `js/lint.js`. That
+file also has an `analyseSpacing` check for something JanitorAI does *not* strip —
+a whitespace-only text node between two inline-level siblings still renders as a
+gap — reported as a separate, amber "advisory" severity so it's never confused
+with something that gets removed.
 
 ## Analytics
 

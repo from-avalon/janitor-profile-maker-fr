@@ -42,8 +42,9 @@ TEMPLATE = {
     "author": "Hime · @yourhighness08",
     "credit": "Template by Hime (@yourhighness08). Free to use and modify.",
     "blurb": "A full profile rebuild: cinematic cover, tabbed panels, custom bot "
-             "cards and restyled site chrome. Add the whole thing, or take only "
-             "the pieces you want.",
+             "cards and restyled site chrome. When added, Profile fills its name, "
+             "avatar, About Me, links and friends. Add the whole thing, or take "
+             "only the pieces you want.",
 }
 
 # SPEC is the *matching* order: the first component whose pattern matches a
@@ -481,8 +482,14 @@ def package_manifests():
     manifests = []
     for name in sorted(os.listdir(directory)):
         path = os.path.join(directory, name, "manifest.json")
-        if os.path.isfile(path):
-            manifests.append(path)
+        if not os.path.isfile(path):
+            continue
+        # A creator's own profile can live here for local work without being
+        # published: js/templates.js ships with the site on every push.
+        with io.open(path, encoding="utf-8") as fh:
+            if json.load(fh).get("private"):
+                continue
+        manifests.append(path)
     return manifests
 
 

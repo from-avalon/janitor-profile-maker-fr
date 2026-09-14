@@ -52,56 +52,65 @@
   </div>
 
   <div class="topbar-actions">
+    <button type="button" class="btn btn-ghost workspace-tool" data-workspace-panel="view">View</button>
+    <button type="button" class="btn btn-ghost workspace-tool" data-workspace-panel="reference">Selectors</button>
+    <button type="button" class="btn btn-ghost workspace-tool" data-workspace-panel="help">Help</button>
     <button type="button" id="inspect-toggle" class="btn btn-ghost" title="Click any element in the preview to get its selector">
-      Inspect
+      Select
     </button>
+    <button type="button" id="show-code" class="btn btn-ghost" title="Open the generated About Me code">Code</button>
     <button type="button" id="changelog-toggle" class="btn btn-ghost" title="Recent updates and changes to the studio">Changelog<span class="new-dot" id="changelog-dot" hidden></span></button>
-    <button type="button" id="hardcoding-toggle" class="btn btn-ghost" disabled title="Coming soon">Hard coding</button>
+    <button type="button" id="hardcoding-toggle" class="btn btn-ghost" title="Write character cards straight into your About Me">Hard coding</button>
   </div>
 </header>
 
-<main class="layout">
+<main class="layout code-hidden">
 
   <!-- ------------------------------------------------------------ sidebar -->
   <aside class="sidebar">
+    <button type="button" class="panel-toggle panel-toggle-sidebar" id="toggle-sidebar" title="Hide library" aria-label="Hide library">
+      <span aria-hidden="true">‹</span><span class="panel-toggle-text">Library</span>
+    </button>
+    <div class="panel-resizer panel-resizer-sidebar" id="resize-sidebar" role="separator" aria-orientation="vertical" aria-label="Resize library"></div>
     <nav class="sidebar-tabs" role="tablist">
-      <button type="button" role="tab" data-panel="design" class="is-active">Design</button>
-      <button type="button" role="tab" data-panel="presets">Presets</button>
+      <button type="button" role="tab" data-panel="presets" class="is-active">Presets</button>
+      <button type="button" role="tab" data-panel="info" title="Profile information">Profile</button>
       <button type="button" role="tab" data-panel="profile">Settings</button>
-      <button type="button" role="tab" data-panel="view">View</button>
-      <button type="button" role="tab" data-panel="reference">Selectors</button>
-      <button type="button" role="tab" data-panel="help">Help</button>
     </nav>
 
     <div class="sidebar-body">
-      <section class="panel" data-panel="design">
+      <section class="panel" data-workspace-panel="design" hidden>
+        <div class="inspector-selection" id="inspector-selection">
+          <span class="inspector-selection-label">Nothing selected</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="inspector-show-all" hidden>Show all</button>
+        </div>
         <div class="panel-search">
           <input type="search" id="control-search" placeholder="Search controls…" autocomplete="off">
         </div>
         <div id="control-groups"></div>
       </section>
 
-      <section class="panel" data-panel="presets" hidden>
-        <details class="preset-section" open>
+      <section class="panel" data-panel="presets">
+        <details class="preset-section" id="presets-layouts">
           <summary>
-            <span class="preset-section-name">Basic presets</span>
-            <span class="preset-section-count" id="basic-count"></span>
-          </summary>
-          <p class="panel-note">Quick colour and type changes.</p>
-          <div id="preset-list"></div>
-        </details>
-
-        <details class="preset-section">
-          <summary>
-            <span class="preset-section-name">Advanced templates</span>
+            <span class="preset-section-name">Layouts</span>
             <span class="preset-section-count" id="advanced-count"></span>
           </summary>
-          <p class="panel-note">Full themes. Add all, or choose individual parts.</p>
-          <div class="template-filters" id="template-filters" aria-label="Filter template parts"></div>
+          <p class="panel-note">Complete profile designs. <b>Profile layouts</b> are built from your Profile information; community templates can be added whole or part by part.</p>
+          <div id="layout-list"></div>
           <div id="template-list"></div>
         </details>
 
-        <details class="preset-section">
+        <details class="preset-section" id="presets-styles">
+          <summary>
+            <span class="preset-section-name">Styles</span>
+            <span class="preset-section-count" id="basic-count"></span>
+          </summary>
+          <p class="panel-note">Quick colour and type changes that sit on top of any layout.</p>
+          <div id="preset-list"></div>
+        </details>
+
+        <details class="preset-section" id="presets-mine">
           <summary>
             <span class="preset-section-name">My presets</span>
             <span class="preset-section-count" id="custom-count"></span>
@@ -110,18 +119,153 @@
           <button type="button" id="new-custom-preset" class="btn btn-ghost btn-sm">New preset</button>
           <div id="custom-preset-list"></div>
         </details>
+      </section>
 
-        <details class="preset-section">
-          <summary>
-            <span class="preset-section-name">Use your saved profile</span>
-          </summary>
-          <div class="profile-import">
-            <p>Import a <b>Webpage, Single File</b> (<code>.mhtml</code>) save to preview your own profile.</p>
-            <label class="btn btn-ghost btn-sm profile-import-button" for="profile-file-presets">Choose profile file</label>
-            <input id="profile-file-presets" type="file" accept=".mhtml,.mht,.html,.htm,text/html,multipart/related" hidden>
-            <p class="field-hint">MHTML keeps your images with the profile.</p>
+      <!-- Profile information: the source a hardcoded profile is generated from
+           (js/profile-info.js). Every section starts closed so the tab reads as
+           a table of contents. -->
+      <section class="panel" data-panel="info" hidden>
+        <p class="panel-note">What your hardcoded profile is built from. Importing your profile fills in everything JanitorAI knows; friends, links and About Me sections are yours to add.</p>
+        <div class="info-import">
+          <label class="btn btn-primary btn-sm profile-import-button" for="profile-file-info">Import profile</label>
+          <input id="profile-file-info" type="file" accept=".mhtml,.mht,.html,.htm,text/html,multipart/related" hidden>
+          <button type="button" id="info-fill" class="btn btn-ghost btn-sm" title="Read the profile currently shown in the preview">Fill from preview</button>
+        </div>
+        <p class="cards-status" id="cards-status" aria-live="polite"></p>
+
+        <details class="info-section" id="info-identity">
+          <summary><span class="info-section-name">Profile</span><span class="info-count" id="info-identity-count"></span></summary>
+          <div class="info-body">
+            <label class="field">Username
+              <input type="text" data-identity="username" placeholder="Sweepercom">
+            </label>
+            <label class="field">Avatar image
+              <input type="url" data-identity="avatar" placeholder="https://ella.janitorai.com/avatars/…">
+            </label>
+            <div class="info-grid">
+              <label class="field">Followers
+                <input type="text" data-identity="followers" placeholder="1,201">
+              </label>
+              <label class="field">Characters
+                <input type="text" data-identity="characterCount" placeholder="25">
+              </label>
+            </div>
+            <label class="field">Member since
+              <input type="text" data-identity="memberSince" placeholder="Jan 6, 2025">
+            </label>
+            <p class="info-subhead">Badges</p>
+            <div class="info-list" data-list="badges"></div>
+            <button type="button" class="btn btn-ghost btn-sm info-add" data-add="badges">Add badge</button>
           </div>
         </details>
+
+        <details class="info-section" id="info-characters">
+          <summary><span class="info-section-name">Characters</span><span class="info-count" id="info-characters-count"></span></summary>
+          <div class="info-body">
+            <div class="cards-selection-toolbar" aria-label="Character selection controls">
+              <label class="cards-select-all"><input type="checkbox" id="cards-select-all"> <span>Select visible</span></label>
+              <span class="cards-selection-count" id="cards-selection-count">0 selected</span>
+              <button type="button" id="cards-clear-selection" class="btn btn-ghost btn-sm">Clear</button>
+              <button type="button" id="cards-delete-selected" class="btn btn-ghost btn-sm" disabled>Delete selected</button>
+            </div>
+            <div class="panel-search">
+              <input type="search" id="cards-search" placeholder="Search by name…" autocomplete="off">
+            </div>
+            <div id="cards-list"></div>
+            <button type="button" id="cards-add" class="btn btn-ghost btn-sm info-add">Add character</button>
+          </div>
+        </details>
+
+        <details class="info-section" id="info-about">
+          <summary><span class="info-section-name">About me</span><span class="info-count" id="info-about-count"></span></summary>
+          <div class="info-body">
+            <label class="field">Heading
+              <input type="text" data-about="title" placeholder="Behind the screen.">
+            </label>
+            <label class="field">Introduction
+              <textarea rows="4" data-about="body" placeholder="Who you are, the worlds you like writing, and what people can expect from your characters."></textarea>
+            </label>
+            <label class="field">Creator notes
+              <textarea rows="3" data-about="notes" placeholder="Current projects, release notes, anything visitors should know."></textarea>
+            </label>
+            <p class="info-subhead">Extra sections</p>
+            <div class="info-list" data-list="sections"></div>
+            <button type="button" class="btn btn-ghost btn-sm info-add" data-add="sections">Add section</button>
+          </div>
+        </details>
+
+        <details class="info-section" id="info-friends">
+          <summary><span class="info-section-name">Friends</span><span class="info-count" id="info-friends-count"></span></summary>
+          <div class="info-body">
+            <label class="field">Heading
+              <input type="text" id="cards-opt-friendsTitle" placeholder="The inner circle.">
+            </label>
+            <div class="info-list" data-list="friends"></div>
+            <button type="button" class="btn btn-ghost btn-sm info-add" data-add="friends">Add friend</button>
+          </div>
+        </details>
+
+        <details class="info-section" id="info-socials">
+          <summary><span class="info-section-name">Social links</span><span class="info-count" id="info-socials-count"></span></summary>
+          <div class="info-body">
+            <div class="info-list" data-list="socials"></div>
+            <button type="button" class="btn btn-ghost btn-sm info-add" data-add="socials">Add link</button>
+          </div>
+        </details>
+
+        <details class="info-section" id="info-layout">
+          <summary><span class="info-section-name">Layout &amp; theme</span><span class="info-count" id="info-layout-name"></span></summary>
+          <div class="info-body">
+            <label class="field">Layout
+              <select id="cards-opt-style"></select>
+            </label>
+            <p class="field-hint" id="cards-style-hint"></p>
+            <div class="info-grid">
+              <label class="field">Accent
+                <input type="color" id="cards-opt-accent">
+              </label>
+              <label class="field">Hover preview
+                <input type="color" id="cards-opt-preview">
+              </label>
+            </div>
+            <p class="info-subhead">Character select</p>
+            <label class="field">Roster title
+              <input type="text" id="cards-opt-title" placeholder="Contact&#10;Select">
+            </label>
+            <label class="field">Small label
+              <input type="text" id="cards-opt-kicker" placeholder="Choose a file">
+            </label>
+            <label class="field">Launch button text
+              <input type="text" id="cards-opt-launch" placeholder="Open encounter ↗">
+            </label>
+            <div class="info-grid">
+              <label class="field">Total tiles
+                <input type="number" id="cards-opt-slots" min="1" max="24" step="1">
+              </label>
+              <label class="field">Filter chips
+                <input type="number" id="cards-opt-filters" min="0" max="16" step="1">
+              </label>
+            </div>
+            <label class="field">…or choose the chips yourself
+              <input type="text" id="cards-opt-filterlist" placeholder="Female, OC, AnyPOV, Fluff">
+            </label>
+            <p class="info-subhead">Proxy Terminal</p>
+            <label class="field">Profile label
+              <input type="text" id="cards-opt-profileLabel" placeholder="INTER-KNOT / CREATOR CHANNEL">
+            </label>
+            <label class="field">Profile watermark
+              <input type="text" id="cards-opt-profileMark" placeholder="PROXY">
+            </label>
+            <label class="field">Footer text
+              <input type="text" id="cards-opt-footerText" placeholder="Choose a file. Enter a story.">
+            </label>
+          </div>
+        </details>
+
+        <div class="cards-footer">
+          <button type="button" id="cards-insert" class="btn btn-primary btn-sm">Insert into About Me</button>
+          <span class="field-hint" id="cards-insert-hint"></span>
+        </div>
       </section>
 
       <section class="panel" data-panel="profile" hidden>
@@ -131,18 +275,28 @@
           <span>Enforce JAI rules</span>
         </label>
         <div class="profile-import">
-          <strong>Use your saved profile</strong>
-          <p>Import a <b>Webpage, Single File</b> (<code>.mhtml</code>) save to preview your own profile.</p>
+          <strong>Profile snapshots</strong>
+          <p>Import saved profiles, then switch between them without replacing your other work.</p>
+          <label class="field">Preview profile
+            <select id="profile-switcher" disabled><option>Loading Sweepercom…</option></select>
+          </label>
+          <div class="profile-library-actions">
           <label class="btn btn-ghost btn-sm profile-import-button" for="profile-file">Choose profile file</label>
           <input id="profile-file" type="file" accept=".mhtml,.mht,.html,.htm,text/html,multipart/related" hidden>
-          <p class="field-hint">MHTML keeps your images with the profile.</p>
+            <button type="button" id="remove-profile" class="btn btn-ghost btn-sm" hidden>Remove snapshot</button>
+          </div>
+          <label class="switch profile-library-switch">
+            <input type="checkbox" id="keep-default-profile" checked>
+            <span>Keep Sweepercom in the switcher</span>
+          </label>
+          <button type="button" id="profile-css-toggle" class="btn btn-ghost btn-sm" disabled>Hide custom CSS</button>
+          <p class="field-hint">Hiding CSS keeps the About Me content in place and shows the captured profile with JanitorAI's base styling.</p>
           <p class="profile-import-status" id="profile-import-status" aria-live="polite">Loading your profile…</p>
-          <button type="button" id="reset-import" class="btn btn-ghost btn-sm" hidden>Back to my profile</button>
         </div>
         <div id="profile-fields"></div>
       </section>
 
-      <section class="panel" data-panel="view" hidden>
+      <section class="panel" data-workspace-panel="view" hidden>
         <p class="panel-note">Preview width only — never touches your code.</p>
         <div class="viewport-switch" role="group" aria-label="Preview width">
           <button type="button" data-viewport="wide">1920</button>
@@ -156,7 +310,7 @@
         </div>
       </section>
 
-      <section class="panel" data-panel="reference" hidden>
+      <section class="panel" data-workspace-panel="reference" hidden>
         <div class="panel-search">
           <input type="search" id="reference-search" placeholder="Search 418 elements…" autocomplete="off">
         </div>
@@ -164,7 +318,7 @@
         <div id="reference-list"></div>
       </section>
 
-      <section class="panel help-panel" data-panel="help" hidden>
+      <section class="panel help-panel" data-workspace-panel="help" hidden>
         <h2>Help</h2>
         <p class="panel-note">A quick guide to the studio.</p>
 
@@ -183,8 +337,8 @@
         </details>
 
         <details>
-          <summary>Templates &amp; parts</summary>
-          <p>Advanced templates are complete themes split into safe parts. Use the part filters to find areas such as the header, character cards, or profile content. Dependencies are added automatically.</p>
+          <summary>Layouts &amp; styles</summary>
+          <p>Profile layouts are built from your Profile information, so importing your profile fills them in. Community templates can be added whole or one part at a time; anything a part depends on comes with it.</p>
         </details>
 
         <details>
@@ -194,7 +348,7 @@
 
         <details>
           <summary>Using your profile</summary>
-          <p>Open your JanitorAI profile, press <b>Ctrl + S</b>, and save it as <b>Webpage, Single File</b> (<code>.mhtml</code>). Import that file from the Settings or Presets tab; it stays in your browser.</p>
+          <p>Open your JanitorAI profile, press <b>Ctrl + S</b>, and save it as <b>Webpage, Single File</b> (<code>.mhtml</code>). Import that file from the Profile or Settings tab; it fills in your Profile information and stays in your browser.</p>
         </details>
 
         <details>
@@ -211,8 +365,9 @@
     <div class="stage-bar">
       <span id="stage-size">1440 × 900</span>
       <span class="stage-sep">·</span>
-      <button type="button" id="stage-zoom" class="stage-zoom" title="Toggle between fit-to-pane and 1:1">100%</button>
-      <button type="button" id="show-code" class="btn btn-ghost btn-sm show-code-pill" hidden>Show code</button>
+      <button type="button" id="stage-zoom" class="stage-zoom" title="Toggle between fit-to-pane and 1:1">Fit</button>
+      <input type="range" id="stage-zoom-slider" class="stage-zoom-slider" min="25" max="200" step="5" value="100"
+             aria-label="Preview zoom" title="Preview zoom. Ctrl/Cmd + mouse wheel over the preview also zooms.">
       <span class="stage-spacer"></span>
       <span id="pick-result" class="pick-result"></span>
     </div>
@@ -229,6 +384,22 @@
       </div>
     </div>
   </section>
+
+  <!-- ---------------------------------------------------------- inspector -->
+  <aside class="inspectorpane" id="inspectorpane">
+    <div class="panel-resizer panel-resizer-inspector" id="resize-inspector" role="separator" aria-orientation="vertical" aria-label="Resize properties"></div>
+    <div class="inspectorpane-head">
+      <div>
+        <span class="inspector-kicker">Properties</span>
+        <strong id="inspector-title">Design</strong>
+      </div>
+      <div class="inspectorpane-actions">
+        <button type="button" class="inspector-home" id="inspector-home" title="Back to design properties" aria-label="Back to design properties">⌂</button>
+        <button type="button" class="panel-toggle panel-toggle-inspector" id="toggle-inspector" title="Hide properties" aria-label="Hide properties">›</button>
+      </div>
+    </div>
+    <div class="inspectorpane-body" id="inspectorpane-body"></div>
+  </aside>
 
   <!-- --------------------------------------------------------------- code -->
   <aside class="codepane" id="codepane">
@@ -285,6 +456,11 @@
 <script src="js/templates.js"></script>
 <script src="js/reference.js"></script>
 <script src="js/profile-import.js"></script>
+<script src="js/tags.js"></script>
+<script src="js/hardcode-styles.js"></script>
+<script src="js/proxy-terminal-style.js"></script>
+<script src="js/hardcode.js"></script>
+<script src="js/profile-info.js"></script>
 <script src="js/app.js"></script>
 <script src="js/changelog.js"></script>
 </body>

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "proxy-terminal",
+  "version": "1.0.0",
+  "status": "draft",
+  "name": "Proxy Terminal",
+  "author": "Sweepercom",
+  "license": "All rights reserved",
+  "credit": "Proxy Terminal · a ZZZ-inspired profile for Sweepercom",
+  "description": "A complete ZZZ-inspired game menu: acid-yellow player identity, native follow and options controls, Agents / About / Friends / Links screens, a cinematic character stage and slanted portrait roster. Uses your existing bot artwork.",
+  "entry": "source.txt",
+  "components": [
+    { "key": "profile", "name": "Player profile & backdrop", "affects": ["Page layout", "Profile identity", "Hero & cover"], "blurb": "A player-card header built around your real avatar, username, follower count and badges." },
+    { "key": "chrome", "name": "Janitor navigation & controls", "affects": ["Header & search", "User menu", "Mobile navigation", "Notifications", "Follow & options"], "blurb": "Styles the native home, search, account, follow and options controls without replacing their behavior." },
+    { "key": "menu", "name": "Game menu navigation", "needs": ["profile"], "affects": ["Content panels", "Motion"], "blurb": "CSS-only Agents, About, Friends and Links screens. Keyboard and touch friendly; no script needed." },
+    { "key": "characters", "name": "Agent select & roster", "needs": ["profile", "menu"], "affects": ["Character cards", "Character gallery", "Character filters"], "blurb": "Large centered character art, a slanted portrait grid, selected contact information, tag filters and encounter links. Compatible with the Cards editor." },
+    { "key": "personal", "name": "About, friends & social screens", "needs": ["profile", "menu"], "affects": ["About & status", "Creator showcase", "Links & social"], "blurb": "Editable personal bio, creator notes, open friend slots and a Discord link. Empty slots are intentionally non-clickable until configured." }
+  ],
+  "compatibility": { "platform": "JanitorAI public profile About Me", "requiresJavaScript": false, "usesBlockedFeatures": false, "notes": ["Built against the bundled JanitorAI profile capture.", "Hash links switch screens and agents; choosing an agent clears the tag filter.", "The live site's native controls retain their own behavior; the offline preview does not submit actions.", "All images are centered cover crops. No CSS image URLs, custom properties, scripts or form inputs."] }
+}
