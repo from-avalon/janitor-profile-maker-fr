@@ -1,12 +1,18 @@
 /*
  * JanitorAI Profile CSS Studio.
  *
- * The editor holds one document: the contents of your JanitorAI About Me box,
+ * The studio holds one document: the contents of your JanitorAI About Me box,
  * which is HTML with <style> blocks in it. That document is the only state that
- * matters. The visual controls read their values out of its CSS and write back
- * into it; the preview is fed the same document after the linter has removed
- * whatever JanitorAI would strip. Nothing renders in the preview that would not
- * render on your profile.
+ * matters. Everything done on the canvas — restyling an element, dragging one
+ * somewhere else, retyping its text — is an edit to that text; the properties
+ * panel reads its values back out of it; and the preview is fed the same
+ * document after the linter has removed whatever JanitorAI would strip. Nothing
+ * renders in the preview that would not render on your profile.
+ *
+ * This file is the core: the document, its history, the preview bridge, the
+ * shell, and the Templates and Profile data panels. The canvas-facing pieces
+ * live in their own files (canvas.js, layers.js, insert.js, inspector.js) and
+ * reach in through `window.JaiStudio`, defined at the bottom.
  */
 (function () {
   'use strict';
@@ -36,9 +42,9 @@
     followers: '1,192',
     memberSince: 'Jan 6, 2025',
     background: '',
-    // username/avatar/followers/memberSince/background are no longer editable
-    // in the Settings panel -- click them directly in the preview instead
-    // (see the 'fieldEdit' message case below). They stay in DEFAULT_DATA
+    // username/avatar/followers/memberSince/background are edited directly in
+    // the preview -- double-click the text, right-click the image (see the
+    // 'fieldEdit' message case below). They stay in DEFAULT_DATA
     // because the bundled/imported profile still supplies real values for them.
     showBadges: true,
     janitorPlus: false,
@@ -52,8 +58,8 @@
     data: Object.assign({}, DEFAULT_DATA),
     viewport: 'desktop',
     enforce: true,
-    inspector: false,
-    panel: 'presets',
+    mode: 'design',        // 'design' selects and drags; 'preview' behaves like the page
+    panel: 'layers',
     zoom: 'fit',
     zoomScale: 1,
     previewCss: true,
@@ -61,7 +67,10 @@
     sidebarWidth: null,
     inspectorWidth: null,
     sidebarHidden: false,
-    inspectorHidden: false,
+    uiHidden: false,
+    dockOpen: false,       // the About Me code, under the canvas
+    dockTab: 'code',
+    dockHeight: null,
     autoParts: []          // template part ids added only because another part needed them
   };
 
@@ -79,6 +88,25 @@
   var index = {};          // normalised selector -> { property: value }
   var lintIssues = [];
 
+  // ---------------------------------------------------------------- events
+  //
+  // The canvas modules are separate files loaded after this one. They hear
+  // about changes here rather than being called by name, so this file does not
+  // need to know which of them exist.
+
+  var listeners = {};
+
+  function on(name, fn) { (listeners[name] || (listeners[name] = [])).push(fn); }
+
+  function emit(name, data) {
+    (listeners[name] || []).forEach(function (fn) {
+      try { fn(data); } catch (err) {
+        // One panel failing to redraw must not stop the document being saved.
+        console.error('JAI Studio: a "' + name + '" listener failed', err);
+      }
+    });
+  }
+
   // ------------------------------------------------------------ persistence
 
   function save() {
@@ -88,7 +116,8 @@
         enforce: state.enforce, customWidth: state.customWidth, zoom: state.zoom,
         zoomScale: state.zoomScale, previewCss: state.previewCss, autoParts: state.autoParts,
         sidebarWidth: state.sidebarWidth, inspectorWidth: state.inspectorWidth,
-        sidebarHidden: state.sidebarHidden, inspectorHidden: state.inspectorHidden
+        sidebarHidden: state.sidebarHidden, panel: state.panel,
+        dockOpen: state.dockOpen, dockTab: state.dockTab, dockHeight: state.dockHeight
       }));
     } catch (e) { /* private mode, quota — not worth interrupting the user */ }
     saveProfileLibrarySettings();
@@ -128,7 +157,10 @@
         if (typeof saved.sidebarWidth === 'number') state.sidebarWidth = saved.sidebarWidth;
         if (typeof saved.inspectorWidth === 'number') state.inspectorWidth = saved.inspectorWidth;
         if (typeof saved.sidebarHidden === 'boolean') state.sidebarHidden = saved.sidebarHidden;
-        if (typeof saved.inspectorHidden === 'boolean') state.inspectorHidden = saved.inspectorHidden;
+        if (typeof saved.panel === 'string') state.panel = saved.panel;
+        if (typeof saved.dockOpen === 'boolean') state.dockOpen = saved.dockOpen;
+        if (saved.dockTab === 'code' || saved.dockTab === 'reference') state.dockTab = saved.dockTab;
+        if (typeof saved.dockHeight === 'number') state.dockHeight = saved.dockHeight;
         if (Array.isArray(saved.autoParts)) state.autoParts = saved.autoParts;
         if (saved.data) {
           state.data = Object.assign({}, DEFAULT_DATA, saved.data);
@@ -150,23 +182,55 @@
   }
 
   var pushTimer = null;
-  function pushPayload() {
+
+  function sendPayload() {
+    // Every element is numbered first (data-jx), so a click in the preview can
+    // be traced back to its place in the document. The numbers go on before
+    // the linter cuts anything out, which keeps them matching js/markup.js.
+    var tagged = window.JaiMarkup.tagged(state.code);
+    var payload = state.enforce ? window.JaiLint.sanitisePayload(tagged) : tagged;
+    liveRules = {};
+    // The <style> blocks are hoisted out of the markup and handed to the
+    // frame separately. They still land last in the cascade, so the result is
+    // identical to leaving them in the About Me box — but CSS-only edits then
+    // never rebuild the DOM, which keeps images and animations from flashing
+    // on every keystroke.
+    post({
+      type: 'payload',
+      css: state.previewCss ? window.JaiPayload.allCss(payload) : '',
+      html: stripStyleBlocks(payload)
+    });
+    emit('pushed');
+  }
+
+  /* `now` skips the debounce: a drag or a delete on the canvas should land in
+   * the preview before the next thing the creator does to it. */
+  function pushPayload(now) {
     clearTimeout(pushTimer);
-    pushTimer = setTimeout(function () {
-      var payload = state.enforce
-        ? window.JaiLint.sanitisePayload(state.code)
-        : state.code;
-      // The <style> blocks are hoisted out of the markup and handed to the
-      // frame separately. They still land last in the cascade, so the result is
-      // identical to leaving them in the About Me box — but CSS-only edits then
-      // never rebuild the DOM, which keeps images and animations from flashing
-      // on every keystroke.
-      post({
-        type: 'payload',
-        css: state.previewCss ? window.JaiPayload.allCss(payload) : '',
-        html: stripStyleBlocks(payload)
-      });
-    }, 60);
+    if (now) sendPayload();
+    else pushTimer = setTimeout(sendPayload, 60);
+  }
+
+  /*
+   * A value being dragged in the properties panel is written into the document
+   * straight away, but the full pass that follows (parse, lint, re-highlight)
+   * is debounced. Until it lands, the one declaration is shown through a small
+   * extra sheet in the preview, so a scrub feels live. Nothing blocked is ever
+   * shown this way: the preview must stay honest even for a quarter-second.
+   */
+  var liveRules = {};
+
+  function setLive(selector, prop, value) {
+    if (!state.previewCss) return;
+    var key = selector + '\u0000' + prop;
+    if (value == null || value === '') {
+      delete liveRules[key];
+    } else {
+      var rule = selector + ' { ' + prop + ': ' + value + '; }';
+      if (state.enforce && window.JaiLint.analyse(rule).length) return;
+      liveRules[key] = rule;
+    }
+    post({ type: 'live', css: Object.keys(liveRules).map(function (k) { return liveRules[k]; }).join('\n') });
   }
 
   function stripStyleBlocks(payload) {
@@ -218,8 +282,9 @@
     frameReady = true;
     pushData();
     pushPayload();
-    post({ type: 'inspector', on: state.inspector });
+    post({ type: 'mode', mode: state.mode });
     bootProfiles();
+    emit('frame:connected');
   }
 
   frame.addEventListener('load', connectFrame);
@@ -234,8 +299,6 @@
     if (!m || typeof m !== 'object') return;
     if (m.type === 'ready') {
       connectFrame();
-    } else if (m.type === 'pick') {
-      onPick(m);
     } else if (m.type === 'userMenu') {
       // The preview's own avatar click can open the menu; keep the Settings
       // panel's checkbox showing the truth.
@@ -257,6 +320,10 @@
       }
       pushData();
       save();
+    } else if (typeof m.type === 'string') {
+      // Everything else is the canvas talking: a selection, a drag, a retyped
+      // line. js/canvas.js listens for those.
+      emit('frame:' + m.type, m);
     }
   });
 
@@ -266,34 +333,44 @@
   // then scaled down to fit the pane. Scaling the frame rather than resizing it
   // is what keeps JanitorAI's own media queries firing at the right widths.
 
+  var stageScale = 1;      // the zoom the canvas is currently drawn at
+
   function layoutStage() {
     var vp = VIEWPORTS[state.viewport];
     if (state.viewport === 'custom') vp = { w: state.customWidth, h: 1000 };
     var scroll = $('#stage-scroll');
     var sizer = $('#stage-sizer');
     var wrap = $('#stage-frame');
-    var avail = scroll.clientWidth - 32;
-    // clientWidth can read as 0 mid-relayout (toggling the code pane), which
+    var avail = scroll.clientWidth - 40;
+    // clientWidth can read as 0 mid-relayout (toggling the code dock), which
     // would otherwise flash a nonsense zoom figure.
     var fitScale = Math.max(0.05, Math.min(1, avail / vp.w));
     var scale = state.zoom === 'actual' ? 1
       : state.zoom === 'manual' ? state.zoomScale
       : fitScale;
+    stageScale = scale;
+
+    // A desktop window is as tall as it is: let the simulated one use whatever
+    // height the pane has rather than stopping at a nominal 900px. Phones and
+    // tablets keep their device height, which is part of what is being checked.
+    var height = vp.h;
+    if (vp.w >= 1000) {
+      height = Math.max(vp.h, Math.floor((scroll.clientHeight - 40) / scale));
+    }
 
     frame.style.width = vp.w + 'px';
-    frame.style.height = vp.h + 'px';
+    frame.style.height = height + 'px';
     wrap.style.width = vp.w + 'px';
-    wrap.style.height = vp.h + 'px';
+    wrap.style.height = height + 'px';
     wrap.style.transform = 'scale(' + scale + ')';
     // A transform does not affect layout size, so the sizer reserves the space
     // the scaled frame actually occupies.
     sizer.style.width = Math.round(vp.w * scale) + 'px';
-    sizer.style.height = Math.round(vp.h * scale) + 'px';
+    sizer.style.height = Math.round(height * scale) + 'px';
 
-    $('#stage-size').textContent = vp.w + ' × ' + vp.h;
-    $('#stage-zoom').textContent = state.zoom === 'fit' ? 'Fit · ' + Math.round(scale * 100) + '%' : Math.round(scale * 100) + '%';
-    $('#stage-zoom').classList.toggle('is-on', state.zoom !== 'fit');
-    $('#stage-zoom-slider').value = Math.round(scale * 100);
+    $('#stage-size').textContent = vp.w + ' × ' + height;
+    $('#zoom-label').textContent = (state.zoom === 'fit' ? 'Fit · ' : '') + Math.round(scale * 100) + '%';
+    $('#zoom-label').classList.toggle('is-on', state.zoom !== 'fit');
     // JanitorAI's mobile chrome lives below 576px and was not in the capture.
     $('#stage-notice').hidden = vp.w >= 576;
   }
@@ -429,7 +506,29 @@
     // line by design, and a textarea left at pane width makes everything you
     // scroll right to impossible to click, select or type into.
     input.style.width = Math.max(highlightPre.scrollWidth, editorScroll.clientWidth) + 'px';
-    $('#code-stats').textContent = lines + ' lines · ' + css.length + ' chars';
+    highlightStale = false;
+  }
+
+  /* Colouring a large document is the slowest thing the studio does, and with
+   * the dock closed nobody is looking at it. It is skipped until asked for. */
+  var highlightStale = true;
+
+  function refreshHighlight() {
+    if (state.dockOpen && state.dockTab === 'code') renderHighlight();
+    else highlightStale = true;
+  }
+
+  /* The one-line verdict in the status bar: what JanitorAI would strip. */
+  function renderStatus() {
+    var blocked = lintIssues.filter(function (it) { return it.severity !== 'advisory'; }).length;
+    var advisory = lintIssues.length - blocked;
+    var button = $('#status-lint');
+    var parts = [];
+    if (blocked) parts.push(blocked + ' blocked');
+    if (advisory) parts.push(advisory + (advisory === 1 ? ' layout warning' : ' layout warnings'));
+    button.textContent = parts.length ? '● ' + parts.join(' · ') : '✓ Clean';
+    button.className = 'status-lint ' + (blocked ? 'is-blocked' : advisory ? 'is-advisory' : 'is-clean');
+    $('#code-stats').textContent = state.code.split('\n').length + ' lines · ' + state.code.length + ' chars';
   }
 
   editorScroll.addEventListener('scroll', function () {
@@ -496,6 +595,7 @@
     if (!btn) return;
     var it = lintIssues[+btn.dataset.issue];
     if (!it) return;
+    setDock(true, 'code');
     input.focus();
     input.setSelectionRange(it.start, it.end);
     // setSelectionRange does not scroll a transparent textarea reliably.
@@ -539,8 +639,12 @@
    * immediately; the expensive pass runs a beat after things go quiet, so it
    * never fights an in-progress keystroke and only ever runs once per pause
    * rather than once per character.
+   *
+   * `opts.now` runs the pass immediately instead: a move or a delete on the
+   * canvas has to reach the preview before the selection is put back on it.
    */
-  function setCode(code, from) {
+  function setCode(code, from, opts) {
+    if (code !== state.code) remember(state.code, from);
     state.code = code;
 
     if (from !== 'editor') {
@@ -550,28 +654,87 @@
     }
 
     clearTimeout(renderTimer);
-    renderTimer = setTimeout(function () { runAnalysis(from); }, RENDER_DEBOUNCE_MS);
+    if (opts && opts.now) runAnalysis(from, true);
+    else renderTimer = setTimeout(function () { runAnalysis(from); }, RENDER_DEBOUNCE_MS);
   }
 
-  function runAnalysis(from) {
+  function runAnalysis(from, now) {
     try {
       index = buildIndex(window.JaiPayload.allCss(state.code));
       lintIssues = window.JaiLint.analysePayload(state.code);
-      renderHighlight();
+      refreshHighlight();
       renderLint();
-      if (from !== 'controls') syncControls();
+      renderStatus();
       if (from !== 'presets') syncPresets();
-    syncTemplates();
-    syncCustomPresets();
+      syncTemplates();
+      syncCustomPresets();
+      renderHardcodeSections();
     } catch (err) {
       // Whatever tripped this, the document itself is intact (state.code and
       // the textarea were already updated above) -- only the derived UI, which
       // this call rebuilds from scratch next time, is out of date.
       console.error('JAI Studio: analysis pass failed, will retry on next edit', err);
     }
-    pushPayload();
+    pushPayload(now);
     save();
+    emit('change', { from: from });
   }
+
+  // ---------------------------------------------------------------- history
+  //
+  // Every change to the document can be undone, whichever panel made it. A run
+  // of changes from one source in quick succession — typing, or dragging a
+  // value — is one step, so undo takes back the gesture and not one keystroke.
+
+  var HISTORY_LIMIT = 150;
+  var history = { undo: [], redo: [], from: null, at: 0 };
+
+  function remember(previous, from) {
+    if (!appReady || from === 'history') return;
+    if (from === 'load' || from === 'profile') {
+      // A different document altogether: its history starts here.
+      history = { undo: [], redo: [], from: null, at: 0 };
+      renderHistory();
+      return;
+    }
+    var now = Date.now();
+    // Only typing and scrubbing run together. A drag, a delete, a template:
+    // each of those is its own step however quickly the next one follows.
+    var continuous = from === 'editor' || from === 'inspector';
+    var sameGesture = continuous && from === history.from && now - history.at < 700;
+    history.from = from;
+    history.at = now;
+    history.redo = [];
+    if (!sameGesture) {
+      history.undo.push(previous);
+      if (history.undo.length > HISTORY_LIMIT) history.undo.shift();
+    }
+    renderHistory();
+  }
+
+  function renderHistory() {
+    $('#undo').disabled = !history.undo.length;
+    $('#redo').disabled = !history.redo.length;
+  }
+
+  function undo() {
+    if (!history.undo.length) return;
+    history.redo.push(state.code);
+    history.from = null;
+    setCode(history.undo.pop(), 'history', { now: true });
+    renderHistory();
+  }
+
+  function redo() {
+    if (!history.redo.length) return;
+    history.undo.push(state.code);
+    history.from = null;
+    setCode(history.redo.pop(), 'history', { now: true });
+    renderHistory();
+  }
+
+  $('#undo').addEventListener('click', undo);
+  $('#redo').addEventListener('click', redo);
 
   /* Runs an edit against the CSS inside the payload's <style> block, creating
    * one if the About Me box does not have a stylesheet yet. */
@@ -584,10 +747,76 @@
     return bucket ? bucket[prop.toLowerCase()] : undefined;
   }
 
-  function writeValue(sel, prop, value) {
+  /*
+   * Rules between the hardcode markers are regenerated from Profile data, so
+   * an edit made inside one would be gone the next time a character's name
+   * changed. Visual edits never land there; they go into a rule of the
+   * creator's own further down, which wins the tie.
+   */
+  function generatedCssRanges(css) {
+    var markers = window.JaiHardcode.markers;
+    var out = [];
+    [[markers.cssStart, markers.cssEnd], [markers.styleStart, markers.styleEnd]].forEach(function (pair) {
+      var from = css.indexOf(pair[0]);
+      var to = css.indexOf(pair[1]);
+      if (from !== -1 && to > from) out.push([from, to + pair[1].length]);
+    });
+    return out;
+  }
+
+  /* The rule a visual edit for `selector` belongs in: the last top-level one
+   * the creator owns, in the last <style> block that has one. */
+  function ownRule(selector) {
+    var wanted = window.CssModel.normaliseSelector(selector);
+    var blocks = window.JaiPayload.styleBlocks(state.code);
+    for (var b = blocks.length - 1; b >= 0; b--) {
+      var generated = generatedCssRanges(blocks[b].css);
+      var nodes = window.CssModel.parse(blocks[b].css);
+      for (var i = nodes.length - 1; i >= 0; i--) {
+        var n = nodes[i];
+        if (n.type !== 'rule' || n.selector !== wanted || (n.atPath && n.atPath.length) || !n.decls) continue;
+        var inside = generated.some(function (range) { return n.start >= range[0] && n.start < range[1]; });
+        if (!inside) return { block: blocks[b], rule: n };
+      }
+    }
+    return null;
+  }
+
+  /* The declarations of that rule, in the order they were written. */
+  function ruleDeclarations(selector) {
+    var own = ownRule(selector);
+    return own ? own.rule.decls.map(function (d) {
+      return { prop: d.prop, value: d.value, important: d.important };
+    }) : [];
+  }
+
+  function writeValue(sel, prop, value, from) {
+    from = from || 'inspector';
+    var own = ownRule(sel);
+    setLive(sel, prop, value);
+    if (own) {
+      var next = window.CssModel.setDeclaration(own.block.css, sel, prop, value, { rule: own.rule });
+      setCode(state.code.slice(0, own.block.cssStart) + next + state.code.slice(own.block.cssEnd), from);
+      return;
+    }
+    if (value == null || value === '') return;   // nothing of the creator's to remove
     editCss(function (css) {
-      return window.CssModel.setDeclaration(css, sel, prop, value);
-    }, 'controls');
+      return css + (css && !/\n\s*$/.test(css) ? '\n\n' : (css.trim() ? '\n' : '')) +
+        sel + ' {\n  ' + prop + ': ' + value + ';\n}\n';
+    }, from);
+  }
+
+  /* Renames one property of the creator's rule in place (the raw declaration
+   * list lets a property name be retyped). */
+  function renameDeclaration(sel, from, to) {
+    var own = ownRule(sel);
+    if (!own) return;
+    var decl = null;
+    own.rule.decls.forEach(function (d) { if (d.prop.toLowerCase() === from.toLowerCase()) decl = d; });
+    if (!decl) return;
+    var css = own.block.css;
+    var next = css.slice(0, decl.start) + to + css.slice(decl.start + decl.prop.length);
+    setCode(state.code.slice(0, own.block.cssStart) + next + state.code.slice(own.block.cssEnd), 'inspector');
   }
 
   input.addEventListener('input', function () {
@@ -605,353 +834,12 @@
     setCode(input.value, 'editor');
   });
 
-  // ----------------------------------------------------------- colour utils
-
-  var probe = document.createElement('span');
-  probe.style.display = 'none';
-  document.body.appendChild(probe);
-
-  function toHex(value) {
-    if (!value) return null;
-    var v = String(value).trim();
-    if (/^#[0-9a-fA-F]{6}$/.test(v)) return v.toLowerCase();
-    if (/^#[0-9a-fA-F]{3}$/.test(v)) {
-      return ('#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3]).toLowerCase();
-    }
-    if (/^#[0-9a-fA-F]{8}$/.test(v)) return v.slice(0, 7).toLowerCase();
-    probe.style.color = '';
-    probe.style.color = v;
-    if (!probe.style.color) return null;
-    var rgb = getComputedStyle(probe).color.match(/\d+/g);
-    if (!rgb) return null;
-    return '#' + rgb.slice(0, 3).map(function (n) {
-      return ('0' + (+n).toString(16)).slice(-2);
-    }).join('').toLowerCase();
-  }
-
-  var SWATCHES = ['#ffffff', '#0e0f13', '#c084fc', '#ff2d95', '#2de2e6', '#57ff8f',
-                  '#fbbf24', '#f87171', '#7dd3fc', 'transparent'];
-
-  // --------------------------------------------------------------- controls
-
-  var controlNodes = [];
-  var selectedControlTokens = [];
-
   function el(tag, cls, html) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
     if (html != null) n.innerHTML = html;
     return n;
   }
-
-  function clearButton(onClear) {
-    var b = el('button', 'ctrl-clear', '×');
-    b.type = 'button';
-    b.title = 'Remove this property';
-    b.addEventListener('click', onClear);
-    return b;
-  }
-
-  function parseLength(value) {
-    var m = /^(-?\d*\.?\d+)\s*([a-z%]*)$/i.exec(String(value || '').trim());
-    return m ? { n: parseFloat(m[1]), u: m[2] || '' } : null;
-  }
-
-  function buildControl(def) {
-    var wrap = el('div', 'ctrl');
-    var head = el('div', 'ctrl-head');
-    head.appendChild(el('span', 'ctrl-label', escapeHtml(def.label)));
-    var chip = el('button', 'ctrl-sel', escapeHtml(def.sel));
-    chip.type = 'button';
-    chip.title = 'Copy selector and scroll the preview to it';
-    chip.addEventListener('click', function () {
-      copy(def.sel);
-      post({ type: 'scrollTo', selector: def.sel.replace(/:hover.*$/, '').split(':')[0] });
-    });
-    head.appendChild(chip);
-    wrap.appendChild(head);
-
-    var row = el('div', 'ctrl-row');
-    wrap.appendChild(row);
-    var sync;
-
-    if (def.type === 'color') {
-      var picker = el('input');
-      picker.type = 'color';
-      var textIn = el('input');
-      textIn.type = 'text';
-      textIn.placeholder = 'e.g. #ff2d95 or rgba(0,0,0,.4)';
-      picker.addEventListener('input', function () {
-        textIn.value = picker.value;
-        writeValue(def.sel, def.prop, picker.value);
-      });
-      textIn.addEventListener('change', function () {
-        writeValue(def.sel, def.prop, textIn.value.trim() || null);
-      });
-      row.appendChild(picker);
-      row.appendChild(textIn);
-      row.appendChild(clearButton(function () { writeValue(def.sel, def.prop, null); }));
-
-      var sw = el('div', 'swatch-row');
-      SWATCHES.forEach(function (c) {
-        var b = el('button', 'swatch');
-        b.type = 'button';
-        b.title = c;
-        b.style.background = c === 'transparent'
-          ? 'repeating-conic-gradient(#555 0 25%, #333 0 50%) 0 0/8px 8px'
-          : c;
-        b.addEventListener('click', function () { writeValue(def.sel, def.prop, c); });
-        sw.appendChild(b);
-      });
-      wrap.appendChild(sw);
-
-      sync = function (v) {
-        textIn.value = v || '';
-        var hex = toHex(v);
-        if (hex) picker.value = hex;
-      };
-
-    } else if (def.type === 'length' || def.type === 'number') {
-      var range = el('input');
-      range.type = 'range';
-      range.min = def.min; range.max = def.max; range.step = def.step;
-      var numIn = el('input', 'num');
-      numIn.type = 'text';
-      var unitSel = null;
-      if (def.type === 'length') {
-        unitSel = el('select');
-        def.units.forEach(function (u) {
-          var o = el('option', null, u); o.value = u; unitSel.appendChild(o);
-        });
-        unitSel.value = def.unit;
-      }
-      function emit(n) {
-        if (n === '' || n === null) return writeValue(def.sel, def.prop, null);
-        writeValue(def.sel, def.prop, n + (unitSel ? unitSel.value : ''));
-      }
-      range.addEventListener('input', function () { numIn.value = range.value; emit(range.value); });
-      numIn.addEventListener('change', function () {
-        var raw = numIn.value.trim();
-        if (!raw) return writeValue(def.sel, def.prop, null);
-        // Anything that is not a bare number goes in verbatim — calc(), clamp()…
-        if (/^-?\d*\.?\d+$/.test(raw)) emit(raw);
-        else writeValue(def.sel, def.prop, raw);
-      });
-      if (unitSel) unitSel.addEventListener('change', function () {
-        if (numIn.value.trim()) emit(numIn.value.trim());
-      });
-      row.appendChild(range);
-      row.appendChild(numIn);
-      if (unitSel) row.appendChild(unitSel);
-      row.appendChild(clearButton(function () { writeValue(def.sel, def.prop, null); }));
-
-      sync = function (v) {
-        if (v == null) { numIn.value = ''; range.value = def.min; return; }
-        var p = parseLength(v);
-        if (p) {
-          numIn.value = String(p.n);
-          range.value = p.n;
-          range.disabled = false;
-          if (unitSel && p.u && def.units.indexOf(p.u) !== -1) unitSel.value = p.u;
-        } else {
-          numIn.value = v;         // calc(), clamp(), keywords
-          range.disabled = true;
-        }
-      };
-
-    } else if (def.type === 'select' || def.type === 'font') {
-      var sel = el('select');
-      var blank = el('option', null, '—'); blank.value = '';
-      sel.appendChild(blank);
-      def.values.forEach(function (v) {
-        var o = el('option', null, escapeHtml(v));
-        o.value = def.type === 'font' ? '"' + v + '"' : v;
-        sel.appendChild(o);
-      });
-      var raw = el('input');
-      raw.type = 'text';
-      raw.placeholder = 'or type a value';
-      sel.addEventListener('change', function () {
-        if (!sel.value) return writeValue(def.sel, def.prop, null);
-        writeValue(def.sel, def.prop, sel.value);
-      });
-      raw.addEventListener('change', function () {
-        writeValue(def.sel, def.prop, raw.value.trim() || null);
-      });
-      row.appendChild(sel);
-      row.appendChild(raw);
-      row.appendChild(clearButton(function () { writeValue(def.sel, def.prop, null); }));
-
-      sync = function (v) {
-        raw.value = v || '';
-        var match = '';
-        for (var i = 0; i < sel.options.length; i++) {
-          if (sel.options[i].value && v && sel.options[i].value === v.trim()) { match = sel.options[i].value; break; }
-        }
-        sel.value = match;
-      };
-
-    } else if (def.type === 'toggle') {
-      var box = el('label', 'field-inline');
-      var cb = el('input'); cb.type = 'checkbox';
-      box.appendChild(cb);
-      box.appendChild(el('span', null, 'Hidden'));
-      cb.addEventListener('change', function () {
-        writeValue(def.sel, def.prop, cb.checked ? def.on : null);
-      });
-      row.appendChild(box);
-      sync = function (v) { cb.checked = v === def.on; };
-
-    } else if (def.type === 'gradient') {
-      var gval = el('input');
-      gval.type = 'text';
-      gval.placeholder = 'linear-gradient(160deg, #2a1520, #55283c)';
-      gval.addEventListener('change', function () {
-        writeValue(def.sel, def.prop, gval.value.trim() || null);
-      });
-      row.appendChild(gval);
-      row.appendChild(clearButton(function () { writeValue(def.sel, def.prop, null); }));
-
-      var grid = el('div', 'ctrl-grid');
-      var kind = el('select');
-      ['linear', 'radial', 'solid'].forEach(function (k) {
-        var o = el('option', null, k); o.value = k; kind.appendChild(o);
-      });
-      var angle = el('input'); angle.type = 'number'; angle.value = '160';
-      var c1 = el('input'); c1.type = 'color'; c1.value = '#2a1520';
-      var c2 = el('input'); c2.type = 'color'; c2.value = '#55283c';
-      function build() {
-        if (kind.value === 'solid') return c1.value;
-        if (kind.value === 'radial') return 'radial-gradient(circle at 50% 30%, ' + c1.value + ', ' + c2.value + ')';
-        return 'linear-gradient(' + (angle.value || 0) + 'deg, ' + c1.value + ', ' + c2.value + ')';
-      }
-      [kind, angle, c1, c2].forEach(function (n) {
-        n.addEventListener('input', function () {
-          gval.value = build();
-          writeValue(def.sel, def.prop, gval.value);
-        });
-      });
-      grid.appendChild(labelled('type', kind));
-      grid.appendChild(labelled('angle', angle));
-      grid.appendChild(labelled('from', c1));
-      grid.appendChild(labelled('to', c2));
-      wrap.appendChild(grid);
-      sync = function (v) { gval.value = v || ''; };
-
-    } else if (def.type === 'shadow') {
-      var sval = el('input');
-      sval.type = 'text';
-      sval.placeholder = '0 8px 32px rgba(0,0,0,.45)';
-      sval.addEventListener('change', function () {
-        writeValue(def.sel, def.prop, sval.value.trim() || null);
-      });
-      row.appendChild(sval);
-      row.appendChild(clearButton(function () { writeValue(def.sel, def.prop, null); }));
-
-      var sgrid = el('div', 'ctrl-grid');
-      var sx = el('input'); sx.type = 'number'; sx.value = '0';
-      var sy = el('input'); sy.type = 'number'; sy.value = '8';
-      var sb = el('input'); sb.type = 'number'; sb.value = '28';
-      var sc = el('input'); sc.type = 'color'; sc.value = '#000000';
-      function buildShadow() {
-        return sx.value + 'px ' + sy.value + 'px ' + sb.value + 'px ' + sc.value;
-      }
-      [sx, sy, sb, sc].forEach(function (n) {
-        n.addEventListener('input', function () {
-          sval.value = buildShadow();
-          writeValue(def.sel, def.prop, sval.value);
-        });
-      });
-      sgrid.appendChild(labelled('x', sx));
-      sgrid.appendChild(labelled('y', sy));
-      sgrid.appendChild(labelled('blur', sb));
-      sgrid.appendChild(labelled('colour', sc));
-      wrap.appendChild(sgrid);
-      sync = function (v) { sval.value = v || ''; };
-
-    } else { // text
-      var t = el('input');
-      t.type = 'text';
-      t.placeholder = def.placeholder || '';
-      t.addEventListener('change', function () {
-        writeValue(def.sel, def.prop, t.value.trim() || null);
-      });
-      row.appendChild(t);
-      row.appendChild(clearButton(function () { writeValue(def.sel, def.prop, null); }));
-      sync = function (v) { t.value = v || ''; };
-    }
-
-    if (def.help) wrap.appendChild(el('p', 'ctrl-help', escapeHtml(def.help)));
-
-    controlNodes.push({ def: def, node: wrap, sync: sync });
-    return wrap;
-  }
-
-  function labelled(text, node) {
-    var d = el('div');
-    d.appendChild(el('label', null, text));
-    d.appendChild(node);
-    return d;
-  }
-
-  function renderControls() {
-    var host = $('#control-groups');
-    host.innerHTML = '';
-    window.JaiControls.groups.forEach(function (g) {
-      var group = el('section', 'group');
-      group.dataset.group = g.id;
-      var head = el('button', 'group-head',
-        '<span>' + escapeHtml(g.title) + '</span>' +
-        '<span class="group-count" data-count>0</span>' +
-        '<span class="chev">›</span>');
-      head.type = 'button';
-      head.addEventListener('click', function () { group.classList.toggle('is-open'); });
-      group.appendChild(head);
-
-      var body = el('div', 'group-body');
-      if (g.blurb) body.appendChild(el('p', 'group-blurb', g.blurb));
-      g.controls.forEach(function (def) { body.appendChild(buildControl(def)); });
-      group.appendChild(body);
-      host.appendChild(group);
-    });
-    syncControls();
-  }
-
-  function syncControls() {
-    var counts = {};
-    controlNodes.forEach(function (c) {
-      var v = readValue(c.def.sel, c.def.prop);
-      c.sync(v);
-      var set = v !== undefined;
-      c.node.classList.toggle('is-set', set);
-      var group = c.node.closest('.group');
-      if (group && set) counts[group.dataset.group] = (counts[group.dataset.group] || 0) + 1;
-    });
-    $$('.group').forEach(function (g) {
-      var badge = $('[data-count]', g);
-      var n = counts[g.dataset.group] || 0;
-      badge.textContent = n;
-      badge.style.visibility = n ? 'visible' : 'hidden';
-    });
-  }
-
-  function filterControls() {
-    var q = $('#control-search').value.trim().toLowerCase();
-    controlNodes.forEach(function (c) {
-      var hay = (c.def.label + ' ' + c.def.sel + ' ' + c.def.prop).toLowerCase();
-      var selected = !selectedControlTokens.length || selectedControlTokens.some(function (token) {
-        return hay.indexOf('.' + token.toLowerCase()) !== -1;
-      });
-      c.node.style.display = selected && (!q || hay.indexOf(q) !== -1) ? '' : 'none';
-    });
-    $$('.group').forEach(function (g) {
-      var visible = $$('.ctrl', g).some(function (n) { return n.style.display !== 'none'; });
-      g.style.display = visible ? '' : 'none';
-      if ((q || selectedControlTokens.length) && visible) g.classList.add('is-open');
-    });
-  }
-
-  $('#control-search').addEventListener('input', filterControls);
 
   // ---------------------------------------------------------------- presets
 
@@ -1057,7 +945,7 @@
 
   function darkRedStatus(identity, about) {
     var copy = String(about.notes || about.body || darkRedFacts(identity) ||
-      'Add a short introduction in Profile → About me.').trim();
+      'Add a short introduction in Profile data → About me.').trim();
     return '<div class="status-box">\n<div class="status-head"><span>' +
       templateHtml(about.title || 'PROFILE') + '</span></div>\n<div class="status-body"><p>' +
       templateHtml(copy) + '</p></div>\n</div>\n';
@@ -1071,7 +959,7 @@
         tabs.push({ title: section.title || 'More', body: section.body || '' });
       }
     });
-    if (!tabs[0].body) tabs[0].body = 'Add your introduction under Profile → About me.';
+    if (!tabs[0].body) tabs[0].body = 'Add your introduction under Profile data → About me.';
     return '<div class="tab-box">\n<div class="tab-nav">\n' + tabs.map(function (tab, index) {
       return '<div class="tab"><details name="darkred-tabs"' + (index === 0 ? ' open' : '') +
         '><summary>' + templateHtml(tab.title) + '</summary><div class="tab-content"><h2>' +
@@ -1212,6 +1100,36 @@
     syncTemplates();
   }
 
+  /*
+   * A template part dropped onto the canvas: its markup goes where it was
+   * dropped (still between its markers, so Remove can find it later), while
+   * its stylesheet and anything it depends on go where they always do.
+   * Returns the edit for the canvas to commit, or null when the part is
+   * already on the page.
+   */
+  function placePart(code, comp, ref, where) {
+    if (window.JaiPresets.isPartApplied(code, comp)) {
+      toast('“' + comp.name + '” is already on the page — move it there, or Remove it first.');
+      return null;
+    }
+    var part = materialiseTemplatePart(comp);
+    // Markup first: the canvas's element numbers are only good for `code` as
+    // it was handed over, before anything else is spliced in.
+    var out = part.html
+      ? window.JaiMarkup.insert(code, window.JaiPresets.partMarkup(part), ref, where).payload
+      : code;
+    out = window.JaiPresets.applyPartCss(out, part);
+    withDependencies(comp).forEach(function (p) {
+      if (p.id === comp.id || window.JaiPresets.isPartApplied(out, p)) return;
+      markAuto(p.id, true);
+      out = window.JaiPresets.applyPart(out, materialiseTemplatePart(p));
+    });
+    markAuto(comp.id, false);
+    reportToHost('template_part_applied', comp.id);
+    var at = out.indexOf(window.JaiPresets.partMarker(part));
+    return { payload: out, id: at === -1 ? null : window.JaiMarkup.nodeAfter(out, at) };
+  }
+
   function removeParts(parts) {
     var code = state.code;
     parts.forEach(function (p) { code = window.JaiPresets.removePart(code, p); });
@@ -1304,6 +1222,12 @@
         toggle.type = 'button';
         toggle.addEventListener('click', function () { togglePart(comp); });
         row.appendChild(toggle);
+        if (comp.html) {
+          // A part with markup can also be dragged to a place on the canvas
+          // (js/insert.js); Add puts it in the template's own order instead.
+          row.classList.add('is-draggable');
+          row.title = 'Drag onto the canvas to place it, or Add to put it in the template’s own order.';
+        }
         parts.appendChild(row);
       });
 
@@ -1359,7 +1283,7 @@
   // A profile layout is generated from Profile information instead of pasted
   // in, so it grows with the roster and picks up friends and links as soon as
   // they are added. Using one here is the same as choosing it under
-  // Profile → Layout & theme and inserting.
+  // Profile data → Layout & theme and inserting.
 
   function profileLayouts() {
     // "None" writes markup for a hand-made stylesheet: a Profile-tab choice,
@@ -1375,7 +1299,7 @@
       var card = el('article', 'template');
       card.dataset.layout = style.id;
       var head = el('div', 'template-head',
-        '<div class="preset-cat">Profile layout</div>' +
+        '<div class="preset-cat">Built from Profile data</div>' +
         '<div class="preset-name">' + escapeHtml(style.name) + '</div>' +
         '<div class="template-credit">' + escapeHtml(style.blurb) + '</div>');
       var actions = el('div', 'template-actions');
@@ -1392,9 +1316,8 @@
 
   function useLayout(style) {
     if (!info.characters.length) {
-      toast('Add your characters first — Profile → Import profile fills them in.');
-      var tab = $('.sidebar-tabs button[data-panel="info"]');
-      if (tab) tab.click();
+      toast('Add your characters first — Profile data → Import profile fills them in.');
+      showPanel('info');
       return;
     }
     info.layout.style = style.id;
@@ -1421,15 +1344,15 @@
 
   var PROFILE_FIELDS = [
     // Username, avatar, followers, member-since and background are edited
-    // directly in the preview (click text to edit; right-click an image to
-    // swap it) -- see the 'sim-edit-value' wiring in preview/frame.js.
+    // directly in the preview (double-click text to edit; right-click an image
+    // to swap it) -- see the 'sim-edit-value' wiring in preview/frame.js.
     { key: 'cardCount', label: 'Bot cards shown', type: 'number', min: 1, max: 250 },
     { key: 'viewMode', label: 'Viewing as', type: 'select',
       values: [['visitor', 'A visitor (Follow + Options)'], ['owner', 'Yourself (Edit profile)']] },
     { key: 'showBadges', label: 'Show event badges', type: 'checkbox' },
     { key: 'janitorPlus', label: 'Show Janitor+ badge', type: 'checkbox' },
     { key: 'userMenu', label: 'Open the user menu', type: 'checkbox',
-      hint: 'The popup behind your avatar in the header. You can also just click the avatar in the preview.' }
+      hint: 'The popup behind your avatar in the header. Selecting User menu in Layers opens it too.' }
   ];
 
   function renderProfileFields() {
@@ -1519,9 +1442,15 @@
       data: copyData(entry.data),
       code: typeof entry.code === 'string' ? entry.code : '',
       sourceCode: typeof entry.sourceCode === 'string' ? entry.sourceCode : '',
+      sourceKey: entry.sourceKey || '',
       cssEnabled: entry.cssEnabled !== false,
       createdAt: entry.createdAt || Date.now()
     };
+  }
+
+  function profileSourceKey(file) {
+    if (!file) return '';
+    return [file.name || '', file.size || 0, file.lastModified || 0].join('|');
   }
 
   function queueSnapshotPersist(entry, now) {
@@ -1577,15 +1506,28 @@
       return rehydrateSnapshot(entry).then(function () {
         return activateSnapshot(entry, message);
       }).catch(function (error) {
-        updateImportStatus('Could not open “' + entry.label + '”: ' + error.message, false);
+        var missingLabel = entry.label;
+        clearTimeout(profileSaveTimers[entry.id]);
+        delete profileSaveTimers[entry.id];
+        profileSnapshots = profileSnapshots.filter(function (candidate) { return candidate.id !== entry.id; });
+        if (activeProfileId === entry.id) activeProfileId = null;
+        var fallback = activeSnapshot() || visibleSnapshots()[0] || ensureDefaultSnapshot();
+        if (fallback.builtin) keepDefaultProfile = true;
+        saveProfileLibrarySettings();
         renderProfileSwitcher();
-        return false;
+        return window.JaiProfileLibrary.remove(entry.id).catch(function () {
+          // It has already been removed from this session. Startup repair can
+          // retry clearing the broken browser-storage record next time.
+        }).then(function () {
+          return activateSnapshot(fallback,
+            'Removed “' + missingLabel + '” because it could not be reopened (' + error.message + '). Import the MHTML again to restore it.');
+        });
       });
     }
     activeProfileId = entry.id;
     state.data = copyData(entry.data);
     state.previewCss = entry.cssEnabled !== false;
-    setCode(typeof entry.code === 'string' ? entry.code : (entry.profile.aboutMe || window.JaiPayload.STARTER));
+    setCode(typeof entry.code === 'string' ? entry.code : (entry.profile.aboutMe || window.JaiPayload.STARTER), 'profile');
     renderProfileFields();
     pushProfile(entry.profile);
     pushData();
@@ -1599,36 +1541,60 @@
   function applyImportedProfile(profile, file) {
     importedProfile = true;
     var filename = file.name;
-    var username = profile.data && profile.data.username ? ' @' + profile.data.username : '';
-    var entry = {
+    var baseLabel = filename.replace(/\.(m?html?)$/i, '');
+    var username = profile.data && profile.data.username
+      ? String(profile.data.username).replace(/^@/, '')
+      : '';
+    var label = baseLabel;
+    if (username && baseLabel.toLowerCase().indexOf('@' + username.toLowerCase()) === -1) {
+      label += ' @' + username;
+    }
+    var sourceKey = profileSourceKey(file);
+    var existing = profileSnapshots.filter(function (candidate) {
+      if (candidate.builtin) return false;
+      if (sourceKey && candidate.sourceKey === sourceKey) return true;
+      return !candidate.sourceKey && candidate.filename === filename;
+    })[0] || null;
+    var entry = existing ? Object.assign({}, existing) : {
       id: 'profile-' + (++profileIdSeq),
-      label: filename.replace(/\.(m?html?)$/i, '') + username,
-      filename: filename,
-      profile: profile,
       data: copyData(profile.data),
       code: typeof profile.aboutMe === 'string' ? profile.aboutMe : window.JaiPayload.STARTER,
-      sourceCode: typeof profile.aboutMe === 'string' ? profile.aboutMe : window.JaiPayload.STARTER,
       cssEnabled: true,
       builtin: false,
       createdAt: Date.now(),
       persisted: false
     };
-    profileSnapshots.push(entry);
-    updateImportStatus('Saving “' + filename + '” locally…', false);
+    entry.label = label;
+    entry.filename = filename;
+    entry.profile = profile;
+    entry.sourceKey = sourceKey;
+    entry.sourceCode = typeof profile.aboutMe === 'string' ? profile.aboutMe : window.JaiPayload.STARTER;
+    if (!existing) profileSnapshots.push(entry);
+    updateImportStatus((existing ? 'Refreshing' : 'Saving') + ' “' + filename + '” locally…', false);
     window.JaiProfileLibrary.put(snapshotRecord(entry), file).then(function () {
-      entry.persisted = true;
+      if (existing) {
+        var previousProfile = existing.profile;
+        Object.keys(entry).forEach(function (key) { existing[key] = entry[key]; });
+        existing.persisted = true;
+        entry = existing;
+        if (previousProfile && previousProfile !== profile && previousProfile.release) previousProfile.release();
+      } else {
+        entry.persisted = true;
+      }
       saveProfileLibrarySettings();
-      return activateSnapshot(entry, 'Using “' + filename + '”. It will reopen from local storage next time.');
+      return activateSnapshot(entry, (existing ? 'Refreshed' : 'Using') + ' “' + filename + '”. It will reopen from local storage next time.');
     }).then(function () {
       reportToHost('profile_imported');
       // Importing is the creator saying "this is my profile", so Profile
       // information fills in from the file itself; the preview only catches up
       // once the frame has processed the new snapshot.
       fillInfo(new DOMParser().parseFromString(profile.html, 'text/html'), '“' + filename + '”');
-      toast('Profile saved locally — you can switch between profiles');
+      toast(existing ? 'Profile refreshed — your editor changes were kept' : 'Profile saved locally — you can switch between profiles');
     }).catch(function (error) {
-      profileSnapshots = profileSnapshots.filter(function (candidate) { return candidate.id !== entry.id; });
-      if (entry.profile.release) entry.profile.release();
+      if (!existing) {
+        profileSnapshots = profileSnapshots.filter(function (candidate) { return candidate.id !== entry.id; });
+      }
+      if (profile.release) profile.release();
       updateImportStatus('Could not save this profile locally: ' + error.message, !!activeSnapshot());
       renderProfileSwitcher();
       toast('Could not save that profile locally');
@@ -1755,7 +1721,7 @@
       parts.appendChild(summary);
 
       if (!preset.parts.length) {
-        parts.appendChild(el('p', 'panel-note', 'No parts yet — select code in the editor and use “Save selection…”.'));
+        parts.appendChild(el('p', 'panel-note', 'No parts yet — open Code, select some of it, and use “Save selection…”.'));
       }
 
       preset.parts.forEach(function (part) {
@@ -2002,6 +1968,7 @@
     if (profileBootPromise) return profileBootPromise;
     profileBootPromise = window.JaiProfileLibrary.list()
       .then(function (records) {
+        var repaired = records.removedCount || 0;
         ensureDefaultSnapshot();
         records.sort(function (a, b) { return (a.createdAt || 0) - (b.createdAt || 0); }).forEach(function (record) {
           if (!record || !record.id || record.id === 'default' ||
@@ -2014,6 +1981,7 @@
             data: copyData(record.data),
             code: typeof record.code === 'string' ? record.code : '',
             sourceCode: typeof record.sourceCode === 'string' ? record.sourceCode : '',
+            sourceKey: record.sourceKey || '',
             cssEnabled: record.cssEnabled !== false,
             createdAt: record.createdAt,
             builtin: false,
@@ -2027,9 +1995,14 @@
           selected = profileSnapshots.filter(function (entry) { return !entry.builtin; })[0] || ensureDefaultSnapshot();
         }
         renderProfileSwitcher();
-        return activateSnapshot(selected, selected.builtin
+        var status = selected.builtin
           ? 'Using ' + DEFAULT_PROFILE_LABEL + '.'
-          : 'Restored “' + selected.label + '” from local storage.');
+          : 'Restored “' + selected.label + '” from local storage.';
+        if (repaired) {
+          status += ' Removed ' + repaired + ' duplicate or incomplete saved ' +
+            (repaired === 1 ? 'entry.' : 'entries.');
+        }
+        return activateSnapshot(selected, status);
       })
       .catch(function (error) {
         // Saving profiles is a convenience, never a reason to block the
@@ -2087,43 +2060,6 @@
     addRuleStub(b.dataset.sel);
   });
 
-  // -------------------------------------------------------------- inspector
-
-  function onPick(msg) {
-    var t = msg.target;
-    // Text often lands on a plain span inside the useful component. Prefer the
-    // nearest ancestor carrying one of JanitorAI's stable labels so the user
-    // sees and edits a meaningful element, not an anonymous HTML tag.
-    var labelledTarget = (msg.chain || []).filter(function (part) {
-      return part.labels && part.labels.length;
-    })[0] || t;
-    var label = labelledTarget.selector;
-    var out = $('#pick-result');
-    out.textContent = label + '  ↵ add rule';
-    out.dataset.sel = label;
-    out.title = 'Labels: ' + (labelledTarget.labels.join(' ') || '—') +
-                '\nEmotion: ' + (labelledTarget.emotion.join(' ') || '—') +
-                '\nClick to add a rule for this element.';
-
-    selectedControlTokens = [];
-    (msg.chain || [t]).slice(0, 4).forEach(function (part) {
-      (part.labels || []).forEach(function (token) {
-        if (selectedControlTokens.indexOf(token) === -1) selectedControlTokens.push(token);
-      });
-    });
-    var selection = $('#inspector-selection');
-    selection.classList.add('has-selection');
-    $('.inspector-selection-label', selection).textContent = label;
-    $('#inspector-show-all').hidden = false;
-    showWorkspacePanel('design');
-    filterControls();
-  }
-
-  $('#pick-result').addEventListener('click', function () {
-    var sel = this.dataset.sel;
-    if (sel) addRuleStub(sel);
-  });
-
   /* Appends an empty rule for `selector` and drops the caret inside it. */
   function addRuleStub(selector) {
     var existing = window.CssModel.findRule(window.JaiPayload.allCss(state.code), selector);
@@ -2140,39 +2076,80 @@
       });
       caret = window.JaiPayload.cssOffsetToPayload(state.code, offset);
     }
-    $('.layout').classList.remove('code-hidden');
-    $('#show-code').classList.add('is-active');
-    layoutStage();
+    setDock(true, 'code');
     input.focus();
     input.setSelectionRange(caret, caret);
     editorScroll.scrollTop = Math.max(0, (window.CssModel.lineOf(state.code, caret) - 5) * 19.2);
   }
 
-  // ------------------------------------------------------------- toolbar
+  // ------------------------------------------------------------------ shell
+  //
+  // A rail of panels on the left, the canvas in the middle, properties on the
+  // right, and the About Me code in a dock under the canvas.
 
-  var customWidth = $('#custom-width');
+  var PANEL_TITLES = {
+    layers: 'Layers',
+    insert: 'Insert',
+    info: 'Profile data',
+    help: 'Help'
+  };
 
   function applyPanelLayout() {
     var root = document.documentElement;
     var layout = $('.layout');
     if (state.sidebarWidth) root.style.setProperty('--sidebar-w', state.sidebarWidth + 'px');
     if (state.inspectorWidth) root.style.setProperty('--inspector-w', state.inspectorWidth + 'px');
+    if (state.dockHeight) root.style.setProperty('--dock-h', state.dockHeight + 'px');
     layout.classList.toggle('sidebar-hidden', state.sidebarHidden);
-    layout.classList.toggle('inspector-hidden', state.inspectorHidden);
+    layout.classList.toggle('ui-hidden', state.uiHidden);
+    $$('.rail button[data-panel]').forEach(function (button) {
+      var active = !state.sidebarHidden && button.dataset.panel === state.panel;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', String(active));
+    });
+  }
 
-    var sidebarButton = $('#toggle-sidebar');
-    sidebarButton.title = state.sidebarHidden ? 'Show library' : 'Hide library';
-    sidebarButton.setAttribute('aria-label', sidebarButton.title);
-    sidebarButton.setAttribute('aria-expanded', String(!state.sidebarHidden));
-    var inspectorButton = $('#toggle-inspector');
-    inspectorButton.title = state.inspectorHidden ? 'Show properties' : 'Hide properties';
-    inspectorButton.setAttribute('aria-label', inspectorButton.title);
-    inspectorButton.setAttribute('aria-expanded', String(!state.inspectorHidden));
+  function showPanel(name) {
+    // Templates and styles used to have a panel of their own; they are part
+    // of Insert now, and a saved preference for the old one lands there.
+    if (name === 'presets') name = 'insert';
+    if (!PANEL_TITLES[name]) name = 'layers';
+    state.panel = name;
+    state.sidebarHidden = false;
+    $$('.sidebar-body > .panel').forEach(function (panel) {
+      panel.hidden = panel.dataset.panel !== name;
+    });
+    $('#sidebar-title').textContent = PANEL_TITLES[name];
+    applyPanelLayout();
+    layoutStage();
+    save();
+    emit('panel', name);
+  }
+
+  /* Clicking the open panel's icon again folds the sidebar away, the way an
+   * editor's activity bar does, so the canvas can have the room. */
+  $$('.rail button[data-panel]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      if (!state.sidebarHidden && state.panel === button.dataset.panel) {
+        state.sidebarHidden = true;
+        applyPanelLayout();
+        layoutStage();
+        save();
+        return;
+      }
+      showPanel(button.dataset.panel);
+    });
+  });
+
+  function toggleUi() {
+    state.uiHidden = !state.uiHidden;
+    applyPanelLayout();
+    layoutStage();
   }
 
   function resizePanel(handle, stateKey, variable, direction, min, max) {
     handle.addEventListener('pointerdown', function (down) {
-      if (window.matchMedia('(max-width: 1150px)').matches) return;
+      if (window.matchMedia('(max-width: 1000px)').matches) return;
       down.preventDefault();
       var startX = down.clientX;
       var start = state[stateKey] || parseFloat(getComputedStyle(document.documentElement)
@@ -2196,74 +2173,72 @@
     });
   }
 
-  $('#toggle-sidebar').addEventListener('click', function () {
-    state.sidebarHidden = !state.sidebarHidden;
-    applyPanelLayout();
+  resizePanel($('#resize-sidebar'), 'sidebarWidth', '--sidebar-w', 1, 220, 520);
+  resizePanel($('#resize-inspector'), 'inspectorWidth', '--inspector-w', -1, 250, 520);
+
+  // ------------------------------------------------------------- code dock
+
+  function setDock(open, tab) {
+    state.dockOpen = !!open;
+    if (tab) state.dockTab = tab;
+    $('#dock').hidden = !state.dockOpen;
+    $('#toggle-code').classList.toggle('is-active', state.dockOpen);
+    $$('.dock-tabs button').forEach(function (button) {
+      button.classList.toggle('is-active', button.dataset.dock === state.dockTab);
+    });
+    $$('.dock-pane').forEach(function (pane) {
+      pane.hidden = pane.dataset.dock !== state.dockTab;
+    });
+    // These act on the code, so they only make sense while it is showing.
+    var code = state.dockTab === 'code';
+    ['#save-selection', '#format-css', '#clear-css', '#code-stats'].forEach(function (id) {
+      $(id).hidden = !code;
+    });
+    if (state.dockOpen && code && highlightStale) renderHighlight();
     layoutStage();
     save();
-  });
-  $('#toggle-inspector').addEventListener('click', function () {
-    state.inspectorHidden = !state.inspectorHidden;
-    applyPanelLayout();
-    layoutStage();
-    save();
-  });
-  resizePanel($('#resize-sidebar'), 'sidebarWidth', '--sidebar-w', 1, 240, 520);
-  resizePanel($('#resize-inspector'), 'inspectorWidth', '--inspector-w', -1, 280, 560);
-
-  var workspaceTitles = {
-    design: 'Design',
-    view: 'Preview',
-    reference: 'Selectors',
-    help: 'Help'
-  };
-
-  /* The four utility panels live in the right-hand inspector. Keeping their
-   * existing DOM nodes (rather than cloning them) preserves every established
-   * listener and lets older saved themes keep using the same controls. */
-  var inspectorBody = $('#inspectorpane-body');
-  $$('.panel[data-workspace-panel]').forEach(function (panel) {
-    inspectorBody.appendChild(panel);
-  });
-
-  function showWorkspacePanel(name) {
-    name = workspaceTitles[name] ? name : 'design';
-    $$('.panel[data-workspace-panel]', inspectorBody).forEach(function (panel) {
-      panel.hidden = panel.dataset.workspacePanel !== name;
-    });
-    $$('.workspace-tool').forEach(function (button) {
-      button.classList.toggle('is-active', button.dataset.workspacePanel === name);
-    });
-    $('#inspector-title').textContent = workspaceTitles[name];
-    $('#inspector-home').hidden = name === 'design';
   }
 
-  $$('.workspace-tool').forEach(function (button) {
-    button.addEventListener('click', function () {
-      showWorkspacePanel(button.dataset.workspacePanel);
-    });
+  $('#toggle-code').addEventListener('click', function () { setDock(!state.dockOpen); });
+  $('#close-dock').addEventListener('click', function () { setDock(false); });
+  $('#status-lint').addEventListener('click', function () { setDock(true, 'code'); });
+  $$('.dock-tabs button').forEach(function (button) {
+    button.addEventListener('click', function () { setDock(true, button.dataset.dock); });
   });
-  $('#inspector-home').addEventListener('click', function () { showWorkspacePanel('design'); });
-  $('#inspector-show-all').addEventListener('click', function () {
-    selectedControlTokens = [];
-    var selection = $('#inspector-selection');
-    selection.classList.remove('has-selection');
-    $('.inspector-selection-label', selection).textContent = 'All properties';
-    this.hidden = true;
-    filterControls();
-  });
-  showWorkspacePanel('design');
 
-  $$('.viewport-switch button').forEach(function (b) {
-    b.addEventListener('click', function () {
-      $$('.viewport-switch button').forEach(function (x) { x.classList.remove('is-active'); });
-      b.classList.add('is-active');
-      state.viewport = b.dataset.viewport;
-      reportToHost('viewport_changed', state.viewport);
-      customWidth.hidden = state.viewport !== 'custom';
+  $('#resize-dock').addEventListener('pointerdown', function (down) {
+    down.preventDefault();
+    var startY = down.clientY;
+    var start = $('#dock').offsetHeight;
+    var max = Math.max(160, $('.stage').clientHeight - 140);
+    document.body.classList.add('is-resizing-row');
+
+    function move(event) {
+      state.dockHeight = Math.max(140, Math.min(max, Math.round(start - (event.clientY - startY))));
+      document.documentElement.style.setProperty('--dock-h', state.dockHeight + 'px');
       layoutStage();
+    }
+    function end() {
+      document.body.classList.remove('is-resizing-row');
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      if (state.dockTab === 'code') renderHighlight();
       save();
-    });
+    }
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end, { once: true });
+  });
+
+  // ------------------------------------------------------ viewport and zoom
+
+  var customWidth = $('#custom-width');
+
+  $('#viewport-select').addEventListener('change', function () {
+    state.viewport = this.value;
+    reportToHost('viewport_changed', state.viewport);
+    customWidth.hidden = state.viewport !== 'custom';
+    layoutStage();
+    save();
   });
 
   customWidth.addEventListener('input', function () {
@@ -2274,27 +2249,20 @@
     save();
   });
 
-  $$('.sidebar-tabs button').forEach(function (b) {
-    b.addEventListener('click', function () {
-      $$('.sidebar-tabs button').forEach(function (x) { x.classList.remove('is-active'); });
-      b.classList.add('is-active');
-      state.panel = b.dataset.panel;
-      $$('.panel', $('.sidebar-body')).forEach(function (p) { p.hidden = p.dataset.panel !== state.panel; });
-    });
-  });
+  function setZoom(scale) {
+    state.zoom = 'manual';
+    state.zoomScale = Math.max(0.25, Math.min(2, Math.round(scale * 20) / 20));
+    layoutStage();
+    save();
+  }
 
-  $('#stage-zoom').addEventListener('click', function () {
+  $('#zoom-label').addEventListener('click', function () {
     state.zoom = state.zoom === 'fit' ? 'actual' : 'fit';
     layoutStage();
     save();
   });
-
-  $('#stage-zoom-slider').addEventListener('input', function () {
-    state.zoom = 'manual';
-    state.zoomScale = Math.max(0.25, Math.min(2, Number(this.value) / 100));
-    layoutStage();
-    save();
-  });
+  $('#zoom-in').addEventListener('click', function () { setZoom(stageScale + 0.1); });
+  $('#zoom-out').addEventListener('click', function () { setZoom(stageScale - 0.1); });
 
   /* Keep browser zoom untouched: Ctrl/Cmd + wheel only changes the canvas
    * while the pointer is over it. Ordinary wheel events still scroll the
@@ -2302,13 +2270,25 @@
   $('#stage-scroll').addEventListener('wheel', function (event) {
     if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
-    var current = Number($('#stage-zoom-slider').value) / 100;
-    var next = current + (event.deltaY < 0 ? 0.05 : -0.05);
-    state.zoom = 'manual';
-    state.zoomScale = Math.max(0.25, Math.min(2, Math.round(next * 20) / 20));
-    layoutStage();
-    save();
+    setZoom(stageScale + (event.deltaY < 0 ? 0.05 : -0.05));
   }, { passive: false });
+
+  // -------------------------------------------------------------- the mode
+
+  /* Design selects and drags; Preview hands the page back to itself, so
+   * links, hover states and CSS-only menus can be tried out. */
+  function setMode(mode) {
+    state.mode = mode === 'preview' ? 'preview' : 'design';
+    $$('#mode-switch button').forEach(function (button) {
+      button.classList.toggle('is-active', button.dataset.mode === state.mode);
+    });
+    post({ type: 'mode', mode: state.mode });
+    emit('mode', state.mode);
+  }
+
+  $$('#mode-switch button').forEach(function (button) {
+    button.addEventListener('click', function () { setMode(button.dataset.mode); });
+  });
 
   $('#enforce').addEventListener('change', function () {
     state.enforce = this.checked;
@@ -2316,21 +2296,16 @@
     save();
   });
 
-  $('#inspect-toggle').addEventListener('click', function () {
-    state.inspector = !state.inspector;
-    this.classList.toggle('is-on', state.inspector);
-    post({ type: 'inspector', on: state.inspector });
-    if (state.inspector) showWorkspacePanel('design');
-    if (!state.inspector) $('#pick-result').textContent = '';
-  });
-
-  function toggleCodePane() {
-    var hidden = $('.layout').classList.toggle('code-hidden');
-    $('#show-code').classList.toggle('is-active', !hidden);
-    setTimeout(layoutStage, 0);
+  /* Preview-only data (cards shown, visitor or owner view, the open user
+   * menu), set from outside the Page panel — e.g. Layers opening the user menu
+   * so that its items can be selected. */
+  function setData(key, value) {
+    if (state.data[key] === value) return;
+    state.data[key] = value;
+    renderProfileFields();
+    pushData();
+    save();
   }
-  $('#toggle-code').addEventListener('click', toggleCodePane);
-  $('#show-code').addEventListener('click', toggleCodePane);
 
   $('#copy-css').addEventListener('click', function () {
     copy(state.code);
@@ -2342,7 +2317,7 @@
       msg = 'Copied — but ' + blocked + ' thing' + (blocked > 1 ? 's' : '') + ' in it will be stripped by JanitorAI';
     } else if (advisory) {
       msg = 'Copied — but ' + advisory + ' spot' + (advisory > 1 ? 's show' : ' shows') +
-        ' an extra gap, see the layout warning below';
+        ' an extra gap, see the layout warning beside the code';
     } else {
       msg = 'Copied. Paste into JanitorAI → profile settings → About Me.';
     }
@@ -2350,8 +2325,8 @@
   });
 
   $('#clear-css').addEventListener('click', function () {
-    if (state.code && !confirm('Delete everything in the About Me box?')) return;
-    setCode(window.JaiPayload.STARTER);
+    if (state.code && !confirm('Delete everything in the About Me box? Undo brings it back.')) return;
+    setCode(window.JaiPayload.STARTER, 'clear');
   });
 
   $('#format-css').addEventListener('click', function () {
@@ -2473,6 +2448,7 @@
 
   var info = window.JaiProfileInfo.load();
   var cards = { search: '', selected: {} };
+  var hardcodeTargets = {};
   var cardIdSeq = 0;
 
   function saveInfo() { window.JaiProfileInfo.save(info); }
@@ -2718,6 +2694,47 @@
     $('#cards-selection-count').textContent = selected.length + ' selected';
     $('#cards-clear-selection').disabled = !selected.length;
     $('#cards-delete-selected').disabled = !selected.length;
+    updateHardcodeAddUi();
+  }
+
+  function selectedHardcodeTargets() {
+    return Object.keys(hardcodeTargets).filter(function (id) { return hardcodeTargets[id]; });
+  }
+
+  function updateHardcodeAddUi() {
+    var button = $('#hardcode-add-selected');
+    if (!button) return;
+    var selected = info.characters.filter(cardIsSelected).length;
+    var targets = selectedHardcodeTargets().length;
+    button.disabled = !selected || !targets;
+    $('#hardcode-sections-hint').textContent = !selected
+      ? 'Select at least one character above.'
+      : !targets ? 'Choose at least one detected section.'
+      : selected + ' selected · ' + targets + ' ' + (targets === 1 ? 'section' : 'sections');
+  }
+
+  function renderHardcodeSections() {
+    var host = $('#hardcode-sections-list');
+    if (!host || !window.JaiHardcodeSections) return;
+    var sections = window.JaiHardcodeSections.detect(state.code);
+    var live = {};
+    sections.forEach(function (section) { live[section.id] = true; });
+    Object.keys(hardcodeTargets).forEach(function (id) {
+      if (!live[id]) delete hardcodeTargets[id];
+    });
+    $('#hardcode-sections-count').textContent = sections.length || '';
+    if (!sections.length) {
+      host.innerHTML = '<p class="hardcode-sections-empty">No editable character sections were found. The studio recognises generated <code>@jai:hardcode</code> selectors, <code>.px-roll</code> archives and <code>.px-film-track</code> reels.</p>';
+    } else {
+      host.innerHTML = sections.map(function (section) {
+        return '<label class="hardcode-section-row"><input type="checkbox" data-hardcode-section="' +
+          escapeHtml(section.id) + '"' + (hardcodeTargets[section.id] ? ' checked' : '') + '>' +
+          '<span class="hardcode-section-copy"><b>' + escapeHtml(section.label) + '</b><small>' +
+          escapeHtml(section.detail) + '</small></span><span class="hardcode-section-total">' +
+          section.count + '</span></label>';
+      }).join('');
+    }
+    updateHardcodeAddUi();
   }
 
   /*
@@ -2786,6 +2803,7 @@
     renderInsert();
     updateCounts();
     updateCardSelectionUi();
+    renderHardcodeSections();
   }
 
   function renderLayoutOptions() {
@@ -2832,8 +2850,11 @@
     if (!window.JaiHardcode.isApplied(state.code)) return;
     clearTimeout(reapplyTimer);
     reapplyTimer = setTimeout(function () {
-      var next = info.characters.length
-        ? window.JaiHardcode.apply(state.code, info.characters, cardEmitOptions())
+      var generatedRoster = window.JaiHardcodeSections
+        ? window.JaiHardcodeSections.rosterForGenerated(state.code, info.characters)
+        : info.characters;
+      var next = generatedRoster.length
+        ? window.JaiHardcode.apply(state.code, generatedRoster, cardEmitOptions())
         : window.JaiHardcode.remove(state.code);
       if (next !== state.code) setCode(next, 'cards');
     }, delay == null ? 260 : delay);
@@ -2866,13 +2887,7 @@
     if (!row) return;
     if (e.target.matches('[data-select]')) {
       // Selecting a card should not also open/close its details row.
-      e.preventDefault();
       e.stopPropagation();
-      var entry = info.characters[+row.dataset.index];
-      var checked = !e.target.checked;
-      e.target.checked = checked;
-      setCardSelected(entry, checked);
-      updateCardSelectionUi();
       return;
     }
     var index = +row.dataset.index;
@@ -2937,6 +2952,42 @@
     cardsStatus('');
   });
 
+  $('#hardcode-sections-list').addEventListener('change', function (e) {
+    var id = e.target.dataset.hardcodeSection;
+    if (!id) return;
+    if (e.target.checked) hardcodeTargets[id] = true;
+    else delete hardcodeTargets[id];
+    updateHardcodeAddUi();
+  });
+
+  $('#hardcode-add-selected').addEventListener('click', function () {
+    var selected = info.characters.filter(cardIsSelected);
+    var targets = selectedHardcodeTargets();
+    if (!selected.length || !targets.length) return;
+    var next = state.code;
+    var added = 0;
+    var errors = [];
+    targets.forEach(function (id) {
+      var result = window.JaiHardcodeSections.add(next, id, selected, info.characters, cardEmitOptions());
+      next = result.payload;
+      added += result.added || 0;
+      if (result.error) errors.push(result.error);
+    });
+    if (next !== state.code) setCode(next, 'cards');
+    renderHardcodeSections();
+    cardsStatus(added
+      ? 'Added ' + plural(added, 'character appearance') + ' across the chosen sections.'
+      : errors[0] || 'Those characters are already present in the chosen sections.');
+  });
+
+  /* Opens Profile data on a fresh character — the way to add one to a layout
+   * that is linked to it. */
+  function addCharacter() {
+    showPanel('info');
+    $('#info-characters').open = true;
+    $('#cards-add').click();
+  }
+
   $('#cards-opt-style').addEventListener('change', function () {
     info.layout.style = this.value;
     saveInfo();
@@ -2961,7 +3012,10 @@
 
   $('#cards-insert').addEventListener('click', function () {
     commitStyle();
-    var next = window.JaiHardcode.apply(state.code, info.characters, cardEmitOptions());
+    var generatedRoster = window.JaiHardcodeSections
+      ? window.JaiHardcodeSections.rosterForGenerated(state.code, info.characters)
+      : info.characters;
+    var next = window.JaiHardcode.apply(state.code, generatedRoster, cardEmitOptions());
     if (next === state.code) { toast('About Me already matches your Profile information.'); return; }
     setCode(next, 'cards');
     reportToHost('cards_inserted', String(info.characters.length));
@@ -2970,26 +3024,54 @@
     syncLayouts();
   });
 
-  $('#hardcoding-toggle').addEventListener('click', function () {
-    var tab = $('.sidebar-tabs button[data-panel="info"]');
-    if (tab) tab.click();
-    $('#info-characters').open = true;
-    $('#cards-search').focus();
-  });
+  // ---------------------------------------------------------------- the API
+  //
+  // What the canvas modules (canvas.js, layers.js, insert.js, inspector.js)
+  // are allowed to reach for. The document is read and written only through
+  // here, so history, the linter and the preview never miss a change.
+
+  window.JaiStudio = {
+    on: on,
+    emit: emit,
+    post: post,
+    toast: toast,
+    copy: copy,
+    el: el,
+    escapeHtml: escapeHtml,
+    state: state,
+    frame: frame,
+    code: function () { return state.code; },
+    setCode: setCode,
+    editCss: editCss,
+    markup: function () { return window.JaiMarkup.parse(state.code); },
+    readValue: readValue,
+    writeValue: writeValue,
+    ruleDeclarations: ruleDeclarations,
+    renameDeclaration: renameDeclaration,
+    issues: function () { return lintIssues; },
+    undo: undo,
+    redo: redo,
+    showPanel: showPanel,
+    setDock: setDock,
+    setMode: setMode,
+    setData: setData,
+    placePart: placePart,
+    addCharacter: addCharacter,
+    toggleUi: toggleUi,
+    addRuleStub: addRuleStub,
+    scale: function () { return stageScale; },
+    info: function () { return info; }
+  };
 
   // ------------------------------------------------------------------ start
 
   load();
   renderProfileSwitcher();
-  applyPanelLayout();
   $('#enforce').checked = state.enforce;
-  $$('.viewport-switch button').forEach(function (b) {
-    b.classList.toggle('is-active', b.dataset.viewport === state.viewport);
-  });
+  $('#viewport-select').value = state.viewport;
   $('#custom-width').value = state.customWidth;
   $('#custom-width').hidden = state.viewport !== 'custom';
 
-  renderControls();
   renderPresets();
   renderTemplates();
   renderLayouts();
@@ -2997,10 +3079,12 @@
   renderInfo();
   renderProfileFields();
   renderReference('');
-  setCode(state.code || window.JaiPayload.STARTER);
+  showPanel(state.panel);
+  setDock(state.dockOpen, state.dockTab);
+  setCode(state.code || window.JaiPayload.STARTER, 'load');
+  renderHistory();
   layoutStage();
   appReady = true;
   bootProfiles();
   reportToHost('studio_ready');
-  if (window.JaiControls.groups.length) $('.group').classList.add('is-open');
 })();

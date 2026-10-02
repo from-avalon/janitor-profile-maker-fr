@@ -88,7 +88,7 @@
   var STARTER =
     '<style>\n' +
     '/* Everything in here restyles your whole profile page.\n' +
-    '   Use the Design panel on the left, or write rules by hand. */\n' +
+    '   Click anything on the canvas to restyle it, or write rules by hand. */\n' +
     '\n' +
     '</style>\n' +
     '\n' +

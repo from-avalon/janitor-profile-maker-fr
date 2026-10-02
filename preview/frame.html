@@ -39,39 +39,78 @@
     /* The snapshot is a static capture: kill navigation so clicks in the
        preview never leave the page. */
     a { cursor: default; }
-    /* Inspector overlay */
-    #sim-inspector-box {
-      position: fixed; pointer-events: none; z-index: 2147483647;
-      border: 1px solid #ff5ea8; background: rgba(255,94,168,.14);
-      border-radius: 2px; display: none;
+
+    /* ---- Canvas overlays (Design mode) ----
+       Custom elements rather than divs, and !important throughout, so a
+       creator's `div { … }` or `* { … }` rule restyles their profile and not
+       the selection box drawn on top of it. Geometry is set inline. */
+    sim-ui {
+      all: initial;
+      display: none;
+      position: fixed !important;
+      z-index: 2147483646 !important;
+      box-sizing: border-box !important;
+      pointer-events: none !important;
     }
-    #sim-inspector-tag {
-      position: fixed; pointer-events: none; z-index: 2147483647;
-      font: 500 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
-      background: #ff5ea8; color: #1a0a12; padding: 2px 6px;
-      border-radius: 4px; display: none; max-width: 60vw;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    /* A dark hairline round the red keeps the outline readable on a profile
+       that is itself red. */
+    #sim-hover { border: 1px solid #ff3b4e !important; box-shadow: 0 0 0 1px rgba(0,0,0,.35) !important; }
+    #sim-sel { border: 1.5px solid #ff3b4e !important; box-shadow: 0 0 0 1px rgba(0,0,0,.45) !important; }
+    #sim-sel[data-editing] { border-style: dashed !important; }
+    #sim-sel[data-locked] { border-color: #f5a524 !important; }
+    #sim-sel-tag, #sim-ghost {
+      padding: 1px 6px !important;
+      border-radius: 3px !important;
+      background: #ff3b4e !important;
+      color: #fff !important;
+      font: 600 11px/1.5 Inter, system-ui, -apple-system, "Segoe UI", sans-serif !important;
+      white-space: nowrap !important;
+      max-width: 60vw !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
     }
-    /* Click-to-edit values (username, followers, member-since) */
-    .sim-edit-value { cursor: text; border-radius: 3px; outline-offset: 2px; }
-    .sim-edit-value:hover { box-shadow: 0 0 0 1px #a855f7; }
+    #sim-sel[data-locked] + #sim-sel-tag { background: #f5a524 !important; color: #1a1202 !important; }
+    #sim-ghost { z-index: 2147483647 !important; opacity: .92 !important; box-shadow: 0 6px 18px rgba(0,0,0,.45) !important; }
+    #sim-drop[data-kind="line"] { background: #ff3b4e !important; border-radius: 2px !important; box-shadow: 0 0 0 1px rgba(255,255,255,.55) !important; }
+    #sim-drop[data-kind="box"] { border: 2px dashed #ff3b4e !important; background: rgba(255,59,78,.06) !important; border-radius: 4px !important; }
+    sim-handle {
+      all: initial;
+      position: absolute !important;
+      width: 9px !important; height: 9px !important;
+      box-sizing: border-box !important;
+      background: #fff !important;
+      border: 1.5px solid #ff3b4e !important;
+      pointer-events: auto !important;
+    }
+    sim-handle[data-handle="e"]  { right: -5px !important; top: calc(50% - 4.5px) !important; }
+    sim-handle[data-handle="s"]  { bottom: -5px !important; left: calc(50% - 4.5px) !important; }
+    sim-handle[data-handle="se"] { right: -5px !important; bottom: -5px !important; }
+    #sim-sel[data-no-resize] sim-handle { display: none !important; }
+
+    /* Design mode: the page is something you select, not something you use. */
+    html[data-sim-mode="design"], html[data-sim-mode="design"] * { cursor: default !important; }
+    html[data-sim-mode="design"] body { -webkit-user-select: none; user-select: none; }
+    html[data-sim-mode="design"] sim-handle[data-handle="e"]  { cursor: ew-resize !important; }
+    html[data-sim-mode="design"] sim-handle[data-handle="s"]  { cursor: ns-resize !important; }
+    html[data-sim-mode="design"] sim-handle[data-handle="se"] { cursor: nwse-resize !important; }
+    html[data-sim-mode="design"][data-sim-dragging], html[data-sim-mode="design"][data-sim-dragging] * { cursor: grabbing !important; }
+    html[data-sim-mode="design"] [data-sim-editing],
+    html[data-sim-mode="design"] [data-sim-editing] * { cursor: text !important; -webkit-user-select: text; user-select: text; }
+    [data-sim-editing] { outline: none; }
+    /* An empty box or column has nothing to show for itself, which makes it
+       impossible to aim a drop at. Design mode sketches its outline; Preview
+       mode and the copied code never have it. An outline, so no layout moves. */
+    html[data-sim-mode="design"] .pp-uc-about-me [data-jx]:empty:not(img):not(hr):not(br):not(.jx-shape) {
+      outline: 1px dashed rgba(255, 59, 78, .6);
+      outline-offset: -1px;
+    }
+
+    /* Double-click-to-edit values (username, followers, member-since) */
+    .sim-edit-value { border-radius: 3px; outline-offset: 2px; }
     .sim-edit-value.sim-editing {
-      box-shadow: 0 0 0 1px #a855f7; background: rgba(168, 85, 247, .12);
-      outline: none;
+      box-shadow: 0 0 0 1px #ff3b4e; background: rgba(255, 59, 78, .14);
+      outline: none; cursor: text !important; -webkit-user-select: text; user-select: text;
     }
-    /* Right-click image swap menu */
-    .pp-uc-avatar, .pp-page-background { cursor: context-menu; }
-    #sim-context-menu {
-      position: fixed; z-index: 2147483647; min-width: 150px;
-      background: #17181c; border: 1px solid #2c2f36; border-radius: 8px;
-      padding: 4px; box-shadow: 0 12px 32px rgba(0,0,0,.5);
-      font: 500 12.5px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    .sim-context-item {
-      display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 5px;
-      background: transparent; color: #e9e9ee; text-align: left; cursor: pointer;
-    }
-    .sim-context-item:hover { background: rgba(168, 85, 247, .18); }
   </style>
 
   <!-- Preview-content overrides (background image, badge visibility, owner vs
@@ -86,12 +125,18 @@
   <!-- Everything the creator writes lands here, last in <head>, which is where
        JanitorAI puts it relative to the app's own emotion styles. -->
   <style id="jai-user-css"></style>
+
+  <!-- Declarations the properties panel is in the middle of changing. They are
+       already in the document; this just shows them a beat before the next
+       full pass does, and is emptied when that pass arrives. -->
+  <style id="sim-live"></style>
 </head>
 <body data-ucs="1" style="background-color:var(--colour-grey-550)">
-  <div id="sim-inspector-box"></div>
-  <div id="sim-inspector-tag"></div>
-  <div id="sim-context-menu" hidden></div>
-  <input id="sim-image-input" type="file" accept="image/*" hidden>
+  <sim-ui id="sim-hover"></sim-ui>
+  <sim-ui id="sim-sel"><sim-handle data-handle="e"></sim-handle><sim-handle data-handle="s"></sim-handle><sim-handle data-handle="se"></sim-handle></sim-ui>
+  <sim-ui id="sim-sel-tag"></sim-ui>
+  <sim-ui id="sim-drop"></sim-ui>
+  <sim-ui id="sim-ghost"></sim-ui>
   <script src="snapshot.js"></script>
   <script src="fragments.js"></script>
   <script src="frame.js"></script>

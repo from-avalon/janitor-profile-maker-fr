@@ -34,11 +34,70 @@
   function list() {
     return open().then(function (db) {
       return new Promise(function (resolve, reject) {
-        var tx = db.transaction(META, 'readonly');
-        var request = tx.objectStore(META).getAll();
-        request.onsuccess = function () { resolve(request.result || []); };
-        request.onerror = function () { reject(request.error || new Error('Could not read saved profiles.')); };
-        tx.oncomplete = function () { db.close(); };
+        // Metadata and captures are one logical record. Older builds could
+        // leave only the metadata behind, which produced a selectable profile
+        // that could never open. Repair those records before the switcher sees
+        // them, and collapse repeated imports of the same source file.
+        var tx = db.transaction([META, FILES], 'readwrite');
+        var metaStore = tx.objectStore(META);
+        var fileStore = tx.objectStore(FILES);
+        var metaRequest = metaStore.getAll();
+        var fileRequest = fileStore.getAll();
+        var records = null;
+        var files = null;
+        var cleaned = null;
+        var removed = 0;
+
+        function repair() {
+          if (!records || !files || cleaned) return;
+          var filesById = {};
+          var metaById = {};
+          files.forEach(function (record) { if (record && record.id) filesById[record.id] = record; });
+          records.forEach(function (record) { if (record && record.id) metaById[record.id] = record; });
+
+          // A file with no metadata is just as unusable as metadata with no
+          // file. Clear both shapes so browser storage cannot slowly fill with
+          // invisible leftovers.
+          records = records.filter(function (record) {
+            if (record && record.id && filesById[record.id] && filesById[record.id].file) return true;
+            if (record && record.id) metaStore.delete(record.id);
+            removed++;
+            return false;
+          });
+          files.forEach(function (record) {
+            if (!record || !record.id || metaById[record.id]) return;
+            fileStore.delete(record.id);
+            removed++;
+          });
+
+          // New records carry a file fingerprint. The filename+label fallback
+          // repairs duplicates written before fingerprints were introduced.
+          var seen = {};
+          records.sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+          cleaned = records.filter(function (record) {
+            var key = record.sourceKey || ('legacy:' + (record.filename || '') + '|' + (record.label || ''));
+            if (!key || key === 'legacy:|') return true;
+            if (!seen[key]) { seen[key] = true; return true; }
+            metaStore.delete(record.id);
+            fileStore.delete(record.id);
+            removed++;
+            return false;
+          });
+        }
+
+        metaRequest.onsuccess = function () { records = metaRequest.result || []; repair(); };
+        fileRequest.onsuccess = function () { files = fileRequest.result || []; repair(); };
+        metaRequest.onerror = fileRequest.onerror = function () {
+          reject(metaRequest.error || fileRequest.error || new Error('Could not read saved profiles.'));
+        };
+        tx.oncomplete = function () {
+          db.close();
+          cleaned = cleaned || [];
+          cleaned.removedCount = removed;
+          resolve(cleaned);
+        };
+        tx.onerror = function () { reject(tx.error || new Error('Could not repair saved profiles.')); };
+        tx.onabort = function () { reject(tx.error || new Error('Could not repair saved profiles.')); };
       });
     });
   }

@@ -18,6 +18,63 @@ HTML injected where JanitorAI injects it. See README.md for what it does.
   `next/` directory is an *optional iframe embed* for a Next.js site, and its
   README explains why the studio stays static even there. Don't port it.
 
+## How the canvas is put together
+
+The shell is a design tool: Layers / Insert / Profile data on the
+left, the preview as a canvas in the middle, properties on the right, the About
+Me code in a dock under the canvas. The document — the About Me text — is still
+the only source of truth; every canvas gesture is an edit to that text.
+
+- `js/app.js` is the core (document, undo history, preview bridge, shell, the
+  sections/styles lists inside Insert, and the Profile data panel). It exposes `window.JaiStudio`; the canvas
+  modules loaded after it (`canvas.js`, `layers.js`, `insert.js`, `inspector.js`)
+  use only that and its events (`change`, `selection`, `pushed`, `frame:*`).
+  **Write the document only through `JaiStudio.setCode` / `writeValue`**, or
+  undo, the linter and the preview will miss the change.
+- `js/markup.js` maps the markup to source offsets. Edits (move, insert, remove,
+  retype, set attribute) are splices on those offsets, so nothing else in the
+  creator's code is reformatted. Its `tagged()` copy puts `data-jx="<id>"` on
+  every opening tag **for the preview only** — that is how a click is traced
+  back to the text. It must never reach the stored document or the clipboard.
+- `preview/frame.js` draws the selection, hover and drop overlays and *reports*
+  gestures (`select`, `move`, `textEdit`, `resize`, `insertAt`, `key`…); it never
+  edits the page itself. `js/canvas.js` turns each report into a document edit.
+  Overlays are `<sim-ui>` elements styled with `!important`, so the creator's
+  own `div { … }` rules cannot restyle them.
+- Visual edits are written against label classes for JanitorAI's elements, and
+  against a per-element class (`jx-` + four characters including a digit) for
+  the creator's own. Block base classes (`jx-heading`) are word-like and shared.
+- Markup and CSS between the `@jai:hardcode` markers are regenerated from
+  Profile data; `markup.js` marks those nodes `locked` ("linked" in the UI).
+  Restyling keeps the link (`writeValue` puts the rule *after* the generated
+  stylesheet). A structural edit inside one does not get refused: `canvas.js`
+  runs it against `JaiMarkup.unlink(code)` — markers removed, content and
+  element ids unchanged — so the edit survives, and Undo restores the link.
+  Anything placed *beside* a linked block's root goes outside the markers
+  (`place()` in markup.js); never write between them by hand.
+- The right-click menu is drawn by the studio (`js/menu.js`), not inside the
+  preview: the preview is scaled by the canvas zoom and a menu in it would be
+  too. The frame only reports `context` with the point and the drop target.
+- Insert holds two kinds of thing. *Things* (elements, template parts) are
+  dragged to a place via `JaiCanvas.beginDrag`; *looks* (styles, animations)
+  are applied and removed. Keep new library items in one of those two shapes.
+- Elements live in `js/blocks.js` and `js/blocks-showcase.js` (added through
+  `JaiBlocks.register`). A block is `html` + `css` rules (+ `keyframes`, `parts`
+  for Layers names, `hint` for the insert toast). `{u}` is a fresh class per
+  occurrence; `{t1}`, `{t2}`… are *tokens* — one fresh instance class shared by
+  the markup and rules of that instance (an `id` and its `:target` rule, a
+  progress bar and its width). A selector starting with `@` wraps its body in
+  that at-rule. Every shared class must be in `parts`/`base` or a first edit
+  would restyle all copies. Duplicate renames token ids and hrefs along with
+  classes (`duplicateStyled` in canvas.js). JanitorAI's own `a:hover` recolours
+  links and beats a plain class, so a link block restates `color` in `:hover`.
+  The smoke test lints every block, so a new one is checked for free.
+- The theme is the token block at the top of `css/app.css` (red on black); the
+  canvas overlay colours in `preview/frame.html` must be kept in step with
+  `--sel` by hand, because the frame is a separate document.
+- Design mode swallows clicks in the preview (a click is a selection). Anything
+  that needs the page to react — tests included — switches to Preview mode.
+
 ## Running it
 
 A local server is required — the preview iframe must be same-origin, so
@@ -77,7 +134,7 @@ to the VPS docroot with `--delete`, so the server always mirrors `main` exactly.
 ## Checks
 
     npm run lint    # eslint, recommended rules; unused-variable findings are warnings
-    npm test        # serves the studio, loads it headless, fails on JS errors or empty panels
+    npm test        # serves the studio, loads it headless, and drives the canvas with real pointer events
 
 `npm test` needs `npx playwright install chromium` once. CI runs both on every
 pull request and on `main` (`.github/workflows/ci.yml`). The repo is private on

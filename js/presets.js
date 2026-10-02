@@ -403,7 +403,7 @@
       id: 'menuglass',
       name: 'Glass user menu',
       category: 'Accents',
-      blurb: 'Restyles just the avatar dropdown. Open it from the Profile tab to see it.',
+      blurb: 'Restyles just the avatar dropdown. Select User menu in Layers to see it.',
       css:
 '.pp-top-bar-app-menu-list {\n' +
 '  background: linear-gradient(180deg, rgba(28, 26, 42, 0.92), rgba(16, 15, 26, 0.92));\n' +
@@ -536,21 +536,28 @@
     return text.slice(0, at) + block + '\n\n' + text.slice(at);
   }
 
+  /* A component's markup between its markers, ready to go wherever it is put. */
+  function partMarkup(part) {
+    return htmlHeader(part) + '\n' + part.html.replace(/\n+$/, '') + '\n' + htmlFooter(part);
+  }
+
+  /* The stylesheet half only — for a component whose markup is being placed by
+   * hand (dragged onto the canvas) rather than appended in template order. */
+  function applyPartCss(payload, part) {
+    if (!part.css || global.JaiPayload.allCss(payload).indexOf(OPEN + ' ' + part.id + ' ') !== -1) {
+      return payload;
+    }
+    var later = laterThan(part);
+    return global.JaiPayload.editCss(payload, function (css) {
+      var block = header(part) + '\n' + part.css.replace(/\n+$/, '') + '\n' + footer(part);
+      return insertOrdered(css, block, OPEN, later);
+    });
+  }
+
   function applyPart(payload, part) {
     if (isPartApplied(payload, part)) return payload;
-    var later = laterThan(part);
-    var out = payload;
-
-    if (part.css) {
-      out = global.JaiPayload.editCss(out, function (css) {
-        var block = header(part) + '\n' + part.css.replace(/\n+$/, '') + '\n' + footer(part);
-        return insertOrdered(css, block, OPEN, later);
-      });
-    }
-    if (part.html) {
-      var markup = htmlHeader(part) + '\n' + part.html.replace(/\n+$/, '') + '\n' + htmlFooter(part);
-      out = insertOrdered(out, markup, HTML_OPEN, later);
-    }
+    var out = applyPartCss(payload, part);
+    if (part.html) out = insertOrdered(out, partMarkup(part), HTML_OPEN, laterThan(part));
     return out;
   }
 
@@ -587,6 +594,9 @@
     allParts: allParts,
     isPartApplied: isPartApplied,
     applyPart: applyPart,
+    applyPartCss: applyPartCss,
+    partMarkup: partMarkup,
+    partMarker: function (part) { return HTML_OPEN + ' ' + part.id + ' '; },
     removePart: removePart
   };
 })(window);
