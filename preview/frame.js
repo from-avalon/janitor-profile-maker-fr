@@ -379,7 +379,9 @@
     sel: doc.getElementById('sim-sel'),
     tag: doc.getElementById('sim-sel-tag'),
     drop: doc.getElementById('sim-drop'),
-    ghost: doc.getElementById('sim-ghost')
+    ghost: doc.getElementById('sim-ghost'),
+    grip: doc.getElementById('sim-grip'),
+    split: doc.getElementById('sim-split')
   };
 
   var selected = null;      // the element the selection box is drawn round
@@ -390,7 +392,7 @@
   var resizing = null;
   var probeTarget = null;   // where a block dragged in from the studio would land
   var textEdit = null;      // a creator's element being retyped in place
-  var heldInline = null;    // inline size left on an element until its rule lands
+  var heldInline = null;    // inline sizes left on elements until their rule lands: [{ node, style }]
 
   /* Class names that survive a JanitorAI deploy, in order of preference. */
   function stableClasses(node) {
@@ -562,11 +564,12 @@
       hide(ui.tag);
     }
 
-    if (hovered && hovered !== selected && mode === 'design' && !drag && !resizing) {
+    if (hovered && hovered !== selected && mode === 'design' && !drag && !resizing && !sectionDrag && !splitting) {
       show(ui.hover, hovered.getBoundingClientRect());
     } else {
       hide(ui.hover);
     }
+    paintSections();
   }
 
   function setMode(next) {
@@ -797,8 +800,10 @@
 
   function releaseInline() {
     if (!heldInline) return;
-    if (heldInline.style == null) heldInline.node.removeAttribute('style');
-    else heldInline.node.setAttribute('style', heldInline.style);
+    heldInline.forEach(function (held) {
+      if (held.style == null) held.node.removeAttribute('style');
+      else held.node.setAttribute('style', held.style);
+    });
     heldInline = null;
   }
 
@@ -843,7 +848,7 @@
       if (done.w == null && done.h == null) return;
       // The size stays inline until the studio's rule for it arrives, so the
       // element does not jump back for a frame in between.
-      heldInline = { node: selected, style: done.style };
+      heldInline = [{ node: selected, style: done.style }];
       send({
         type: 'resize',
         width: done.w != null ? done.w + 'px' : null,
@@ -853,6 +858,225 @@
     handle.addEventListener('pointerup', end);
     handle.addEventListener('pointercancel', end);
   });
+
+  // ----------------------------------------------------------- page sections
+  //
+  // JanitorAI's profile page is two big blocks in a flex row: the profile box
+  // (About Me lives inside it) and the character list. Whichever one the
+  // pointer is over grows a grip on its top edge: drag it over the other block
+  // and a band shows where it would land — above, below, left or right — and
+  // while the two sit side by side the gutter between them drags to resize.
+  // Like every gesture here this only reports (`section`, `split`);
+  // js/page-layout.js writes the CSS.
+
+  var SECTION_NAMES = { profile: 'Profile box', characters: 'Characters' };
+  var SECTION_WORDS = { top: 'above', bottom: 'below', left: 'to the left of', right: 'to the right of' };
+  var hoverSection = null;   // 'profile' | 'characters': which one the pointer is over
+  var sectionDrag = null;    // a section being carried by its grip
+  var splitting = null;      // the gutter being dragged
+
+  function layoutNodes() {
+    var wrap = doc.querySelector('.profile-page-flex');
+    if (!wrap) return null;
+    var profile = null;
+    var characters = null;
+    Array.prototype.forEach.call(wrap.children, function (child) {
+      if (child.classList.contains('pp-uc-background')) profile = child;
+      else if (child.classList.contains('profile-page-container-flex-box')) characters = child;
+    });
+    return profile && characters ? { wrap: wrap, profile: profile, characters: characters } : null;
+  }
+
+  function sectionOf(node) {
+    var nodes = node && layoutNodes();
+    if (!nodes) return null;
+    if (nodes.profile.contains(node)) return 'profile';
+    if (nodes.characters.contains(node)) return 'characters';
+    return null;
+  }
+
+  function isRow(nodes) {
+    var style = getComputedStyle(nodes.wrap);
+    return /flex/.test(style.display) && /^row/.test(style.flexDirection);
+  }
+
+  doc.addEventListener('mousemove', function (e) {
+    if (mode !== 'design' || sectionDrag || splitting || isUi(e.target)) return;
+    hoverSection = sectionOf(e.target);
+  });
+  doc.addEventListener('mouseleave', function () { hoverSection = null; });
+
+  /* The two overlays follow their sections every frame, like the selection box. */
+  function paintSections() {
+    var nodes = mode === 'design' ? layoutNodes() : null;
+    var idle = nodes && !drag && !resizing && !textEdit && !editingValue;
+    var selectedSection = idle && selected ? sectionOf(selected) : null;
+
+    var which = idle && !splitting
+      ? (sectionDrag ? sectionDrag.section : (hoverSection || selectedSection))
+      : null;
+    var r = which ? nodes[which].getBoundingClientRect() : null;
+    if (r && r.bottom > 0 && r.top < window.innerHeight) {
+      var text = '⠿  ' + (sectionDrag ? 'Moving ' : 'Drag to move ') + SECTION_NAMES[which];
+      if (ui.grip.textContent !== text) ui.grip.textContent = text;
+      ui.grip.setAttribute('data-section', which);
+      ui.grip.style.display = 'block';
+      // It rides the top edge of the section, and stays in view for a tall one.
+      ui.grip.style.left = Math.max(70, Math.min(r.left + r.width / 2, window.innerWidth - 70)) + 'px';
+      ui.grip.style.top = Math.min(Math.max(r.top - 12, 6), Math.max(6, r.bottom - 30)) + 'px';
+    } else {
+      hide(ui.grip);
+    }
+
+    var gutter = idle && !sectionDrag && isRow(nodes) &&
+      (hoverSection || selectedSection || selected === nodes.wrap || splitting);
+    if (gutter) {
+      var pr = nodes.profile.getBoundingClientRect();
+      var cr = nodes.characters.getBoundingClientRect();
+      var near = pr.left <= cr.left ? pr : cr;
+      var far = pr.left <= cr.left ? cr : pr;
+      var top = Math.max(Math.max(pr.top, cr.top), 0);
+      var bottom = Math.min(Math.min(pr.bottom, cr.bottom), window.innerHeight);
+      if (bottom - top > 24) {
+        ui.split.style.display = 'block';
+        ui.split.style.left = ((near.right + far.left) / 2 - 6) + 'px';
+        ui.split.style.top = top + 'px';
+        ui.split.style.height = (bottom - top) + 'px';
+      } else {
+        hide(ui.split);
+      }
+    } else {
+      hide(ui.split);
+    }
+  }
+
+  /* Which side of `node` the pointer is on, and the band to draw there. The
+   * block is measured as far as it is on screen, so a character list that runs
+   * far below the window still has a bottom to aim at. */
+  function zoneFor(x, y, node) {
+    var r = node.getBoundingClientRect();
+    var left = Math.max(r.left, 0);
+    var top = Math.max(r.top, 0);
+    var right = Math.min(r.right, window.innerWidth);
+    var bottom = Math.min(r.bottom, window.innerHeight);
+    var w = Math.max(right - left, 1);
+    var h = Math.max(bottom - top, 1);
+    var dx = (x - (left + w / 2)) / w;
+    var dy = (y - (top + h / 2)) / h;
+    var band = 72;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      var side = dx < 0 ? 'left' : 'right';
+      return { where: side, rect: { left: side === 'left' ? left : right - Math.min(band, w), top: top, width: Math.min(band, w), height: h } };
+    }
+    var edge = dy < 0 ? 'top' : 'bottom';
+    return { where: edge, rect: { left: left, top: edge === 'top' ? top : bottom - Math.min(band, h), width: w, height: Math.min(band, h) } };
+  }
+
+  function endSectionDrag() {
+    var done = sectionDrag;
+    sectionDrag = null;
+    doc.documentElement.removeAttribute('data-sim-dragging');
+    hide(ui.ghost);
+    hide(ui.drop);
+    if (done && done.active && done.where) send({ type: 'section', section: done.section, where: done.where });
+  }
+
+  ui.grip.addEventListener('pointerdown', function (e) {
+    var which = ui.grip.getAttribute('data-section');
+    var nodes = layoutNodes();
+    if (e.button !== 0 || !which || !nodes) return;
+    e.preventDefault();
+    e.stopPropagation();
+    window.focus();
+    // Pressing the grip selects the section too, so its layout controls are
+    // on the right even if the press turns out to be a click.
+    if (selected !== nodes[which]) setSelected(nodes[which], true);
+    sectionDrag = { section: which, x: e.clientX, y: e.clientY, active: false, where: null };
+    ui.grip.setPointerCapture(e.pointerId);
+  });
+
+  ui.grip.addEventListener('pointermove', function (e) {
+    if (!sectionDrag) return;
+    if (!sectionDrag.active) {
+      if (Math.abs(e.clientX - sectionDrag.x) + Math.abs(e.clientY - sectionDrag.y) < 6) return;
+      sectionDrag.active = true;
+      doc.documentElement.setAttribute('data-sim-dragging', '');
+    }
+    var nodes = layoutNodes();
+    if (!nodes) return;
+    var target = sectionDrag.section === 'profile' ? 'characters' : 'profile';
+    var zone = zoneFor(e.clientX, e.clientY, nodes[target]);
+    sectionDrag.where = zone.where;
+    ui.drop.setAttribute('data-kind', 'zone');
+    show(ui.drop, zone.rect);
+    ui.ghost.textContent = SECTION_NAMES[sectionDrag.section] + ' ' + SECTION_WORDS[zone.where] + ' ' + SECTION_NAMES[target];
+    ui.ghost.style.display = 'block';
+    ui.ghost.style.left = (e.clientX + 14) + 'px';
+    ui.ghost.style.top = (e.clientY + 16) + 'px';
+    edgeScroll(e.clientY);
+  });
+
+  ui.grip.addEventListener('pointerup', endSectionDrag);
+  ui.grip.addEventListener('pointercancel', endSectionDrag);
+
+  ui.split.addEventListener('pointerdown', function (e) {
+    var nodes = layoutNodes();
+    if (e.button !== 0 || !nodes) return;
+    e.preventDefault();
+    e.stopPropagation();
+    window.focus();
+    releaseInline();
+    var pr = nodes.profile.getBoundingClientRect();
+    var cr = nodes.characters.getBoundingClientRect();
+    splitting = {
+      nodes: nodes,
+      wrap: nodes.wrap.getBoundingClientRect(),
+      gap: px(getComputedStyle(nodes.wrap).columnGap),
+      profileFirst: pr.left <= cr.left,
+      profileStyle: nodes.profile.getAttribute('style'),
+      charactersStyle: nodes.characters.getAttribute('style'),
+      percent: null
+    };
+    doc.documentElement.setAttribute('data-sim-dragging', '');
+    ui.split.setPointerCapture(e.pointerId);
+  });
+
+  ui.split.addEventListener('pointermove', function (e) {
+    if (!splitting) return;
+    var s = splitting;
+    // The pointer sits in the middle of the gutter, so half of it belongs to
+    // the profile box's side.
+    var edge = s.profileFirst ? e.clientX - s.wrap.left - s.gap / 2 : s.wrap.right - e.clientX - s.gap / 2;
+    s.percent = Math.max(20, Math.min(80, Math.round(edge / s.wrap.width * 1000) / 10));
+    // The same declarations js/page-layout.js writes, so the drag shows what
+    // the rule will give: the profile box pinned, the characters taking the rest.
+    var profile = s.nodes.profile.style;
+    profile.setProperty('width', s.percent + '%', 'important');
+    profile.setProperty('min-width', '0', 'important');
+    profile.setProperty('max-width', 'none', 'important');
+    profile.setProperty('flex', '0 0 auto', 'important');
+    var characters = s.nodes.characters.style;
+    characters.setProperty('width', 'auto', 'important');
+    characters.setProperty('min-width', '0', 'important');
+    characters.setProperty('flex', '1 1 0%', 'important');
+  });
+
+  function endSplit() {
+    var done = splitting;
+    splitting = null;
+    doc.documentElement.removeAttribute('data-sim-dragging');
+    if (!done || done.percent == null) return;
+    // The width stays inline until the studio's rule for it arrives, so the
+    // columns do not snap back for a frame in between.
+    heldInline = [
+      { node: done.nodes.profile, style: done.profileStyle },
+      { node: done.nodes.characters, style: done.charactersStyle }
+    ];
+    send({ type: 'split', percent: done.percent });
+  }
+
+  ui.split.addEventListener('pointerup', endSplit);
+  ui.split.addEventListener('pointercancel', endSplit);
 
   // ----------------------------------------------------------- text editing
   //

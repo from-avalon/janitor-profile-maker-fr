@@ -52,6 +52,19 @@ the only source of truth; every canvas gesture is an edit to that text.
   element ids unchanged — so the edit survives, and Undo restores the link.
   Anything placed *beside* a linked block's root goes outside the markers
   (`place()` in markup.js); never write between them by hand.
+- Page layout (`js/page-layout.js`) moves the profile box and the character
+  list — the two children of `.profile-page-flex`. The layout is a small model
+  written as one block between `@jai:layout:start {json}` / `end` comments,
+  regenerated whole on every change (one `editCss` call = one Undo step; a
+  whitespace-only difference is treated as no change). All `!important`,
+  because templates' own rules for these containers are; "side by side" is
+  inside `@media screen and (min-width: 62em)`, JanitorAI's own breakpoint, so
+  phones keep stacking. A split pins the profile box (`flex: 0 0 auto`) and
+  lets the characters take the rest — left at `width: 100%` they shrink against
+  each other. The frame draws the grip and the gutter (`#sim-grip`,
+  `#sim-split`: the only overlays that take the pointer) and reports `section`
+  and `split`; the preset tiles, right-click and Layers rows go through the same
+  module. `heldInline` in frame.js is a list: a drag can hold several elements.
 - The right-click menu is drawn by the studio (`js/menu.js`), not inside the
   preview: the preview is scaled by the canvas zoom and a menu in it would be
   too. The frame only reports `context` with the point and the drop target.

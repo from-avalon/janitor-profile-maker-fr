@@ -73,6 +73,37 @@
     #sim-ghost { z-index: 2147483647 !important; opacity: .92 !important; box-shadow: 0 6px 18px rgba(0,0,0,.45) !important; }
     #sim-drop[data-kind="line"] { background: #ff3b4e !important; border-radius: 2px !important; box-shadow: 0 0 0 1px rgba(255,255,255,.55) !important; }
     #sim-drop[data-kind="box"] { border: 2px dashed #ff3b4e !important; background: rgba(255,59,78,.06) !important; border-radius: 4px !important; }
+    #sim-drop[data-kind="zone"] { border: 2px solid #ff3b4e !important; background: rgba(255,59,78,.26) !important; border-radius: 6px !important; box-shadow: 0 0 0 1px rgba(255,255,255,.5) !important; }
+
+    /* Page sections: the grip that picks up the profile box or the character
+       list, and the gutter between them that drags to resize. These two are
+       the only overlays that take the pointer. */
+    #sim-grip {
+      padding: 3px 11px 3px 9px !important;
+      border-radius: 999px !important;
+      background: #ff3b4e !important;
+      color: #fff !important;
+      font: 600 11px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif !important;
+      white-space: nowrap !important;
+      box-shadow: 0 2px 10px rgba(0,0,0,.5), 0 0 0 1px rgba(0,0,0,.35) !important;
+      transform: translateX(-50%) !important;
+      pointer-events: auto !important;
+      -webkit-user-select: none !important; user-select: none !important;
+    }
+    #sim-grip:hover { background: #ff6475 !important; }
+    #sim-split { width: 12px !important; pointer-events: auto !important; background: linear-gradient(90deg, transparent 5px, #ff3b4e 5px 7px, transparent 7px) !important; }
+    #sim-split::before {
+      content: "" !important;
+      position: absolute !important;
+      left: 1px !important; top: 50% !important;
+      width: 10px !important; height: 38px !important;
+      margin-top: -19px !important;
+      box-sizing: border-box !important;
+      border: 1.5px solid #ff3b4e !important;
+      border-radius: 5px !important;
+      background: #fff !important;
+      box-shadow: 0 1px 6px rgba(0,0,0,.45) !important;
+    }
     sim-handle {
       all: initial;
       position: absolute !important;
@@ -93,6 +124,9 @@
     html[data-sim-mode="design"] sim-handle[data-handle="e"]  { cursor: ew-resize !important; }
     html[data-sim-mode="design"] sim-handle[data-handle="s"]  { cursor: ns-resize !important; }
     html[data-sim-mode="design"] sim-handle[data-handle="se"] { cursor: nwse-resize !important; }
+    html[data-sim-mode="design"] #sim-grip { cursor: grab !important; }
+    html[data-sim-mode="design"][data-sim-dragging] #sim-grip { cursor: grabbing !important; }
+    html[data-sim-mode="design"] #sim-split { cursor: col-resize !important; }
     html[data-sim-mode="design"][data-sim-dragging], html[data-sim-mode="design"][data-sim-dragging] * { cursor: grabbing !important; }
     html[data-sim-mode="design"] [data-sim-editing],
     html[data-sim-mode="design"] [data-sim-editing] * { cursor: text !important; -webkit-user-select: text; user-select: text; }
@@ -136,6 +170,8 @@
   <sim-ui id="sim-sel"><sim-handle data-handle="e"></sim-handle><sim-handle data-handle="s"></sim-handle><sim-handle data-handle="se"></sim-handle></sim-ui>
   <sim-ui id="sim-sel-tag"></sim-ui>
   <sim-ui id="sim-drop"></sim-ui>
+  <sim-ui id="sim-grip"></sim-ui>
+  <sim-ui id="sim-split"></sim-ui>
   <sim-ui id="sim-ghost"></sim-ui>
   <script src="snapshot.js"></script>
   <script src="fragments.js"></script>

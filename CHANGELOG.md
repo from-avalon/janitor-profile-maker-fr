@@ -9,6 +9,24 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-10-02 — Move the big blocks of your profile
+
+The profile box (with your About Me in it) and the character list can now be
+rearranged without writing any CSS. **Page layout** has four tiles — side by
+side, swap sides, profile on top, characters on top — in the Page panel, and
+whenever you select either block. On the canvas, point at either one and a
+**grip** appears on its top edge: drag it over the other and a band shows where
+it will land (above, below, left or right). While they sit side by side, drag
+the **gutter** between them to decide how much room each gets. You can also
+drag their rows in Layers, or right-click anywhere on the page for **Page
+layout**.
+
+It is all one block in your CSS, one Ctrl+Z, and **Reset layout** removes it.
+Side by side only applies at desktop widths, so phones keep JanitorAI's own
+stacking, and it also works on top of a template that stacks the page. The Film
+reel and Marquee tape are longer now, so they keep running across a full-width
+About Me.
+
 ## 2026-10-02 — 26 new elements and 8 new animations
 
 **Insert** has a batch of ready-made pieces borrowed from what hand-built

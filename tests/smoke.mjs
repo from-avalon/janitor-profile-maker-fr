@@ -845,6 +845,7 @@ async function canvasChecks(page, preview) {
   await page.click('#presets-layouts > summary');
 
   await linkedLayoutChecks(page, preview, settle);
+  await pageLayoutChecks(page, preview, settle);
 
   await page.evaluate((text) => {
     window.JaiCanvas.clear();
@@ -957,6 +958,146 @@ async function linkedLayoutChecks(page, preview, settle) {
   if (second !== '100 001' || first !== '010 100') {
     fail(`a duplicated Tabs set does not follow its own links (after set 2 → tab 3: "${second}", then set 1 → tab 2: "${first}")`);
   }
+}
+
+/*
+ * Page layout: the profile box and the character list. Everything is driven the
+ * way a person would drive it — a preset tile, the grip on a section, the
+ * gutter between them, rows in Layers, the right-click menu — and judged by
+ * where the two actually end up in the preview.
+ */
+async function pageLayoutChecks(page, preview, settle) {
+  const seen = () => page.evaluate(() => window.JaiPageLayout.measure());
+  const declared = () => page.evaluate(() => window.JaiPageLayout.declared());
+  const blocks = () => page.evaluate(() => (window.JaiStudio.code().match(/@jai:layout:start/g) || []).length);
+  const fresh = async () => {
+    await page.evaluate(() => {
+      window.JaiCanvas.clear();
+      window.JaiStudio.setCode(window.JaiPayload.STARTER, 'test', { now: true });
+    });
+    await settle(900);
+  };
+  const brief = (m) => m && `${m.direction}/${m.first}`;
+
+  await page.click('#mode-switch button[data-mode="design"]');
+  await fresh();
+  if (brief(await seen()) !== 'row/profile' || await blocks()) fail(`the page does not start in JanitorAI's own layout (${brief(await seen())})`);
+
+  // A preset tile is one edit: it applies, undoes in one step, and applying it
+  // twice leaves one block, not two.
+  await page.click('.pl-tile[data-preset="stack"]:visible');
+  await settle(900);
+  const stacked = { seen: brief(await seen()), blocks: await blocks() };
+  await page.click('.pl-tile[data-preset="stack"]:visible');
+  await settle(500);
+  if (stacked.seen !== 'column/profile' || stacked.blocks !== 1 || await blocks() !== 1) {
+    fail(`"Profile on top" did not stack the profile box over the characters (${JSON.stringify(stacked)})`);
+  }
+  await page.click('#undo');
+  await settle(800);
+  if (brief(await seen()) !== 'row/profile' || await blocks()) fail('Undo did not take a whole layout preset back in one step');
+  await page.click('#redo');
+  await settle(500);
+  await page.click('.pl-tile[data-preset="side"]:visible');
+  await settle(900);
+  if (await blocks() || brief(await seen()) !== 'row/profile') fail('going back to "Side by side" did not remove the layout block');
+
+  // The grip: pick up the profile box, put it on the bottom of the characters.
+  const profile = await preview.locator('.pp-uc-background').boundingBox();
+  await page.mouse.move(profile.x + profile.width / 2, profile.y + profile.height / 2);
+  await settle(300);
+  const grip = await preview.locator('#sim-grip').boundingBox();
+  if (!grip) fail('hovering the profile box did not show its grip');
+  else {
+    const characters = await preview.locator('.profile-page-container-flex-box').boundingBox();
+    const stage = await page.locator('#preview').boundingBox();
+    const aim = { x: characters.x + characters.width / 2, y: Math.min(characters.y + characters.height, stage.y + stage.height) - 8 };
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(grip.x + 40, grip.y + 40, { steps: 4 });
+    await page.mouse.move(aim.x, aim.y, { steps: 10 });
+    const zone = await preview.evaluate(() => ({
+      kind: document.getElementById('sim-drop').getAttribute('data-kind'),
+      shown: document.getElementById('sim-drop').style.display,
+      label: document.getElementById('sim-ghost').textContent,
+    }));
+    await page.mouse.up();
+    await settle(1000);
+    if (zone.kind !== 'zone' || zone.shown !== 'block' || !/below Characters/.test(zone.label)) {
+      fail(`dragging the grip did not show where it would land (${JSON.stringify(zone)})`);
+    }
+    if (brief(await seen()) !== 'column/characters') fail(`dropping the profile box below the characters gave ${brief(await seen())}`);
+  }
+  await page.click('.pl-actions button:visible');
+  await settle(800);
+  if (await blocks() || brief(await seen()) !== 'row/profile') fail('"Reset layout" did not put the page back');
+
+  // The gutter between them: dragging it sets the profile box's share of the row.
+  const again = await preview.locator('.pp-uc-background').boundingBox();
+  await page.mouse.move(again.x + again.width / 2, again.y + again.height / 2);
+  await settle(300);
+  const gutter = await preview.locator('#sim-split').boundingBox();
+  if (!gutter) fail('hovering the profile box beside the characters did not show the gutter handle');
+  else {
+    await page.mouse.move(gutter.x + gutter.width / 2, gutter.y + 20);
+    await page.mouse.down();
+    await page.mouse.move(gutter.x + gutter.width / 2 + 40, gutter.y + 20, { steps: 8 });
+    await page.mouse.up();
+    await settle(1000);
+    const mine = await declared();
+    const real = await seen();
+    if (mine.split == null || Math.abs(real.split - mine.split) > 1.5) {
+      fail(`dragging the gutter did not give the profile box the share it was dragged to (declared ${mine.split}%, measured ${real.split}%)`);
+    }
+    if (real.first !== 'profile' || real.direction !== 'row') fail('dragging the gutter changed the arrangement');
+  }
+  await fresh();
+
+  // Rows in Layers swap the two: the characters dragged above the profile box.
+  await page.evaluate(() => window.JaiStudio.showPanel('layers'));
+  await settle(400);
+  const row = (name) => page.locator('#layers .layer', { hasText: name }).first().boundingBox();
+  const from = await row('Characters');
+  const to = await row('Profile box');
+  if (!from || !to) fail('Layers does not list the profile box and the characters');
+  else {
+    await page.mouse.move(from.x + 60, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 60, from.y - 12, { steps: 5 });
+    await page.mouse.move(to.x + 60, to.y + 3, { steps: 6 });
+    await page.mouse.up();
+    await settle(1000);
+    if (brief(await seen()) !== 'row/characters') fail(`dragging Characters above Profile box in Layers gave ${brief(await seen())}`);
+  }
+  await fresh();
+
+  // A template that forces the two to stack must not leave "Side by side" doing
+  // nothing; and the row is for desktop widths only, so a phone keeps stacking.
+  await page.evaluate(() => window.JaiStudio.setCode('<style>\n.profile-page-flex { display: block !important; }\n</style>\n<div>x</div>', 'test', { now: true }));
+  await settle(1000);
+  const forced = brief(await seen());
+  await page.evaluate(() => window.JaiPageLayout.choose('side'));
+  await settle(1000);
+  const asked = brief(await seen());
+  const text = await page.evaluate(() => window.JaiStudio.code());
+  if (forced !== 'column/profile' || asked !== 'row/profile' || !/@media screen and \(min-width: 62em\)/.test(text)) {
+    fail(`"Side by side" did not override a template that stacks the page (${forced} -> ${asked})`);
+  }
+  await page.selectOption('#viewport-select', 'mobile');
+  await settle(1200);
+  const phone = brief(await seen());
+  await page.selectOption('#viewport-select', 'desktop');
+  await settle(800);
+  if (phone !== 'column/profile') fail(`the side-by-side row also applied at a phone width (${phone})`);
+
+  // Right-click offers it too, from anywhere on the page.
+  await fresh();
+  await preview.locator('.pp-uc-title').click({ button: 'right' });
+  await settle(400);
+  const menu = await page.evaluate(() => [...document.querySelectorAll('.menu .menu-item')].map((b) => b.textContent.trim()));
+  // (Escape would go to the preview's document, where the right-click landed.)
+  await page.evaluate(() => window.JaiMenu.close());
+  if (!menu.some((label) => /^Page layout/.test(label))) fail(`the right-click menu has no Page layout (${menu.join(' | ')})`);
 }
 
 /* The studio's own per-element classes carry a digit; a block's shared class
