@@ -52,14 +52,19 @@
   // ------------------------------------------------------------------ pieces
 
   // One copy has to be wider than the widest About Me column (half the track is
-  // one copy), so the phrase runs three times. No min-width: padding the box out
-  // instead would leave an uneven gap where the two copies meet.
+  // one copy), and with Page layout that can be the whole width of the page, so
+  // the phrase runs five times (about 2,100px). No min-width: padding the box
+  // out instead would leave an uneven gap where the two copies meet.
   var TAPE_PHRASE = 'NEW BOT OUT NOW ★ COME SAY HI ★ STAY A WHILE ★';
-  var TAPE_TEXT = [TAPE_PHRASE, TAPE_PHRASE, TAPE_PHRASE].join(' ');
+  var TAPE_TEXT = [TAPE_PHRASE, TAPE_PHRASE, TAPE_PHRASE, TAPE_PHRASE, TAPE_PHRASE].join(' ');
+
+  // Half the track is one run of frames, and the film is 108% of the column, so
+  // fifteen frames (2,100px) keep a full-width About Me covered without a gap.
+  var REEL_FRAMES = 15;
 
   function reelHalf() {
     var out = '';
-    for (var i = 1; i <= 8; i++) {
+    for (var i = 1; i <= REEL_FRAMES; i++) {
       out += '<span class="jx-reel-frame"><img class="jx-reel-img" src="' + photo('reel' + i, 256, 216) + '" alt=""></span>';
     }
     return out;
@@ -760,7 +765,7 @@
     {
       id: 'reel', name: 'Film reel', category: 'Motion', base: 'jx-reel',
       icon: icon('<rect x="1.5" y="3.5" width="13" height="9" rx="1"/><path d="M5.5 3.5v9M10.5 3.5v9M3.5 5.5v.1M3.5 8v.1M3.5 10.5v.1M12.5 5.5v.1M12.5 8v.1M12.5 10.5v.1"/>'),
-      hint: 'Eight frames, listed twice for a seamless loop: swap the same picture in both halves. Hover to pause.',
+      hint: 'Fifteen frames, listed twice for a seamless loop: swap the same picture in both halves. Hover to pause.',
       html: '<div class="jx-reel {u}"><div class="jx-reel-film {u}"><div class="jx-reel-track {u}">' + reelHalf() + reelHalf() + '</div></div></div>',
       parts: [['jx-reel-film', 'Film strip'], ['jx-reel-track', 'Film track'], ['jx-reel-frame', 'Film frame'], ['jx-reel-img', 'Film picture']],
       css: [

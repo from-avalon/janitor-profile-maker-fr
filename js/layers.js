@@ -48,7 +48,7 @@
 
   // Which branches are open. JanitorAI's are keyed by selector; the creator's
   // by position ("0.2.1"), which survives edits elsewhere in the document.
-  var open = { 'n:.pp-uc-background': true, 'n:.pp-uc-about-me': true };
+  var open = { 'n:.profile-page-flex': true, 'n:.pp-uc-background': true, 'n:.pp-uc-about-me': true };
   // The creator's branches start open unless they are long or generated — a
   // hardcoded roster is hundreds of rows nobody asked to see. true/false here
   // is the creator having closed or opened one by hand.
@@ -240,8 +240,22 @@
 
   var suppressClick = false;
 
+  /* 'profile' or 'characters' when a row is one of the page's two big blocks. */
+  function sectionOfRow(row) {
+    return row && row.kind === 'native' && window.JaiPageLayout ? window.JaiPageLayout.sectionFor(row.item.sel) : null;
+  }
+
   function dropFor(row, e, dragged) {
     if (!row || row.kind === 'empty') return null;
+    // The two big blocks swap places: above the other's row puts this one
+    // first, below it puts it second.
+    var carrying = sectionOfRow(dragged);
+    if (carrying) {
+      var over = sectionOfRow(row);
+      if (!over || over === carrying) return null;
+      var box = host.querySelector('[data-row="' + rows.indexOf(row) + '"]').getBoundingClientRect();
+      return { section: carrying, where: e.clientY < box.top + box.height / 2 ? 'before' : 'after' };
+    }
     if (row.kind === 'native') {
       return row.item.about ? { ref: null, where: 'inside' } : null;
     }
@@ -254,7 +268,7 @@
 
   host.addEventListener('pointerdown', function (down) {
     var row = rowOf(down.target);
-    if (!row || row.kind !== 'custom' || down.button !== 0 || down.target.closest('.layer-caret')) return;
+    if (!row || (row.kind !== 'custom' && !sectionOfRow(row)) || down.button !== 0 || down.target.closest('.layer-caret')) return;
     var active = false;
     var drop = null;
     var marked = null;
@@ -286,7 +300,8 @@
       // The click that follows a drag must not also select the row under it.
       suppressClick = true;
       setTimeout(function () { suppressClick = false; }, 0);
-      if (drop) C.move(row.id, drop.ref, drop.where);
+      if (drop && drop.section) window.JaiPageLayout.order(drop.section, drop.where);
+      else if (drop) C.move(row.id, drop.ref, drop.where);
     }
 
     window.addEventListener('pointermove', move);

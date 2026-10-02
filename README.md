@@ -341,6 +341,7 @@ js/presets.js           style packs
 js/reference.js         generated selector reference
 js/app.js               the document, its history, the preview bridge, the shell, sections/styles and Profile data
 js/menu.js              the pop-up menu behind the canvas's right-click
+js/page-layout.js       Page layout: where the profile box and the character list sit, and every way to change it
 js/canvas.js            selection, and what canvas gestures do to the document
 js/layers.js            the Layers panel
 js/insert.js            the Insert panel: element tiles, draggable template pieces, animations

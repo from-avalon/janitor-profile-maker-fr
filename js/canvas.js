@@ -504,6 +504,13 @@
       }
     }
 
+    // Where the profile box and the character list sit is one click from
+    // anywhere on the page, not something to hunt for in a panel.
+    if (design && window.JaiPageLayout) {
+      if (items.length) items.push(null);
+      window.JaiPageLayout.menuItems().forEach(function (item) { items.push(item); });
+    }
+
     if (m.image) {
       if (items.length) items.push(null);
       items.push({

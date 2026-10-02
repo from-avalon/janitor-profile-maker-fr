@@ -48,7 +48,11 @@
         node('Menu item', '.pp-top-bar-app-menu-list-item', { reveal: 'userMenu', icon: 'text' })
       ])
     ]),
-    node('Profile box', '.pp-uc-background', { icon: 'frame', hint: 'The panel holding your avatar, name, badges and bio.' }, [
+    node('Page layout', '.profile-page-flex', {
+      icon: 'frame',
+      hint: 'Holds the profile box and the character list side by side. Pick a layout below, or drag either one by the grip on its top edge.'
+    }, [
+    node('Profile box', '.pp-uc-background', { icon: 'frame', hint: 'The panel holding your avatar, name, badges and bio. Drag its grip to put it above, below or beside the characters.' }, [
       node('Gradient layer 1', '.profile-background-box-1', { icon: 'fill' }),
       node('Gradient layer 2', '.profile-background-box-2', { icon: 'fill' }),
       node('Gradient layer 3', '.profile-background-box-3', { icon: 'fill' }),
@@ -104,6 +108,7 @@
         node('Page number', '.pp-pg-page-button', { icon: 'button' }),
         node('Active page', '.pp-pg-page-button-active', { icon: 'button' })
       ])
+    ])
     ]),
     node('Footer', '.pp-footer', { icon: 'frame' })
   ];

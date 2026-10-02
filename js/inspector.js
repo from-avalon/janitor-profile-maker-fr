@@ -1032,6 +1032,9 @@
     syncers = [];
     host.innerHTML = '';
     host.appendChild(head(selection, node));
+    // The profile box, the character list and the row holding them: where they
+    // sit is the first thing anyone selecting one of them wants to change.
+    if (window.JaiPageLayout && window.JaiPageLayout.isTarget(selection)) host.appendChild(window.JaiPageLayout.section());
     if (node) host.appendChild(contentSection(node));
     host.appendChild(layoutSection(selection));
     host.appendChild(typeSection());
