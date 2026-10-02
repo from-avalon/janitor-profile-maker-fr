@@ -14,9 +14,11 @@ markup those styles decorate. JanitorAI drops it into `.pp-uc-about-me` in the p
 body, and because a `<style>` element works wherever it lands, those rules go on to
 restyle the entire page — header, bot cards, footer, all of it.
 
-So the editor on the right holds that whole document, not just CSS. Copy the lot,
-paste it into About Me. The Design panel, the presets and the linter all reach into
-the `<style>` blocks inside it.
+So the studio works on that whole document, not just CSS. Everything you do on
+the canvas — restyling an element, dragging one somewhere else, retyping its text —
+is an edit to it; **Code** in the top bar shows it, and **Copy for About Me** copies
+the lot. The properties panel, the templates and the linter all reach into the
+`<style>` blocks inside it.
 
 ## Running it
 
@@ -37,20 +39,61 @@ document, which browsers block for pages opened directly from disk (`file://`).
 
 ## What's in the box
 
-| Panel | What it does |
-| --- | --- |
-| **Design** | ~130 visual controls grouped by page element. Each one reads its value out of the `<style>` block in your About Me and writes back into it, so the code and the sliders never disagree. A `<style>` block is created for you if there isn't one. |
-| **Presets** | Three closed groups. **Layouts** holds the profile layouts built from your Profile information, then complete community templates — add one whole, or open *Choose parts* to take pieces of it. **Styles** are colour schemes and accents — one labelled CSS block each. **My presets** are your own — select code in the editor, save it as a part with "Save selection…", and group parts into presets you name yourself. |
-| **Settings** | Preview content only — how many bot cards to show, whether you are looking at your own profile or a visitor's view, and the "Enforce JAI rules" switch. Never touches your code. Username, avatar, follower count and member-since are edited directly in the preview: click the text to edit it, or right-click the avatar/background to swap the image. |
-| **Import your profile** | In the Profile or Settings panel, choose a browser save of your own JanitorAI profile. Use Chrome/Edge's **Save page as → Webpage, Single File** (`.mhtml`) — it includes the page's images and styles in one private local file. The app reads it only in your browser, loads its profile DOM into the preview, and copies the saved About Me contents into the editor. Plain `.html` is also accepted, but browsers cannot access its companion `_files` folder, so MHTML is the reliable option. |
-| **View** | 1920 / 1440 / 1200 / tablet / mobile, plus a custom pixel width. Match it to your own monitor — a theme built at 1440 will look cramped on a 1920 screen and vice versa. |
-| **Profile** | Profile information: everything a hardcoded profile is generated from, kept apart from your document. **Import profile** fills in your username, avatar, followers, member date, badges and every character (description, tags, image, link, chat and token counts); you add friends, social links and extra About Me sections. Captured facts refresh on the next import; what you wrote is never overwritten. Inserting writes marked blocks and rewrites only those. |
-| **Selectors** | All 418 elements from Puppy's reference guide, searchable. Click any selector to start a rule for it. |
-| **User menu** | The avatar dropdown is included and stylable. Open it from the Settings tab, or click the avatar in the preview. |
-| **Inspect** | Click anything in the preview to get its selector. |
+The studio is laid out like a design tool: what the page is made of on the left,
+the page itself in the middle, the selected element's properties on the right.
 
-The editor underlines, in red, every declaration JanitorAI will throw away, and the
-panel under it says why and what to use instead.
+| Where | What it does |
+| --- | --- |
+| **Canvas** | The real profile page. In **Design** mode a click selects, a double-click retypes text, and anything you added to About Me can be dragged to a new place or resized by its handles. **Preview** mode hands the page back to itself, so links, hover and CSS-only menus behave as they will on JanitorAI. |
+| **Layers** | The page as an outline: JanitorAI's own parts by name (Avatar, Follow button, Bot card…), and under **About Me** every element of your own, read straight from the document. Click to select, drag your own rows to reorder them. |
+| **Insert** | Everything that can be added, in one panel. **Elements** — headings, text, images, boxes, columns, cards, buttons, tag rows, shapes — are dragged onto the canvas (a line shows where they land) or clicked to add after the selection; each comes with a few starting rules, added to your stylesheet once. **Sections** are the pieces of whole profile designs: drag a piece to where you want it, or add a design whole. **Styles** are colour schemes, backgrounds and accents for the whole profile — click to apply, click again to take off. **Animations** are motions for whatever is selected. **Saved** holds your own pieces: select code in the Code dock and "Save selection…". |
+| **Properties** | Layout, text, fill, border and effects for whatever is selected, plus the raw declaration list. Each field reads its value out of the `<style>` block in your About Me and writes back into it, so the code and the panel never disagree; a greyed value is what the browser resolved, a white one is what your CSS says. The menu at the top chooses which selector the rule is written against, and for which state (`:hover`, `::before`…). |
+| **Profile data** | Everything a hardcoded profile is generated from, kept apart from your document. **Import profile** fills in your username, avatar, followers, member date, badges and every character (description, tags, image, link, chat and token counts); you add friends, social links and extra About Me sections. Captured facts refresh on the next import; what you wrote is never overwritten. Inserting writes marked blocks and rewrites only those. |
+| **Page** | The right-hand panel when nothing is selected. Preview content only — how many bot cards to show, your own profile or a visitor's view, the "Enforce JAI rules" switch — and the saved profile snapshots. Never touches your code. |
+| **Import your profile** | In Profile data or the Page panel, choose a browser save of your own JanitorAI profile. Use Chrome/Edge's **Save page as → Webpage, Single File** (`.mhtml`) — it includes the page's images and styles in one private local file. The app reads it only in your browser, loads its profile DOM into the preview, and copies the saved About Me contents into the document. Plain `.html` is also accepted, but browsers cannot access its companion `_files` folder, so MHTML is the reliable option. |
+| **Viewport & zoom** | Top bar. 1920 / 1440 / 1200 / tablet / mobile, plus a custom pixel width. Match it to your own monitor — a theme built at 1440 will look cramped on a 1920 screen and vice versa. Ctrl/Cmd + wheel zooms the canvas. |
+| **Code** | The About Me document, in a dock under the canvas, with the linter's findings beside it. Its **Selectors** tab is all 418 elements from Puppy's reference guide, searchable; click any selector to start a rule for it. |
+
+The code view underlines, in red, every declaration JanitorAI will throw away; the
+list beside it says why and what to use instead, and the status bar keeps the count
+in sight while the dock is closed.
+
+### Working on the canvas
+
+- **Click** selects; the breadcrumb above the element's name climbs to its parents.
+  **Esc** does the same from the keyboard.
+- **Double-click** retypes text — yours in place in the document, JanitorAI's
+  username / follower count / join date as preview data only.
+- **Drag** one of your own elements to move it. Drop on the top or bottom edge of
+  an element to land beside it, in the middle of an empty box to land inside it.
+- **Handles** on the selection set `width` and `height`.
+- **Right-click** to add something exactly there (**Add here ▸**), and for
+  Duplicate, Move up/down, Select parent, Hide and Delete; on the avatar or
+  background, to try a different preview image.
+- **Images** have to be online — JanitorAI cannot host a file from your disk.
+  Drag a picture in from another browser tab, paste its link (Ctrl+V), or add an
+  Image and paste the address into the field the caret lands in.
+- **Del** removes, **Ctrl+D** duplicates, **Alt+↑/↓** reorders, **Enter** edits
+  text, **Ctrl+Z / Ctrl+Shift+Z** undo and redo anything, **V** / **P** switch
+  between Design and Preview, **Ctrl+\\** hides the panels.
+
+JanitorAI's own elements can only be restyled: their rules are written against the
+element's label class. Your own elements get a class of their own (`jx-k3f9`) the
+first time you set a property, so changing one heading never restyles the next;
+pick a shared class in the selector menu when restyling all of them is the point.
+A duplicate takes a copy of its original's rules under new names.
+
+A layout built from Profile data (see *Hard coding characters*) is **linked** to
+it, and shows an amber outline: it is rebuilt whenever Profile data changes,
+which is what lets a roster grow without retyping. Restyling it keeps the link —
+those rules are written after the generated stylesheet rather than into it. Edit
+*inside* it by hand — move, delete, retype, drop something in — and the layout is
+**unlinked** first, so your edit is not undone by the next rebuild: the markers
+go, every byte of markup and CSS stays, and from then on it is ordinary markup
+of yours. A toast says so, and Ctrl+Z links it back. To change a linked layout
+and keep the link, right-click it for **Edit in Profile data** or **Add a
+character…**. Things added *next to* a linked layout land outside it and leave
+it linked.
 
 ### Enforce JAI rules
 
@@ -87,11 +130,11 @@ can see the consequence.
 
 JanitorAI generates its character grid from its own React app, so its card class
 names change without notice and a theme pinned to them breaks. Writing the cards
-yourself fixes that. The **Profile** tab fills the repeated details in for you,
+yourself fixes that. The **Profile data** panel fills the repeated details in for you,
 including the bot image used for both portrait and stage by default, then emits
 each contact everywhere the selector needs it.
 
-It keeps your Profile information — separate from your document, so clearing the editor doesn't
+It keeps your Profile information — separate from your document, so clearing the code doesn't
 lose it — and emits two things into your About Me, each between markers:
 
 - the **markup**, one line with no whitespace between tags (see *Layout warnings*
@@ -114,14 +157,14 @@ The **Proxy Terminal** layout reads the rest of your Profile information too:
 About Me heading, introduction, creator notes and extra sections fill its About
 screen; friends (with their pictures and links) replace the open slots on its
 Friends screen; and social links, each with an optional icon, fill Links. Its
-profile label, watermark and footer text live under **Profile → Layout & theme**.
+profile label, watermark and footer text live under **Profile data → Layout & theme**.
 
 Tag chips are linked from JanitorAI's own tag ids (`js/tags.js`); a tag the site
 has no number for is linked as a custom tag instead.
 
 ## Layout warnings
 
-Not everything the editor underlines is something JanitorAI removes. Writing a row
+Not everything the code view underlines is something JanitorAI removes. Writing a row
 of tag chips or badges one element per line — the readable way to write markup — can
 leave a whitespace-only gap between two tags that both render inline; the newline and
 indentation count as a real space once the browser lays them out, on JanitorAI same as
@@ -141,16 +184,16 @@ no import step, and it works offline because MHTML embeds its own images.
 
 It supplies the canvas only:
 
-- the editor's contents are your document and are never touched by it;
+- your About Me document is never touched by it;
 - profile fields you have already changed by hand are left alone, so renaming
-  yourself by clicking your @name in the preview survives a reload;
+  yourself by double-clicking your @name in the preview survives a reload;
 - if the fetch fails (opening `index.html` straight off disk, say), the app falls
   back to the build-time snapshot in `preview/snapshot.js`, which is the same
   profile — so the preview stays correct either way.
 
-To preview another capture, use **Import profile** in the Profile tab or **Choose profile file** in the Settings
-tab. Each import becomes a snapshot in the **Preview profile** switcher,
-so you can move between it and Sweepercom without losing your editor contents.
+To preview another capture, use **Import profile** in Profile data or **Choose profile file** in the Page
+panel (the right-hand panel when nothing is selected). Each import becomes a snapshot in the **Preview profile** switcher,
+so you can move between it and Sweepercom without losing your document.
 The built-in profile can be hidden with **Keep Sweepercom in the switcher**;
 the imported snapshot can be removed when you are done. **Hide custom CSS**
 temporarily removes the captured About Me/theme CSS while keeping the imported
@@ -158,7 +201,7 @@ profile DOM and base JanitorAI styling visible.
 
 ## Advanced templates
 
-A community template (under **Presets → Layouts**) is a whole profile design by a community creator — HTML *and*
+A community template (under **Insert → Sections**) is a whole profile design by a community creator — HTML *and*
 CSS — cut into components. Open one and you get its parts; add the status box
 without inheriting the bot card redesign, or take the lot.
 
@@ -223,7 +266,7 @@ Two things worth knowing:
 2. **Emotion class names age.** `.css-1abc2de` hashes change on every JanitorAI
    deploy, and some in the reference guide are already stale (the About Me box is
    `.css-p5wazl` now, not `.css-1bn1yyx`). Write your CSS against the `.pp-…` /
-   `.profile-…` label classes — the Design panel only ever uses those, and they do
+   `.profile-…` label classes — the canvas only ever writes those, and they do
    not change.
 
 If you ever package a capture of someone else's profile, note that their own theme
@@ -286,22 +329,30 @@ index.html              app shell
 css/app.css             app UI
 js/css-model.js         tolerant CSS parser; reads and writes single declarations
 js/payload.js           finds the <style> blocks inside the About Me document
+js/markup.js            source-mapped markup: where each element is in the text, and edits by offset
+js/blocks.js            the Insert catalogue: markup + starting rules per block
+js/blocks-showcase.js   more of it: tapes, reels, tabs, orbs, flip cards, extra animations
+js/page-map.js          the named outline of JanitorAI's page, for Layers
 js/templates.js         generated advanced presets, split into components
 preview/fragments.js    real markup for the menu, bio, buttons and pagination
 preview/profiles/       the bundled default profile, loaded at start-up
 js/lint.js              JanitorAI restriction checks + the preview sanitiser
-js/controls.js          the Design panel catalogue
 js/presets.js           style packs
 js/reference.js         generated selector reference
-js/app.js               glue
+js/app.js               the document, its history, the preview bridge, the shell, sections/styles and Profile data
+js/menu.js              the pop-up menu behind the canvas's right-click
+js/canvas.js            selection, and what canvas gestures do to the document
+js/layers.js            the Layers panel
+js/insert.js            the Insert panel: element tiles, draggable template pieces, animations
+js/inspector.js         the properties panel
 preview/frame.html      the document your CSS is injected into
-preview/frame.js        mounts the snapshot, injects your About Me, inspector
+preview/frame.js        mounts the snapshot, injects your About Me, and reports canvas gestures
 preview/snapshot.js     the captured JanitorAI DOM
 preview/vendor/         JanitorAI's stylesheets, verbatim
 preview/assets/         images from the captured page
 tools/extract_snapshot.py    builds the base page from the first capture
 tools/extract_fragments.py   lifts the five extra regions from the second
-tools/build_reference.py     turns the guide into the Selectors panel
+tools/build_reference.py     turns the guide into the Selectors tab
 tools/build_template.py      splits a community template into components
 tools/serve.py               the no-cache dev server
 ```

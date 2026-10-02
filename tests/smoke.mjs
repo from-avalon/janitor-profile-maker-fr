@@ -58,16 +58,18 @@ try {
       .catch(() => fail("captured profile was never mounted in the preview (#root missing)"));
   }
 
-  /* global document, window, getComputedStyle, PointerEvent, WheelEvent -- this callback is serialised and run inside the page */
+  /* global document, window, DOMParser, getComputedStyle, PointerEvent, WheelEvent -- callbacks are serialised and run inside the page */
   const counts = await page.evaluate(() => ({
-    controls:      document.querySelectorAll("#control-groups *").length,
+    layers:        document.querySelectorAll("#layers .layer").length,
+    blocks:        document.querySelectorAll("#insert-list .insert-tile").length,
     presets:       document.getElementById("preset-list").children.length,
     templates:     document.getElementById("template-list").children.length,
     reference:     document.getElementById("reference-list").children.length,
     referenceData: Array.isArray(window.JAI_REFERENCE) ? window.JAI_REFERENCE.length : 0,
     editor:        !!document.getElementById("css-input"),
   }));
-  if (counts.controls < 50)      fail(`Design panel looks empty (${counts.controls} elements)`);
+  if (counts.layers < 10)        fail(`Layers panel looks empty (${counts.layers} rows)`);
+  if (counts.blocks < 10)        fail(`Insert panel looks empty (${counts.blocks} blocks)`);
   if (counts.presets === 0)      fail("Presets panel is empty");
   if (counts.templates === 0)    fail("Templates panel is empty");
   if (counts.reference === 0)    fail("Selectors panel is empty");
@@ -91,6 +93,12 @@ try {
       fail(`profile card total mismatch (field=${importedCount}, preview=${previewCount})`);
     }
 
+    // Design mode swallows clicks (a click is a selection), so the page's own
+    // controls are exercised in Preview mode, where it behaves like the page.
+    const modeIs = (mode) => preview.waitForFunction(
+      (wanted) => document.documentElement.getAttribute('data-sim-mode') === wanted, mode);
+    await page.click('#mode-switch button[data-mode="preview"]');
+    await modeIs('preview');
     const notifications = await preview.evaluate(() => {
       const panel = document.querySelector('.pp-top-bar-notifications-popover');
       const bell = document.querySelector('.pp-top-bar-notifications-button');
@@ -107,24 +115,14 @@ try {
       fail(`notification popover controls failed (${JSON.stringify(notifications)})`);
     }
 
-    // Selection mode turns the preview into a canvas: clicking an element
-    // focuses the right inspector and narrows it to relevant visual controls.
-    await page.click('#inspect-toggle');
-    await preview.click('.pp-uc-title');
-    await page.waitForFunction(() =>
-      document.querySelector('#inspector-selection')?.classList.contains('has-selection'));
-    const selectedInspector = await page.evaluate(() => ({
-      label: document.querySelector('.inspector-selection-label')?.textContent || '',
-      visibleControls: [...document.querySelectorAll('#control-groups .ctrl')]
-        .filter((node) => node.style.display !== 'none').length,
-      designVisible: !document.querySelector('section[data-workspace-panel="design"]').hidden,
-    }));
-    if (!selectedInspector.label.includes('pp-uc-title') || !selectedInspector.visibleControls ||
-        !selectedInspector.designVisible) {
-      fail(`selection did not focus the inspector (${JSON.stringify(selectedInspector)})`);
+    await preview.click('.pp-uc-followers-count');
+    if (await page.evaluate(() => !!window.JaiCanvas.selection())) {
+      fail('Preview mode still selected an element on click');
     }
-    await page.click('#inspector-show-all');
-    await page.click('#inspect-toggle');
+    await page.click('#mode-switch button[data-mode="design"]');
+    await modeIs('design');
+
+    await canvasChecks(page, preview);
 
     // MHTML images render from temporary blob URLs in the preview, but Cards
     // must retain their original public address for paste-ready hardcoding.
@@ -151,20 +149,74 @@ try {
         hardcodeImages.sameFallback !== 2) {
       fail(`one-image contact fallback failed (${JSON.stringify(hardcodeImages)})`);
     }
+
+    // Pasted hardcoded layouts expose each supported character section and can
+    // add a new profile entry without rebuilding unrelated hand-written HTML.
+    const hardcodeSections = await page.evaluate(() => {
+      const alpha = { name: 'Alpha', link: 'https://janitorai.com/characters/alpha',
+        portrait: 'https://example.com/alpha.webp', tags: 'Female, OC', chats: '10' };
+      const beta = { name: 'Beta', link: 'https://janitorai.com/characters/beta',
+        portrait: 'https://example.com/beta.webp', tags: 'Male, OC', chats: '20' };
+      const gamma = { name: 'Gamma', link: 'https://janitorai.com/characters/gamma',
+        portrait: 'https://example.com/gamma.webp', tags: 'Female, Angst', chats: '1' };
+      let source = window.JaiHardcode.apply('<style>\n</style>', [alpha], { style: 'none' });
+      source += '<section class="handwritten"><span>keep me</span>' +
+        '<div class="px-film-track">' +
+        '<div class="px-frame"><span class="px-frame-name"><b>01</b>Alpha</span></div>' +
+        '<div class="px-frame"><span class="px-frame-name"><b>02</b>Beta</span></div>' +
+        '<div class="px-frame"><span class="px-frame-name"><b>01</b>Alpha</span></div>' +
+        '<div class="px-frame"><span class="px-frame-name"><b>02</b>Beta</span></div></div>' +
+        '<span class="px-pane-meta">1 public</span><div class="px-roll">' +
+        '<a class="px-roll-row" href="https://janitorai.com/characters/alpha">' +
+        '<span class="px-roll-text"><b>Alpha</b></span></a></div></section>';
+      const before = window.JaiHardcodeSections.detect(source);
+      source = window.JaiHardcodeSections.add(source, 'px-roll:0', [gamma], [alpha, beta, gamma], {}).payload;
+      source = window.JaiHardcodeSections.add(source, 'px-film-track:0', [gamma], [alpha, beta, gamma], {}).payload;
+      const importedAlpha = { ...alpha, portrait: 'https://example.com/imported-alpha.webp',
+        art: 'https://example.com/imported-alpha.webp' };
+      source = window.JaiHardcodeSections.add(source, 'generated-selector', [gamma], [importedAlpha, beta, gamma], { style: 'none' }).payload;
+      const doc = new DOMParser().parseFromString(source, 'text/html');
+      return {
+        kinds: before.map((section) => section.kind).sort().join(','),
+        selector: doc.querySelectorAll('.cs-slot-live').length,
+        archive: doc.querySelectorAll('.px-roll-row').length,
+        reel: doc.querySelectorAll('.px-frame').length,
+        reelGamma: [...doc.querySelectorAll('.px-frame-name')]
+          .filter((node) => node.textContent.includes('Gamma')).length,
+        selectorAlpha: doc.querySelector('.cs-slot-alpha .cs-slot-thumb')?.getAttribute('src') || '',
+        meta: doc.querySelector('.px-pane-meta')?.textContent || '',
+        preserved: doc.querySelector('.handwritten > span')?.textContent || '',
+      };
+    });
+    if (hardcodeSections.kinds !== 'archive,generated,reel' || hardcodeSections.selector !== 2 ||
+        hardcodeSections.archive !== 2 || hardcodeSections.reel !== 6 ||
+        hardcodeSections.reelGamma !== 2 || hardcodeSections.selectorAlpha !== 'https://example.com/alpha.webp' ||
+        hardcodeSections.meta !== '2 public' ||
+        hardcodeSections.preserved !== 'keep me') {
+      fail(`hardcoded section editing failed (${JSON.stringify(hardcodeSections)})`);
+    }
   }
 
-  // Presets start collapsed so the rail reads as a short menu, and Layouts
-  // offers the Profile-information layouts ahead of community templates.
-  await page.click('button[data-panel="presets"]');
+  // Insert is the one library: elements open, everything else collapsed so the
+  // panel reads as a short menu. Sections offers the Profile-data layouts ahead
+  // of community templates.
+  await page.click('button[data-panel="insert"]');
   const presetSections = await page.evaluate(() => ({
-    open: [...document.querySelectorAll('.preset-section')].filter((d) => d.open).length,
+    open: [...document.querySelectorAll('.preset-section')].filter((d) => d.open).map((d) => d.id).join(','),
     names: [...document.querySelectorAll('.preset-section-name')].map((n) => n.textContent.trim()),
     layouts: document.querySelectorAll('#layout-list .template').length,
     filters: document.querySelectorAll('.template-filter').length,
+    draggable: document.querySelectorAll('#template-list .part.is-draggable').length,
+    shapes: document.querySelectorAll('#insert-list .insert-tile[data-block="star"]').length,
+    animations: document.querySelectorAll('#animation-list .insert-tile').length,
   }));
-  if (presetSections.open !== 0) fail(`preset sections should start collapsed (${presetSections.open} open)`);
-  if (presetSections.names.join(',') !== 'Layouts,Styles,My presets') {
-    fail(`preset sections are ${presetSections.names.join(',')}`);
+  if (presetSections.open !== 'insert-elements') fail(`only Elements should start open (${presetSections.open})`);
+  if (presetSections.names.join(',') !== 'Elements,Sections,Styles,Animations,Saved') {
+    fail(`insert sections are ${presetSections.names.join(',')}`);
+  }
+  if (!presetSections.draggable) fail('no template piece can be dragged onto the canvas');
+  if (!presetSections.shapes || presetSections.animations < 6) {
+    fail(`shapes or animations missing (${JSON.stringify(presetSections)})`);
   }
   if (presetSections.layouts < 2) fail(`profile layouts missing (${presetSections.layouts})`);
   if (presetSections.filters) fail(`template part filters should be gone (${presetSections.filters})`);
@@ -188,54 +240,53 @@ try {
   await togglePart('velvet-nocturne-hero');
   await togglePart('velvet-nocturne-characters');
   if (await partsOn() !== startParts) fail(`removing Velvet parts left some behind (${await partsOn()})`);
-  await page.click('.workspace-tool[data-workspace-panel="help"]');
+  await page.click('.rail button[data-panel="help"]');
   const help = await page.evaluate(() => ({
-    visible: !document.querySelector('section[data-workspace-panel="help"]').hidden,
+    visible: !document.querySelector('section[data-panel="help"]').hidden,
     topics: document.querySelectorAll('.help-panel details').length,
   }));
   if (!help.visible || help.topics < 4) fail(`help panel incomplete (${JSON.stringify(help)})`);
 
-  // The Figma-style shell keeps only three content tabs on the left. Design is
-  // the permanent right inspector; View, Selectors and Help live in the toolbar.
+  // The shell: a rail of five panels on the left, properties on the right,
+  // and the About Me code tucked away in a dock until asked for.
   const panels = await page.evaluate(() => ({
-    left: [...document.querySelectorAll('.sidebar-tabs button')].map((button) => button.textContent.trim()),
-    designRight: !!document.querySelector('#inspectorpane #control-groups'),
-    utilities: document.querySelectorAll('.workspace-tool[data-workspace-panel]').length,
-    codeHidden: document.querySelector('.layout').classList.contains('code-hidden'),
+    rail: [...document.querySelectorAll('.rail button[data-panel]')].map((button) => button.dataset.panel),
+    inspector: !!document.querySelector('#inspector #inspector-page'),
+    topbarButtons: document.querySelectorAll('.topbar button').length,
+    codeHidden: document.getElementById('dock').hidden,
   }));
-  if (panels.left.join(',') !== 'Presets,Profile,Settings') fail(`left rail is ${panels.left.join(',')}`);
-  if (!panels.designRight) fail('Design controls are not in the right inspector');
-  if (panels.utilities !== 3) fail(`top utility menu has ${panels.utilities} items`);
+  if (panels.rail.join(',') !== 'layers,insert,info,help') fail(`left rail is ${panels.rail.join(',')}`);
+  if (!panels.inspector) fail('the properties panel is missing');
+  if (panels.topbarButtons > 10) fail(`top bar has grown to ${panels.topbarButtons} buttons`);
   if (!panels.codeHidden) fail('raw code should be hidden initially');
 
-  // Both rails can get out of the way when someone needs the largest possible
-  // live preview, and their desktop widths can be changed by dragging handles.
-  await page.click('#toggle-sidebar');
+  // Clicking the open panel's icon folds the sidebar away for the largest
+  // possible canvas, and its width can be changed by dragging the handle.
+  await page.click('.rail button[data-panel="help"]');
   if (!await page.locator('.layout').evaluate((node) => node.classList.contains('sidebar-hidden'))) {
-    fail('library hide button did not collapse the left rail');
+    fail('clicking the open panel did not collapse the sidebar');
   }
-  await page.click('#toggle-sidebar');
-  await page.click('#toggle-inspector');
-  if (!await page.locator('.layout').evaluate((node) => node.classList.contains('inspector-hidden'))) {
-    fail('properties hide button did not collapse the right rail');
+  await page.click('.rail button[data-panel="layers"]');
+  if (await page.locator('.layout').evaluate((node) => node.classList.contains('sidebar-hidden'))) {
+    fail('choosing a panel did not reopen the sidebar');
   }
-  await page.click('#toggle-inspector');
 
   const resizeHandle = await page.locator('#resize-sidebar').boundingBox();
-  if (!resizeHandle) fail('library resize handle is missing');
+  if (!resizeHandle) fail('sidebar resize handle is missing');
   else {
     const startX = resizeHandle.x + 3;
+    const startWidth = await page.evaluate(() => document.getElementById('sidebar').offsetWidth);
     await page.locator('#resize-sidebar').dispatchEvent('pointerdown', { clientX: startX });
     await page.evaluate((nextX) => window.dispatchEvent(new PointerEvent('pointermove', { clientX: nextX })), startX + 40);
     await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerup')));
     const resizedWidth = await page.evaluate(() => parseFloat(
       getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w')));
-    if (resizedWidth < 340) fail(`library did not resize (${resizedWidth}px)`);
+    if (resizedWidth < startWidth + 30) fail(`sidebar did not resize (${startWidth}px -> ${resizedWidth}px)`);
   }
 
   // An actual-size canvas wider than the stage must begin at a reachable left
   // edge and provide a horizontal scroll range.
-  await page.click('#stage-zoom');
+  await page.click('#zoom-label');
   const canvasPan = await page.evaluate(() => {
     const scroll = document.getElementById('stage-scroll');
     const frame = document.getElementById('stage-frame');
@@ -247,35 +298,51 @@ try {
   if (canvasPan.leftAtStart < 10 || canvasPan.scrollWidth <= canvasPan.clientWidth || !canvasPan.scrollLeft) {
     fail(`wide preview cannot pan horizontally (${JSON.stringify(canvasPan)})`);
   }
-  await page.click('#stage-zoom');
-
-  // The slider provides precise manual zoom, while Ctrl/Cmd-wheel is captured
+  // Still at 100%: the + button steps the zoom, and Ctrl/Cmd-wheel is captured
   // by the canvas instead of changing the browser's page zoom.
-  await page.locator('#stage-zoom-slider').evaluate((input) => {
-    input.value = '125';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-  });
+  await page.click('#zoom-in');
   const canvasZoom = await page.evaluate(() => {
-    const slider = document.getElementById('stage-zoom-slider');
+    const stepped = window.JaiStudio.scale();
     const event = new WheelEvent('wheel', { deltaY: -100, ctrlKey: true, cancelable: true });
     document.getElementById('stage-scroll').dispatchEvent(event);
-    return { value: Number(slider.value), prevented: event.defaultPrevented };
+    return { stepped, wheeled: window.JaiStudio.scale(), prevented: event.defaultPrevented };
   });
-  if (canvasZoom.value !== 130 || !canvasZoom.prevented) {
+  if (canvasZoom.stepped !== 1.1 || canvasZoom.wheeled !== 1.15 || !canvasZoom.prevented) {
     fail(`canvas zoom controls failed (${JSON.stringify(canvasZoom)})`);
   }
+  await page.click('#zoom-label');
+  if (await page.evaluate(() => window.JaiStudio.state.zoom) !== 'fit') fail('zoom label did not return to fit');
 
-  await page.click('.workspace-tool[data-workspace-panel="view"]');
-  const viewportButtons = await page.locator('.viewport-switch button').count();
-  if (viewportButtons < 5) fail(`View utility is missing the viewport switch (${viewportButtons} buttons)`);
+  // The viewport menu resizes the simulated window, never the code.
+  if (await page.locator('#viewport-select option').count() < 5) fail('viewport menu is missing sizes');
+  await page.selectOption('#viewport-select', 'mobile');
+  const mobile = await page.evaluate(() => ({
+    width: document.getElementById('preview').style.width,
+    notice: !document.getElementById('stage-notice').hidden,
+  }));
+  if (mobile.width !== '390px' || !mobile.notice) fail(`mobile viewport failed (${JSON.stringify(mobile)})`);
+  await page.selectOption('#viewport-select', 'desktop');
 
-  await page.click('#show-code');
-  if (await page.locator('.layout').evaluate((node) => node.classList.contains('code-hidden'))) {
-    fail('Code toolbar button did not open the editor');
-  }
   await page.click('#toggle-code');
+  if (await page.evaluate(() => document.getElementById('dock').hidden)) {
+    fail('Code button did not open the code dock');
+  }
+  const highlighted = await page.evaluate(() => document.getElementById('highlight').textContent.length);
+  if (!highlighted) fail('the code dock opened without its code');
+  await page.click('.dock-tabs button[data-dock="reference"]');
+  if (await page.evaluate(() => document.querySelector('.dock-pane[data-dock="reference"]').hidden)) {
+    fail('Selectors tab did not open in the dock');
+  }
+  await page.click('.dock-tabs button[data-dock="code"]');
+  await page.click('#close-dock');
+  if (!await page.evaluate(() => document.getElementById('dock').hidden)) fail('code dock did not close');
 
-  await page.click('button[data-panel="profile"]');
+  // With nothing selected the right panel is the Page panel: preview-only
+  // settings and the profile snapshots.
+  await page.evaluate(() => window.JaiCanvas.clear());
+  if (await page.evaluate(() => document.getElementById('inspector-page').hidden)) {
+    fail('Page panel is not shown when nothing is selected');
+  }
   const settings = await page.evaluate(() => ({
     enforce: !!document.getElementById('enforce'),
     import: !!document.getElementById('profile-file'),
@@ -303,6 +370,19 @@ try {
   await page.click('#cards-add');
   await page.click('#cards-add');
   await page.click('#cards-add');
+  await page.click('.card-select');
+  const singleSelectedCard = await page.evaluate(() => ({
+    count: document.querySelectorAll('.card-select:checked').length,
+    label: document.querySelector('#cards-selection-count')?.textContent || '',
+    rowOpen: document.querySelector('.card-row')?.open || false,
+  }));
+  if (singleSelectedCard.count !== 1 || singleSelectedCard.label !== '1 selected' || singleSelectedCard.rowOpen) {
+    fail(`single card checkbox could not be selected (${JSON.stringify(singleSelectedCard)})`);
+  }
+  await page.click('.card-select');
+  if (await page.locator('.card-select:checked').count()) {
+    fail('single card checkbox could not be deselected');
+  }
   await page.click('#cards-select-all');
   const selectedCards = await page.evaluate(() => ({
     count: document.querySelectorAll('.card-select:checked').length,
@@ -369,7 +449,7 @@ try {
   await page.click('[data-add="socials"]');
   await page.locator('.info-list[data-list="socials"] [data-field="label"]').fill('Discord');
   await page.locator('.info-list[data-list="socials"] [data-field="link"]').fill('https://discord.gg/nyx');
-  await page.click('button[data-panel="presets"]');
+  await page.click('button[data-panel="insert"]');
   await page.click('#presets-layouts > summary');
   await page.locator('.template[data-template="hime-darkred"] .template-actions button').click();
   const darkRed = await page.evaluate(() => {
@@ -431,6 +511,59 @@ try {
     fail(`bundled default profile was fetched ${bundledRequestsOnRestore} time(s) while restoring an import`);
   }
 
+  // Importing the same capture again refreshes the saved snapshot instead of
+  // filling the switcher with duplicate entries. Existing editor work stays
+  // attached to that profile.
+  await page.setInputFiles('#profile-file-info', 'preview/profiles/default.mhtml');
+  await page.waitForFunction(() =>
+    document.getElementById('profile-import-status')?.textContent.includes('Refreshed'),
+    { timeout: 30_000 }
+  ).catch(() => fail('re-importing the same profile did not refresh its snapshot'));
+  const refreshedSnapshot = await page.evaluate(() => ({
+    active: document.getElementById('profile-switcher')?.value || '',
+    imported: Array.from(document.querySelectorAll('#profile-switcher option'))
+      .filter((option) => option.value.startsWith('profile-'))
+      .map((option) => option.value),
+    keptCss: document.getElementById('css-input')?.value.includes('local-profile-sentinel') || false,
+  }));
+  if (refreshedSnapshot.active !== activeImportedId ||
+      refreshedSnapshot.imported.length !== 1 ||
+      refreshedSnapshot.imported[0] !== activeImportedId) {
+    fail(`same-file re-import created a duplicate (${JSON.stringify(refreshedSnapshot)})`);
+  }
+  if (!refreshedSnapshot.keptCss) fail('refreshing a saved profile discarded its editor changes');
+
+  // Browser storage is repaired as one logical metadata+file collection. An
+  // orphaned switcher record and the older of two matching captures disappear
+  // before app startup can offer either one.
+  const libraryRepair = await page.evaluate(async () => {
+    const capture = new File(['repair capture'], 'repair.mhtml', {
+      type: 'multipart/related',
+      lastModified: 123,
+    });
+    const base = {
+      label: 'Repair profile @repair',
+      filename: 'repair.mhtml',
+      data: {},
+      code: '',
+      sourceCode: '',
+      sourceKey: 'repair.mhtml|14|123',
+      cssEnabled: true,
+    };
+    await window.JaiProfileLibrary.put({ ...base, id: 'repair-old', createdAt: 1 }, capture);
+    await window.JaiProfileLibrary.put({ ...base, id: 'repair-new', createdAt: 2 }, capture);
+    await window.JaiProfileLibrary.update({ ...base, id: 'repair-orphan', sourceKey: 'orphan', createdAt: 3 });
+    const records = await window.JaiProfileLibrary.list();
+    const result = { ids: records.map((record) => record.id), removed: records.removedCount || 0 };
+    await Promise.all(['repair-old', 'repair-new', 'repair-orphan'].map((id) =>
+      window.JaiProfileLibrary.remove(id)));
+    return result;
+  });
+  if (!libraryRepair.ids.includes('repair-new') || libraryRepair.ids.includes('repair-old') ||
+      libraryRepair.ids.includes('repair-orphan') || libraryRepair.removed !== 2) {
+    fail(`saved-profile repair left duplicate or incomplete records (${JSON.stringify(libraryRepair)})`);
+  }
+
   // Link previews: the Open Graph image is served and the tags point at it.
   const og = await page.request.get(`${ORIGIN}/assets/og.png`);
   if (og.status() !== 200 || !(og.headers()["content-type"] || "").includes("image/png")) fail(`assets/og.png: ${og.status()} ${og.headers()["content-type"]}`);
@@ -458,7 +591,7 @@ try {
   if (ownConsoleErrors.length) fail(`console errors: ${ownConsoleErrors.join(" | ")}`);
   if (badResponses.length)     fail(`same-origin request failures: ${badResponses.join(", ")}`);
 
-  console.log(`panels: design=${counts.controls} presets=${counts.presets} templates=${counts.templates} selectors=${counts.reference} (data=${counts.referenceData})`);
+  console.log(`panels: layers=${counts.layers} blocks=${counts.blocks} presets=${counts.presets} templates=${counts.templates} selectors=${counts.reference} (data=${counts.referenceData})`);
   console.log(`preview: profile ${profileRes.status()}, mounted=${!failures.some((f) => f.includes("mounted"))}`);
   console.log(`changelog: ${changelogRes.status()}, dialog open=${dialog.open}, entries=${dialog.entries}`);
   console.log(`previews: og.png ${og.status()}, og:title="${ogTags.title}", twitter:card=${ogTags.card}`);
@@ -474,6 +607,361 @@ try {
 if (serverErr.trim()) console.log(`serve.py stderr:\n${serverErr.trim()}`);
 if (failures.length) { console.error("\nSMOKE TEST FAILED"); for (const f of failures) console.error(` - ${f}`); process.exit(1); }
 console.log("\nsmoke test passed");
+
+/*
+ * The canvas, driven the way a person drives it: real pointer presses in the
+ * preview, real keys. Each step checks the About Me document afterwards,
+ * because that — not the preview — is what gets pasted into JanitorAI.
+ */
+async function canvasChecks(page, preview) {
+  const code = () => page.evaluate(() => window.JaiStudio.code());
+  const markup = async () => (await code()).split('</style>').pop();
+  const selection = () => page.evaluate(() => {
+    const s = window.JaiCanvas.selection();
+    return s ? { kind: s.kind, jx: s.jx, name: s.name, target: s.target } : null;
+  });
+  const settle = (ms = 250) => page.waitForTimeout(ms);
+  const original = await code();
+  await page.evaluate(() => window.JaiStudio.setCode(window.JaiPayload.STARTER, 'test', { now: true }));
+
+  // Clicking a piece of JanitorAI's page selects it and fills the properties
+  // panel; setting a property writes a rule against its label class.
+  await preview.click('.pp-uc-title');
+  await page.waitForSelector('#inspector-selection:not([hidden])');
+  const picked = await page.evaluate(() => ({
+    title: document.querySelector('#inspector-selection .insp-title')?.textContent || '',
+    selector: document.getElementById('insp-selector')?.value || '',
+    layer: document.querySelector('#layers .layer.is-selected .layer-name')?.textContent || '',
+    placeholder: document.querySelector('#inspector-selection [data-prop="font-size"] input')?.placeholder || '',
+    pageHidden: document.getElementById('inspector-page').hidden,
+  }));
+  if (picked.title !== 'Username' || picked.selector !== '.pp-uc-title' || picked.layer !== 'Username' ||
+      !/px$/.test(picked.placeholder) || !picked.pageHidden) {
+    fail(`clicking the username did not select it (${JSON.stringify(picked)})`);
+  }
+  await page.fill('#inspector-selection [data-prop="font-size"] input', '41');
+  await page.keyboard.press('Enter');
+  await settle(450);
+  const styled = {
+    rule: /\.pp-uc-title \{\s*font-size: 41px;\s*\}/.test(await code()),
+    computed: await preview.evaluate(() => getComputedStyle(document.querySelector('.pp-uc-title')).fontSize),
+  };
+  if (!styled.rule || styled.computed !== '41px') fail(`a property did not reach the document and the preview (${JSON.stringify(styled)})`);
+
+  // Blocks go in by click (after the selection, or at the end of About Me)…
+  await page.click('.rail button[data-panel="insert"]');
+  await page.click('.insert-tile[data-block="heading"]');
+  await settle();
+  await page.click('.insert-tile[data-block="text"]');
+  await settle();
+  await page.click('.insert-tile[data-block="box"]');
+  await settle();
+  const inserted = await markup();
+  const order = (text) => ['jx-heading', 'jx-text', 'jx-box', 'jx-button']
+    .filter((cls) => text.includes(cls)).sort((a, b) => text.indexOf(a) - text.indexOf(b)).join(',');
+  if (order(inserted) !== 'jx-heading,jx-text,jx-box') fail(`click-to-insert order is ${order(inserted)}`);
+  if ((await selection())?.name !== 'Box') fail('the inserted block was not selected');
+  if (await page.evaluate(() => window.JaiStudio.issues().length)) fail('inserted blocks are not lint-clean');
+
+  // …or by dragging a tile onto the canvas: here, into the empty Box.
+  const tile = await page.locator('.insert-tile[data-block="button"]').boundingBox();
+  const box = await preview.locator('.jx-box').boundingBox();
+  await page.mouse.move(tile.x + tile.width / 2, tile.y + tile.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(tile.x + 60, tile.y + 30, { steps: 4 });
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 10 });
+  await settle(120);
+  const dropShown = await preview.evaluate(() => document.getElementById('sim-drop').style.display === 'block');
+  await page.mouse.up();
+  await settle();
+  if (!dropShown) fail('no drop indicator while dragging a block over the canvas');
+  if (!/<div class="jx-box jx-\w+"><a class="jx-button jx-\w+"[^>]*>Button<\/a><\/div>/.test(await markup())) {
+    fail(`dragging a block into a container did not nest it (${await markup()})`);
+  }
+
+  // Dragging an element on the canvas moves it in the document.
+  const heading = await preview.locator('.jx-heading').boundingBox();
+  const text = await preview.locator('.jx-text').boundingBox();
+  await page.mouse.move(heading.x + 30, heading.y + heading.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(heading.x + 40, heading.y + heading.height / 2 + 10, { steps: 3 });
+  await page.mouse.move(text.x + 40, text.y + text.height - 3, { steps: 8 });
+  await page.mouse.up();
+  await settle();
+  if (order(await markup()) !== 'jx-text,jx-heading,jx-box,jx-button') {
+    fail(`dragging the heading below the text gave ${order(await markup())}`);
+  }
+  if ((await selection())?.name !== 'Heading') fail('the moved element lost the selection');
+
+  // Double-click retypes text in place, and the result is escaped markup.
+  const moved = await preview.locator('.jx-heading').boundingBox();
+  await page.mouse.dblclick(moved.x + 40, moved.y + moved.height / 2);
+  await settle(150);
+  await page.keyboard.type('Rock & roll <3');
+  await page.keyboard.press('Enter');
+  await settle();
+  if (!(await markup()).includes('>Rock &amp; roll &lt;3</h2>')) fail(`retyped text was not written back (${await markup()})`);
+
+  // The corner handle resizes; the size lands on the element's own class.
+  await preview.click('.jx-box', { position: { x: 5, y: 5 } });
+  await settle(150);
+  const handle = await preview.locator('sim-handle[data-handle="se"]').boundingBox();
+  await page.mouse.move(handle.x + 2, handle.y + 2);
+  await page.mouse.down();
+  await page.mouse.move(handle.x - 60, handle.y + 40, { steps: 6 });
+  await page.mouse.up();
+  await settle(450);
+  const sized = /\.(jx-\w+) \{\s*width: \d+px;\s*height: \d+px;\s*\}/.exec(await code());
+  if (!sized || !isInstanceClass(sized[1])) fail('resizing did not write width and height to the element\'s own class');
+
+  // Duplicate keeps the look but not the identity; Delete and Undo do what
+  // they say, one step at a time.
+  await page.keyboard.press('Control+d');
+  await settle();
+  const boxes = await page.evaluate(() => {
+    const classes = [...document.getElementById('preview').contentDocument.querySelectorAll('.jx-box')]
+      .map((node) => [...node.classList].filter((c) => c !== 'jx-box').join(' '));
+    return { count: classes.length, distinct: new Set(classes).size };
+  });
+  if (boxes.count !== 2 || boxes.distinct !== 2) fail(`duplicate did not make an independent copy (${JSON.stringify(boxes)})`);
+  const widths = await preview.evaluate(() =>
+    [...document.querySelectorAll('.jx-box')].map((node) => Math.round(node.getBoundingClientRect().width)));
+  if (widths[0] !== widths[1]) fail(`the duplicate lost its styling (${widths.join(' vs ')})`);
+  await page.keyboard.press('Delete');
+  await settle();
+  if (await preview.locator('.jx-box').count() !== 1) fail('Delete did not remove the selected element');
+  await page.keyboard.press('Control+z');
+  await settle();
+  if (await preview.locator('.jx-box').count() !== 2) fail('Undo did not bring the deleted element back');
+
+  // Layers lists the creator's elements under About Me and selects from there.
+  await page.click('.rail button[data-panel="layers"]');
+  const customRows = await page.locator('#layers .layer.is-custom').count();
+  if (customRows < 5) fail(`Layers shows ${customRows} of the creator's elements`);
+  await page.locator('#layers .layer.is-custom', { hasText: 'Rock & roll' }).click();
+  await settle();
+  if ((await selection())?.name !== 'Heading') fail('selecting from Layers did not select the element');
+
+  // Right-click offers to add something exactly there. The menu is the
+  // studio's own, drawn outside the (scaled) preview.
+  const rock = await preview.locator('.jx-heading').boundingBox();
+  await page.mouse.click(rock.x + 30, rock.y + rock.height - 3, { button: 'right' });
+  await page.waitForSelector('.menu');
+  await page.locator('.menu .menu-item', { hasText: 'Add here' }).hover();
+  await page.locator('.menu').nth(1).locator('.menu-item', { hasText: 'Small label' }).waitFor({ state: 'attached', timeout: 2000 })
+    .catch(() => {});
+  await page.locator('.menu').nth(1).locator('.menu-item', { hasText: /^Text$/ }).first().click();
+  await settle();
+  if (await page.locator('.menu').count()) fail('the right-click menu stayed open after choosing');
+  const afterMenu = await markup();
+  if (!/<\/h2>\s*<p class="jx-text jx-\w+">/.test(afterMenu)) {
+    fail(`"Add here → Text" did not add a text block after the heading (${afterMenu})`);
+  }
+
+  // A shape, and an animation applied to it: one declaration on its own class,
+  // plus the keyframes it names, once.
+  await page.click('.rail button[data-panel="insert"]');
+  await page.click('.insert-tile[data-block="circle"]');
+  await settle();
+  await page.click('#presets-animations > summary');
+  await page.click('#animation-list [data-animation="pulse"]');
+  await settle(450);
+  const animated = await page.evaluate(() => {
+    const text = window.JaiStudio.code();
+    return {
+      keyframes: (text.match(/@keyframes jx-pulse/g) || []).length,
+      rule: /\.jx-\w+ \{\s*animation: jx-pulse[^}]*\}/.test(text),
+      on: document.querySelector('#animation-list [data-animation="pulse"]').classList.contains('is-on'),
+      clean: window.JaiStudio.issues().length === 0,
+    };
+  });
+  const animationName = await preview.evaluate(() => getComputedStyle(document.querySelector('.jx-circle')).animationName);
+  if (animated.keyframes !== 1 || !animated.rule || !animated.on || !animated.clean || animationName !== 'jx-pulse') {
+    fail(`animation was not applied to the selection (${JSON.stringify(animated)}, computed ${animationName})`);
+  }
+  await page.click('#animation-list [data-animation="pulse"]');
+  await settle(450);
+  if (/animation: jx-pulse/.test(await code())) fail('clicking an applied animation did not take it off');
+  await page.click('#presets-animations > summary');
+
+  // Every element in the library survives JanitorAI: put each into a fresh
+  // document the way inserting does, and the linter must have nothing to say.
+  // Also: tokens all resolved, ids unique, and every shared class named (an
+  // unnamed one would be styled in place of the element's own class) and styled.
+  const library = await page.evaluate(() => {
+    const B = window.JaiBlocks, L = window.JaiLint, P = window.JaiPayload, M = window.JaiMarkup;
+    const problems = [];
+    for (const block of B.list) {
+      const given = B.tokens(block, P.STARTER);
+      const html = B.instantiate(block, P.STARTER, given);
+      const doc = P.editCss(P.STARTER + html + '\n', (css) => B.addCss(css, block, given));
+      const parsed = M.parse(doc);
+      const ids = parsed.nodes.map((n) => M.attrValue(n, 'id')).filter(Boolean);
+      const shared = new Set();
+      parsed.nodes.forEach((n) => n.classes.forEach((c) => { if (!M.isInstanceClass(c)) shared.add(c); }));
+      const css = P.allCss(doc);
+      const found = [
+        ...L.analysePayload(doc).map((i) => i.title),
+        ...(doc.match(/\{[tu]\d*\}/g) || []).map((t) => 'unresolved ' + t),
+        ...(ids.length === new Set(ids).size ? [] : ['duplicate ids']),
+        ...[...shared].filter((c) => !B.names[c]).map((c) => 'unnamed class ' + c),
+        ...[...shared].filter((c) => !css.includes('.' + c) && !/-(name|text)$/.test(c)).map((c) => 'unstyled class ' + c),
+      ];
+      if (found.length) problems.push(block.id + ': ' + found.join('; '));
+    }
+    return { count: B.list.length, problems, animations: B.animations.map((a) => a.id) };
+  });
+  if (library.problems.length) fail(`library elements are not JanitorAI-safe:\n    ${library.problems.join('\n    ')}`);
+  if (library.count < 40) fail(`the element library shrank to ${library.count}`);
+  const motionTile = await page.evaluate(() => !!document.querySelector('#insert-list .insert-tile[data-block="tabs"]') &&
+    !!document.querySelector('#animation-list [data-animation="bounce"]'));
+  if (!motionTile) fail('the showcase elements and animations are not in the Insert panel');
+
+  // A template piece dragged onto the canvas lands where it was dropped, and
+  // brings the stylesheet it depends on.
+  await page.click('#presets-layouts > summary');
+  await page.locator('.template[data-template="hime-darkred"] .template-parts > summary').click();
+  const piece = page.locator('.part.is-draggable[data-part="hime-darkred-status"]');
+  await piece.scrollIntoViewIfNeeded();
+  const pieceBox = await piece.boundingBox();
+  const target = await preview.locator('.jx-heading').boundingBox();
+  await page.mouse.move(pieceBox.x + 40, pieceBox.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(pieceBox.x + 90, pieceBox.y + 30, { steps: 4 });
+  await page.mouse.move(target.x + 40, target.y + 3, { steps: 10 });
+  await settle(120);
+  await page.mouse.up();
+  await settle(500);
+  const placed = await page.evaluate(() => {
+    const text = window.JaiStudio.code();
+    return {
+      before: text.indexOf('status-box') !== -1 && text.indexOf('class="status-box"') < text.indexOf('class="jx-heading'),
+      css: window.JaiPayload.allCss(text).includes('.status-box'),
+      on: document.querySelector('.part[data-part="hime-darkred-status"]').classList.contains('is-on'),
+    };
+  });
+  if (!placed.before || !placed.css || !placed.on) fail(`dragging a template piece failed (${JSON.stringify(placed)})`);
+  await page.locator('.template[data-template="hime-darkred"] .template-parts > summary').click();
+  await page.click('#presets-layouts > summary');
+
+  await linkedLayoutChecks(page, preview, settle);
+
+  await page.evaluate((text) => {
+    window.JaiCanvas.clear();
+    window.JaiStudio.setCode(text, 'test', { now: true });
+  }, original);
+}
+
+/*
+ * A layout generated from Profile data is linked to it: rebuilt whenever that
+ * changes. The canvas does not refuse edits inside one — it unlinks the layout
+ * first so the edit stays, says so, and Undo links it back.
+ */
+async function linkedLayoutChecks(page, preview, settle) {
+  const linked = await page.evaluate(() => {
+    const M = window.JaiMarkup;
+    const source = window.JaiHardcode.apply('<style>\n</style>\n<p>mine</p>',
+      [{ name: 'Alpha', link: 'https://janitorai.com/characters/alpha' }], { style: 'none' });
+    const parsed = M.parse(source);
+    const root = parsed.nodes.find((n) => n.locked);
+    const beside = M.insert(source, '<img src="https://example.com/x.png">', root.id, 'after');
+    const added = M.parse(beside.payload).nodes[beside.id];
+    const free = M.unlink(source);
+    window.JaiStudio.setCode(source, 'test', { now: true });
+    return {
+      own: parsed.nodes.filter((n) => !n.locked).map((n) => n.tag).join(','),
+      generated: parsed.nodes.filter((n) => n.locked).length,
+      marked: (M.tagged(source).match(/data-jx-lock/g) || []).length,
+      besideStaysOutside: added.tag === 'img' && !added.locked && M.isLinked(beside.payload),
+      insideNeedsUnlink: M.landsInLock(parsed, root.id, 'inside') && !M.landsInLock(parsed, root.id, 'after'),
+      unlinked: !free.includes('@jai:hardcode') && free.includes('cs-shell') &&
+        M.parse(free).nodes.length === parsed.nodes.length && !M.parse(free).nodes.some((n) => n.locked),
+    };
+  });
+  if (linked.own !== 'p' || !linked.generated || linked.marked !== linked.generated) {
+    fail(`generated markup is not marked as linked (${JSON.stringify(linked)})`);
+  }
+  if (!linked.besideStaysOutside || !linked.insideNeedsUnlink || !linked.unlinked) {
+    fail(`linked-layout placement or unlinking is wrong (${JSON.stringify(linked)})`);
+  }
+
+  // Deleting something inside the linked layout: it goes, the layout unlinks.
+  await settle(300);
+  await preview.click('.cs-slot-live');
+  await settle();
+  const picked = await page.evaluate(() => {
+    const s = window.JaiCanvas.selection();
+    return s && { locked: s.locked, jx: s.jx };
+  });
+  if (!picked || !picked.locked) fail(`a linked element was not selected as linked (${JSON.stringify(picked)})`);
+  // Whatever part of the tile was under the pointer is what goes; count elements.
+  const slots = () => page.evaluate(() => window.JaiStudio.markup().nodes.length);
+  const slotsBefore = await slots();
+  await page.keyboard.press('Delete');
+  await settle();
+  const after = await page.evaluate(() => ({
+    linked: window.JaiMarkup.isLinked(window.JaiStudio.code()),
+    toast: document.getElementById('toast').textContent,
+  }));
+  if (after.linked || await slots() >= slotsBefore || !/Unlinked/.test(after.toast)) {
+    fail(`deleting inside a linked layout did not unlink it (${JSON.stringify(after)}, ${await slots()} of ${slotsBefore} elements left)`);
+  }
+  await page.keyboard.press('Control+z');
+  await settle();
+  const relinked = await page.evaluate(() => window.JaiMarkup.isLinked(window.JaiStudio.code()));
+  if (!relinked || await slots() !== slotsBefore) fail('Undo did not link the layout back');
+
+  // Duplicating Tabs: the copy has to answer to its own anchors. If the ids were
+  // left alone, both sets would share `#id`s and switch together (or not at all).
+  await page.evaluate(() => {
+    window.JaiStudio.setCode(window.JaiPayload.STARTER, 'test', { now: true });
+    window.JaiCanvas.insertBlock(window.JaiBlocks.get('tabs'), null, 'inside');
+  });
+  await settle(500);
+  await page.evaluate(() => {
+    const tabs = window.JaiMarkup.parse(window.JaiStudio.code()).nodes.find((n) => n.classes.includes('jx-tabs'));
+    window.JaiCanvas.selectCustom(tabs.id);
+  });
+  await settle(500);
+  await page.evaluate(() => window.JaiCanvas.run('duplicate'));
+  await settle(600);
+  const copied = await page.evaluate(() => {
+    const M = window.JaiMarkup, code = window.JaiStudio.code(), parsed = M.parse(code);
+    const sets = parsed.nodes.filter((n) => n.classes.includes('jx-tabs'));
+    const ids = parsed.nodes.map((n) => M.attrValue(n, 'id')).filter(Boolean);
+    const own = sets.map((set) => parsed.nodes.filter((n) => n.parent === set.id && n.classes.includes('jx-tabs-key')).map((n) => M.attrValue(n, 'id')));
+    const css = window.JaiPayload.allCss(code);
+    return {
+      sets: sets.length,
+      unique: ids.length === new Set(ids).size,
+      disjoint: own.length === 2 && !own[0].some((id) => own[1].includes(id)),
+      ruled: own.every((keys) => keys.slice(1).every((id) => css.includes('#' + id + ':target'))),
+    };
+  });
+  if (copied.sets !== 2 || !copied.unique || !copied.disjoint || !copied.ruled) {
+    fail(`a duplicated Tabs set does not have anchors and rules of its own (${JSON.stringify(copied)})`);
+  }
+  await page.click('button[title^="Preview"]');
+  await settle(400);
+  const pickTab = async (set, n) => {
+    await preview.locator('.jx-tabs').nth(set).locator('.jx-tabs-tab-' + n).click();
+    await settle(250);
+    return preview.evaluate(() => [...document.querySelectorAll('.jx-tabs')].map((t) =>
+      [...t.querySelectorAll('.jx-tabs-pane')].map((p) => (getComputedStyle(p).display === 'block' ? 1 : 0)).join('')).join(' '));
+  };
+  // Each set answers to its own anchors. A page has one :target at a time, so
+  // opening a tab in one set sends the other back to its first tab — that is the
+  // technique's limit, and what the Tabs hint tells the creator.
+  const second = await pickTab(1, 3);
+  const first = await pickTab(0, 2);
+  if (second !== '100 001' || first !== '010 100') {
+    fail(`a duplicated Tabs set does not follow its own links (after set 2 → tab 3: "${second}", then set 1 → tab 2: "${first}")`);
+  }
+}
+
+/* The studio's own per-element classes carry a digit; a block's shared class
+ * (jx-text) never does. Mirrors JaiMarkup.isInstanceClass. */
+function isInstanceClass(cls) { return /^jx-(?=[a-z0-9]*\d)[a-z0-9]{4}$/.test(cls); }
 
 function waitForPort(port, timeoutMs) {
   const deadline = Date.now() + timeoutMs;

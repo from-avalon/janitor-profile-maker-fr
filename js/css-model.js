@@ -269,7 +269,9 @@
    */
   function setDeclaration(css, selector, prop, value, opts) {
     opts = opts || {};
-    var rule = findRule(css, selector, opts);
+    // `opts.rule` is a node from parse(css): the caller has already chosen
+    // which of several matching rules the edit belongs in.
+    var rule = opts.rule || findRule(css, selector, opts);
     var remove = value === null || value === undefined || value === '';
 
     if (!rule) {

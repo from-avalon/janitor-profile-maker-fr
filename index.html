@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>JanitorAI Profile CSS Studio</title>
-<meta name="description" content="A live simulator for JanitorAI profile themes: the real profile page with your CSS injected where JanitorAI injects it. About 130 visual controls, presets, and a linter that knows what JanitorAI strips.">
+<meta name="description" content="A live simulator for JanitorAI profile themes: the real profile page with your CSS injected where JanitorAI injects it. Click anything to restyle it, drag in new elements, and a linter that knows what JanitorAI strips.">
 <link rel="canonical" href="https://tools.from-avalon.com/janitor-profile-maker/">
-<meta name="theme-color" content="#0e0f13">
+<meta name="theme-color" content="#0b0b0d">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <!-- Link previews (Discord, Slack, Twitter, iMessage). og:image and og:url must be
      absolute, so these name the deployed address; the embed in next/ is an iframe
@@ -24,7 +24,7 @@
 <meta name="twitter:title" content="JanitorAI Profile CSS Studio">
 <meta name="twitter:description" content="Design your JanitorAI profile theme with a live preview of the real page.">
 <meta name="twitter:image" content="https://tools.from-avalon.com/janitor-profile-maker/assets/og.png">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23a855f7'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='18' font-weight='700' text-anchor='middle' fill='%23140620'%3E%7B%7D%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23e11d36'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='18' font-weight='700' text-anchor='middle' fill='%23120406'%3E%7B%7D%3C/text%3E%3C/svg%3E">
 <!-- Google Analytics (GA4). Page views plus the studio's own named events
      (preset_applied, template_applied, css_copied, …) — never the creator's CSS.
      content_group identifies this tool within the shared Avalon Tools stream. -->
@@ -42,6 +42,9 @@
 </head>
 <body>
 
+<!-- The studio is laid out like a design tool: what the page is made of on the
+     left, the page itself in the middle, the selected element's properties on
+     the right. The About Me code is one click away in the dock under the canvas. -->
 <header class="topbar">
   <div class="brand">
     <span class="brand-mark">{ }</span>
@@ -51,52 +54,106 @@
     </div>
   </div>
 
+  <div class="topbar-center">
+    <div class="seg" id="mode-switch" role="group" aria-label="Canvas mode">
+      <button type="button" data-mode="design" class="is-active" title="Design — click to select, drag to move, double-click to edit text (V)">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 2.5l9 4.5-4 1.5-1.5 4z"/></svg>
+        <span>Design</span>
+      </button>
+      <button type="button" data-mode="preview" title="Preview — links, menus and hover behave like the real page (P)">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" aria-hidden="true"><path d="M5 3.5v9l7-4.5z"/></svg>
+        <span>Preview</span>
+      </button>
+    </div>
+
+    <span class="topbar-sep" aria-hidden="true"></span>
+
+    <select id="viewport-select" class="chip-select" aria-label="Preview width" title="Preview width — never touches your code">
+      <option value="wide">Wide · 1920</option>
+      <option value="desktop" selected>Desktop · 1440</option>
+      <option value="laptop">Laptop · 1200</option>
+      <option value="tablet">Tablet · 768</option>
+      <option value="mobile">Mobile · 390</option>
+      <option value="custom">Custom…</option>
+    </select>
+    <input type="number" id="custom-width" class="chip-input" min="320" max="3840" step="10" value="1600"
+           title="Custom preview width in CSS pixels" aria-label="Custom preview width" hidden>
+
+    <div class="zoom" role="group" aria-label="Zoom">
+      <button type="button" id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+      <button type="button" id="zoom-label" title="Click to switch between fit-to-pane and 100%. Ctrl/Cmd + wheel over the canvas also zooms.">Fit</button>
+      <button type="button" id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+    </div>
+  </div>
+
   <div class="topbar-actions">
-    <button type="button" class="btn btn-ghost workspace-tool" data-workspace-panel="view">View</button>
-    <button type="button" class="btn btn-ghost workspace-tool" data-workspace-panel="reference">Selectors</button>
-    <button type="button" class="btn btn-ghost workspace-tool" data-workspace-panel="help">Help</button>
-    <button type="button" id="inspect-toggle" class="btn btn-ghost" title="Click any element in the preview to get its selector">
-      Select
+    <button type="button" id="undo" class="icon-btn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
+      <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 3.5l-3 3 3 3"/><path d="M2.5 6.5H9a3.5 3.5 0 010 7H6.5"/></svg>
     </button>
-    <button type="button" id="show-code" class="btn btn-ghost" title="Open the generated About Me code">Code</button>
-    <button type="button" id="changelog-toggle" class="btn btn-ghost" title="Recent updates and changes to the studio">Changelog<span class="new-dot" id="changelog-dot" hidden></span></button>
-    <button type="button" id="hardcoding-toggle" class="btn btn-ghost" title="Write character cards straight into your About Me">Hard coding</button>
+    <button type="button" id="redo" class="icon-btn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled>
+      <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 3.5l3 3-3 3"/><path d="M13.5 6.5H7a3.5 3.5 0 000 7h2.5"/></svg>
+    </button>
+    <button type="button" id="toggle-code" class="btn btn-ghost" title="Show the About Me code under the canvas">
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 4L2 8l3.5 4M10.5 4L14 8l-3.5 4"/></svg>
+      <span>Code</span>
+    </button>
+    <button type="button" id="copy-css" class="btn btn-primary" title="Copy the whole About Me document, ready to paste into JanitorAI">Copy for About Me</button>
   </div>
 </header>
 
-<main class="layout code-hidden">
+<main class="layout">
 
-  <!-- ------------------------------------------------------------ sidebar -->
-  <aside class="sidebar">
-    <button type="button" class="panel-toggle panel-toggle-sidebar" id="toggle-sidebar" title="Hide library" aria-label="Hide library">
-      <span aria-hidden="true">‹</span><span class="panel-toggle-text">Library</span>
+  <!-- ---------------------------------------------------------------- rail -->
+  <nav class="rail" role="tablist" aria-label="Panels">
+    <button type="button" role="tab" data-panel="layers" class="is-active" title="Layers" aria-label="Layers">
+      <svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" aria-hidden="true"><path d="M8 2L2 5l6 3 6-3z"/><path d="M2 8l6 3 6-3M2 11l6 3 6-3"/></svg>
     </button>
-    <div class="panel-resizer panel-resizer-sidebar" id="resize-sidebar" role="separator" aria-orientation="vertical" aria-label="Resize library"></div>
-    <nav class="sidebar-tabs" role="tablist">
-      <button type="button" role="tab" data-panel="presets" class="is-active">Presets</button>
-      <button type="button" role="tab" data-panel="info" title="Profile information">Profile</button>
-      <button type="button" role="tab" data-panel="profile">Settings</button>
-    </nav>
+    <button type="button" role="tab" data-panel="insert" title="Insert — elements, sections, styles and animations" aria-label="Insert">
+      <svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" rx="2"/><path d="M8 5.5v5M5.5 8h5"/></svg>
+    </button>
+    <button type="button" role="tab" data-panel="info" title="Profile data — what hardcoded layouts are built from" aria-label="Profile data">
+      <svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="6" r="2.5"/><path d="M3 13.5c.6-2.3 2.6-3.5 5-3.5s4.4 1.2 5 3.5"/></svg>
+    </button>
+    <span class="rail-spacer"></span>
+    <button type="button" role="tab" data-panel="help" title="Help" aria-label="Help">
+      <svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M6.3 6.4a1.8 1.8 0 113 1.3c-.7.5-1.3.9-1.3 1.8"/><path d="M8 11.6v.1"/></svg>
+    </button>
+    <button type="button" id="changelog-toggle" title="What's new" aria-label="What's new">
+      <svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5l1.5 3.5 3.5 1.5-3.5 1.5L8 12.5 6.5 9 3 7.5 6.5 6z"/></svg>
+      <span class="new-dot" id="changelog-dot" hidden></span>
+    </button>
+  </nav>
+
+  <!-- ------------------------------------------------------------- sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="panel-resizer panel-resizer-sidebar" id="resize-sidebar" role="separator" aria-orientation="vertical" aria-label="Resize panel"></div>
+    <div class="pane-head">
+      <strong id="sidebar-title">Layers</strong>
+    </div>
 
     <div class="sidebar-body">
-      <section class="panel" data-workspace-panel="design" hidden>
-        <div class="inspector-selection" id="inspector-selection">
-          <span class="inspector-selection-label">Nothing selected</span>
-          <button type="button" class="btn btn-ghost btn-sm" id="inspector-show-all" hidden>Show all</button>
-        </div>
-        <div class="panel-search">
-          <input type="search" id="control-search" placeholder="Search controls…" autocomplete="off">
-        </div>
-        <div id="control-groups"></div>
+      <section class="panel panel-flush" data-panel="layers">
+        <div id="layers" class="layers" role="tree" aria-label="Page layers"></div>
       </section>
 
-      <section class="panel" data-panel="presets">
+      <!-- Everything that can be added to a profile, in one place. Elements and
+           sections are things: they are dragged to a spot on the canvas. Styles
+           and animations are looks: they are applied, and taken off again. -->
+      <section class="panel" data-panel="insert" hidden>
+        <details class="preset-section" id="insert-elements" open>
+          <summary>
+            <span class="preset-section-name">Elements</span>
+          </summary>
+          <p class="panel-note">Drag onto the canvas, or click to add after the selection. Right-click the canvas to add one exactly there.</p>
+          <div id="insert-list"></div>
+        </details>
+
         <details class="preset-section" id="presets-layouts">
           <summary>
-            <span class="preset-section-name">Layouts</span>
+            <span class="preset-section-name">Sections</span>
             <span class="preset-section-count" id="advanced-count"></span>
           </summary>
-          <p class="panel-note">Complete profile designs. <b>Profile layouts</b> are built from your Profile information; community templates can be added whole or part by part.</p>
+          <p class="panel-note">Ready-made pieces of whole profile designs. Drag a piece onto the canvas to place it, or add a design whole. The ones <b>built from Profile data</b> fill themselves in from your characters.</p>
           <div id="layout-list"></div>
           <div id="template-list"></div>
         </details>
@@ -106,16 +163,25 @@
             <span class="preset-section-name">Styles</span>
             <span class="preset-section-count" id="basic-count"></span>
           </summary>
-          <p class="panel-note">Quick colour and type changes that sit on top of any layout.</p>
+          <p class="panel-note">Looks for the whole profile — colour schemes, backgrounds, accents. Click to apply; click again to take it off.</p>
           <div id="preset-list"></div>
+        </details>
+
+        <details class="preset-section" id="presets-animations">
+          <summary>
+            <span class="preset-section-name">Animations</span>
+            <span class="preset-section-count" id="animation-count"></span>
+          </summary>
+          <p class="panel-note">Select something on the canvas, then pick a motion for it. Click it again to take it off.</p>
+          <div id="animation-list" class="insert-grid"></div>
         </details>
 
         <details class="preset-section" id="presets-mine">
           <summary>
-            <span class="preset-section-name">My presets</span>
+            <span class="preset-section-name">Saved</span>
             <span class="preset-section-count" id="custom-count"></span>
           </summary>
-          <p class="panel-note">Select code in the editor and save it as a part, then group parts into your own presets.</p>
+          <p class="panel-note">Your own pieces. Open <b>Code</b>, select some of it and save it as a part, then group parts into presets.</p>
           <button type="button" id="new-custom-preset" class="btn btn-ghost btn-sm">New preset</button>
           <div id="custom-preset-list"></div>
         </details>
@@ -173,6 +239,18 @@
             </div>
             <div id="cards-list"></div>
             <button type="button" id="cards-add" class="btn btn-ghost btn-sm info-add">Add character</button>
+            <details class="hardcode-sections" id="hardcode-sections">
+              <summary>
+                <span>Appearances in current code</span>
+                <span class="info-count" id="hardcode-sections-count"></span>
+              </summary>
+              <div class="hardcode-sections-body">
+                <p class="field-hint">Select characters above, then choose every hardcoded section they should be added to.</p>
+                <div id="hardcode-sections-list"></div>
+                <button type="button" id="hardcode-add-selected" class="btn btn-primary btn-sm" disabled>Add selected to sections</button>
+                <p class="field-hint" id="hardcode-sections-hint"></p>
+              </div>
+            </details>
           </div>
         </details>
 
@@ -268,109 +346,56 @@
         </div>
       </section>
 
-      <section class="panel" data-panel="profile" hidden>
-        <p class="panel-note">Preview-only settings. Your code stays in About Me.</p>
-        <label class="switch" title="Strip everything JanitorAI does not allow before rendering">
-          <input type="checkbox" id="enforce" checked>
-          <span>Enforce JAI rules</span>
-        </label>
-        <div class="profile-import">
-          <strong>Profile snapshots</strong>
-          <p>Import saved profiles, then switch between them without replacing your other work.</p>
-          <label class="field">Preview profile
-            <select id="profile-switcher" disabled><option>Loading Sweepercom…</option></select>
-          </label>
-          <div class="profile-library-actions">
-          <label class="btn btn-ghost btn-sm profile-import-button" for="profile-file">Choose profile file</label>
-          <input id="profile-file" type="file" accept=".mhtml,.mht,.html,.htm,text/html,multipart/related" hidden>
-            <button type="button" id="remove-profile" class="btn btn-ghost btn-sm" hidden>Remove snapshot</button>
-          </div>
-          <label class="switch profile-library-switch">
-            <input type="checkbox" id="keep-default-profile" checked>
-            <span>Keep Sweepercom in the switcher</span>
-          </label>
-          <button type="button" id="profile-css-toggle" class="btn btn-ghost btn-sm" disabled>Hide custom CSS</button>
-          <p class="field-hint">Hiding CSS keeps the About Me content in place and shows the captured profile with JanitorAI's base styling.</p>
-          <p class="profile-import-status" id="profile-import-status" aria-live="polite">Loading your profile…</p>
-        </div>
-        <div id="profile-fields"></div>
-      </section>
-
-      <section class="panel" data-workspace-panel="view" hidden>
-        <p class="panel-note">Preview width only — never touches your code.</p>
-        <div class="viewport-switch" role="group" aria-label="Preview width">
-          <button type="button" data-viewport="wide">1920</button>
-          <button type="button" data-viewport="desktop" class="is-active">1440</button>
-          <button type="button" data-viewport="laptop">1200</button>
-          <button type="button" data-viewport="tablet">Tablet</button>
-          <button type="button" data-viewport="mobile">Mobile</button>
-          <button type="button" data-viewport="custom">Custom</button>
-          <input type="number" id="custom-width" min="320" max="3840" step="10" value="1600"
-                 title="Custom preview width in CSS pixels" hidden>
-        </div>
-      </section>
-
-      <section class="panel" data-workspace-panel="reference" hidden>
-        <div class="panel-search">
-          <input type="search" id="reference-search" placeholder="Search 418 elements…" autocomplete="off">
-        </div>
-        <p class="panel-note">Use label selectors. <code>.css-…</code> IDs change when JanitorAI updates.</p>
-        <div id="reference-list"></div>
-      </section>
-
-      <section class="panel help-panel" data-workspace-panel="help" hidden>
-        <h2>Help</h2>
-        <p class="panel-note">A quick guide to the studio.</p>
-
+      <section class="panel help-panel" data-panel="help" hidden>
         <details open>
           <summary>Start here</summary>
           <ol>
-            <li>Set a preview width.</li>
-            <li>Choose a preset, template, or edit the code.</li>
-            <li>Copy everything from About Me into JanitorAI.</li>
+            <li>Click anything on the canvas and restyle it on the right.</li>
+            <li>Drag elements in from <b>Insert</b>, or start from a template.</li>
+            <li><b>Copy for About Me</b>, then paste into JanitorAI.</li>
           </ol>
         </details>
 
         <details>
-          <summary>About Me</summary>
-          <p>JanitorAI themes live in your About Me field. It can contain HTML and <code>&lt;style&gt;</code>; copy the entire editor, not only the CSS.</p>
+          <summary>Working on the canvas</summary>
+          <p><b>Click</b> selects. <b>Double-click</b> retypes text. <b>Drag</b> one of your own elements to move it; a line shows where it will land. The corner handles resize. <b>Right-click</b> to add something exactly there, or for everything else.</p>
+          <p><b>Images</b> have to be online: drag one in from another tab, paste its link, or add an Image and paste the address on the right.</p>
+          <p><kbd>Del</kbd> removes, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicates, <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> reorders, <kbd>Esc</kbd> selects the parent, <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes.</p>
+          <p>Switch to <b>Preview</b> (top bar) when you want links, hover and CSS-only menus to behave like the real page.</p>
         </details>
 
         <details>
-          <summary>Layouts &amp; styles</summary>
-          <p>Profile layouts are built from your Profile information, so importing your profile fills them in. Community templates can be added whole or one part at a time; anything a part depends on comes with it.</p>
+          <summary>About Me</summary>
+          <p>JanitorAI themes live in your About Me field. It can contain HTML and <code>&lt;style&gt;</code>; the studio writes both for you. <b>Code</b> in the top bar shows the document — copy all of it, not only the CSS.</p>
+        </details>
+
+        <details>
+          <summary>Sections, styles &amp; animations</summary>
+          <p>All under <b>Insert</b>. <b>Sections</b> are pieces of whole profile designs: drag one onto the canvas, or add a design whole; anything a piece depends on comes with it. <b>Styles</b> apply to the whole profile. <b>Animations</b> apply to whatever is selected.</p>
+          <p>Layouts built from your Profile data keep themselves up to date with it. Edit one by hand on the canvas and it is unlinked, so your changes stay — Ctrl+Z links it back.</p>
         </details>
 
         <details>
           <summary>Preview &amp; rules</summary>
-          <p>The preview uses captured JanitorAI markup. Keep “Enforce JAI rules” on to see what JanitorAI will keep; blocked code is listed below the editor.</p>
+          <p>The preview uses captured JanitorAI markup. Keep “Enforce JAI rules” on to see what JanitorAI will keep; anything blocked is listed in the status bar and beside the code.</p>
         </details>
 
         <details>
           <summary>Using your profile</summary>
-          <p>Open your JanitorAI profile, press <b>Ctrl + S</b>, and save it as <b>Webpage, Single File</b> (<code>.mhtml</code>). Import that file from the Profile or Settings tab; it fills in your Profile information and stays in your browser.</p>
+          <p>Open your JanitorAI profile, press <b>Ctrl + S</b>, and save it as <b>Webpage, Single File</b> (<code>.mhtml</code>). Import that file from the Profile data panel, or from the Page panel on the right when nothing is selected; it stays in your browser.</p>
         </details>
 
         <details>
           <summary>Need help?</summary>
-          <p>For help or bug reports, message <b>eslezer</b> on Discord. A screenshot and a copy of the warning below the editor help pinpoint the issue.</p>
+          <p>For help or bug reports, message <b>eslezer</b> on Discord. A screenshot and a copy of the warning beside the code help pinpoint the issue.</p>
           <p>For further feedback, or if you just want to hang around, you can join <a href="https://discord.gg/5jQKkCfHP3" target="_blank" rel="noopener">Avalon</a>.</p>
         </details>
       </section>
     </div>
   </aside>
 
-  <!-- ------------------------------------------------------------ preview -->
+  <!-- -------------------------------------------------------------- canvas -->
   <section class="stage">
-    <div class="stage-bar">
-      <span id="stage-size">1440 × 900</span>
-      <span class="stage-sep">·</span>
-      <button type="button" id="stage-zoom" class="stage-zoom" title="Toggle between fit-to-pane and 1:1">Fit</button>
-      <input type="range" id="stage-zoom-slider" class="stage-zoom-slider" min="25" max="200" step="5" value="100"
-             aria-label="Preview zoom" title="Preview zoom. Ctrl/Cmd + mouse wheel over the preview also zooms.">
-      <span class="stage-spacer"></span>
-      <span id="pick-result" class="pick-result"></span>
-    </div>
     <p class="stage-notice" id="stage-notice" hidden>
       Mobile uses desktop chrome in this preview; the profile content below it is accurate.
     </p>
@@ -383,55 +408,111 @@
         </div>
       </div>
     </div>
+
+    <!-- The About Me document itself. Closed until asked for. -->
+    <section class="dock" id="dock" hidden>
+      <div class="dock-resizer" id="resize-dock" role="separator" aria-orientation="horizontal" aria-label="Resize code panel"></div>
+      <div class="dock-head">
+        <div class="dock-tabs" role="tablist">
+          <button type="button" role="tab" data-dock="code" class="is-active">About Me</button>
+          <button type="button" role="tab" data-dock="reference">Selectors</button>
+        </div>
+        <span class="code-stats" id="code-stats"></span>
+        <span class="dock-spacer"></span>
+        <button type="button" id="save-selection" class="btn btn-ghost btn-sm" title="Save the selected code as a reusable part under Templates → My presets" disabled>Save selection…</button>
+        <button type="button" id="format-css" class="btn btn-ghost btn-sm" title="Re-indent the stylesheet">Tidy</button>
+        <button type="button" id="clear-css" class="btn btn-ghost btn-sm" title="Delete everything in the About Me box">Clear</button>
+        <button type="button" id="close-dock" class="icon-btn" title="Hide code" aria-label="Hide code">×</button>
+      </div>
+
+      <div class="dock-body">
+        <div class="dock-pane dock-pane-code" data-dock="code">
+          <div class="editor" id="editor">
+            <div class="gutter" id="gutter"></div>
+            <div class="editor-scroll" id="editor-scroll">
+              <pre class="highlight" aria-hidden="true"><code id="highlight"></code></pre>
+              <textarea id="css-input" spellcheck="false" autocomplete="off" autocapitalize="off"
+                        placeholder="&lt;style&gt; … &lt;/style&gt; plus any markup — this is what you paste into your About Me box."></textarea>
+            </div>
+          </div>
+          <div class="lint" id="lint"></div>
+        </div>
+
+        <div class="dock-pane dock-pane-reference" data-dock="reference" hidden>
+          <div class="panel-search">
+            <input type="search" id="reference-search" placeholder="Search 418 elements…" autocomplete="off">
+          </div>
+          <p class="panel-note">Click a selector to start a rule for it. Use label selectors — <code>.css-…</code> IDs change when JanitorAI updates.</p>
+          <div id="reference-list"></div>
+        </div>
+      </div>
+    </section>
   </section>
 
-  <!-- ---------------------------------------------------------- inspector -->
-  <aside class="inspectorpane" id="inspectorpane">
+  <!-- ----------------------------------------------------------- inspector -->
+  <aside class="inspector" id="inspector">
     <div class="panel-resizer panel-resizer-inspector" id="resize-inspector" role="separator" aria-orientation="vertical" aria-label="Resize properties"></div>
-    <div class="inspectorpane-head">
-      <div>
-        <span class="inspector-kicker">Properties</span>
-        <strong id="inspector-title">Design</strong>
+
+    <!-- Properties of whatever is selected; built by js/inspector.js. -->
+    <div class="inspector-body" id="inspector-selection" hidden></div>
+
+    <!-- Nothing selected: the page, and how the preview shows it. None of
+         this touches your code. -->
+    <div class="inspector-body" id="inspector-page">
+      <div class="insp-head">
+        <div class="insp-title-row"><strong class="insp-title">Page</strong></div>
+        <p class="insp-hint">Nothing selected. Click anything on the canvas to style it, or pick it from Layers.</p>
       </div>
-      <div class="inspectorpane-actions">
-        <button type="button" class="inspector-home" id="inspector-home" title="Back to design properties" aria-label="Back to design properties">⌂</button>
-        <button type="button" class="panel-toggle panel-toggle-inspector" id="toggle-inspector" title="Hide properties" aria-label="Hide properties">›</button>
-      </div>
-    </div>
-    <div class="inspectorpane-body" id="inspectorpane-body"></div>
-  </aside>
 
-  <!-- --------------------------------------------------------------- code -->
-  <aside class="codepane" id="codepane">
-    <div class="codepane-head">
-      <strong>About Me</strong>
-      <span class="code-stats" id="code-stats"></span>
-      <button type="button" id="save-selection" class="btn btn-ghost btn-sm" disabled>Save selection…</button>
-      <button type="button" id="format-css" class="btn btn-ghost btn-sm">Tidy</button>
-      <button type="button" id="toggle-code" class="btn btn-ghost btn-sm">Hide</button>
-    </div>
+      <details class="insp-section" open>
+        <summary>Preview</summary>
+        <div class="insp-body">
+          <div id="profile-fields"></div>
+          <label class="switch" title="Strip everything JanitorAI does not allow before rendering">
+            <input type="checkbox" id="enforce" checked>
+            <span>Enforce JAI rules</span>
+          </label>
+        </div>
+      </details>
 
-    <p class="codepane-note">
-      Copy this entire field into JanitorAI → <b>About Me</b>.
-    </p>
-
-    <div class="editor" id="editor">
-      <div class="gutter" id="gutter"></div>
-      <div class="editor-scroll" id="editor-scroll">
-        <pre class="highlight" aria-hidden="true"><code id="highlight"></code></pre>
-        <textarea id="css-input" spellcheck="false" autocomplete="off" autocapitalize="off"
-                  placeholder="&lt;style&gt; … &lt;/style&gt; plus any markup — this is what you paste into your About Me box."></textarea>
-      </div>
-    </div>
-
-    <div class="lint" id="lint"></div>
-
-    <div class="codepane-foot">
-      <button type="button" id="clear-css" class="btn btn-ghost btn-sm">Delete</button>
-      <button type="button" id="copy-css" class="btn btn-primary">Copy for About Me</button>
+      <details class="insp-section" open>
+        <summary>Profile snapshot</summary>
+        <div class="insp-body profile-import">
+          <p class="field-hint">The saved profile page you are designing on. Import your own, then switch between them without replacing your other work.</p>
+          <label class="field">Preview profile
+            <select id="profile-switcher" disabled><option>Loading Sweepercom…</option></select>
+          </label>
+          <div class="profile-library-actions">
+            <label class="btn btn-ghost btn-sm profile-import-button" for="profile-file">Choose profile file</label>
+            <input id="profile-file" type="file" accept=".mhtml,.mht,.html,.htm,text/html,multipart/related" hidden>
+            <button type="button" id="remove-profile" class="btn btn-ghost btn-sm" hidden>Remove snapshot</button>
+          </div>
+          <label class="switch profile-library-switch">
+            <input type="checkbox" id="keep-default-profile" checked>
+            <span>Keep Sweepercom in the switcher</span>
+          </label>
+          <button type="button" id="profile-css-toggle" class="btn btn-ghost btn-sm" disabled>Hide custom CSS</button>
+          <p class="field-hint">Hiding CSS keeps the About Me content in place and shows the captured profile with JanitorAI's base styling.</p>
+          <p class="profile-import-status" id="profile-import-status" aria-live="polite">Loading your profile…</p>
+        </div>
+      </details>
     </div>
   </aside>
 </main>
+
+<footer class="statusbar">
+  <button type="button" id="status-lint" class="status-lint" title="Show the About Me code and anything JanitorAI would strip"></button>
+  <span class="status-path" id="status-path"></span>
+  <span class="status-spacer"></span>
+  <span id="stage-size">1440 × 900</span>
+</footer>
+
+<!-- Follows the pointer while an element is dragged out of the Insert panel. -->
+<div class="drag-ghost" id="drag-ghost" hidden></div>
+
+<!-- For "Change preview avatar / background" on the canvas's right-click menu.
+     The picture is read locally and only ever shown in the preview. -->
+<input id="preview-image-input" type="file" accept="image/*" hidden>
 
 <dialog id="changelog" class="changelog" aria-labelledby="changelog-title">
   <div class="changelog-inner">
@@ -450,19 +531,28 @@
 <script src="js/css-model.js"></script>
 <script src="js/payload.js"></script>
 <script src="js/lint.js"></script>
-<script src="js/controls.js"></script>
+<script src="js/markup.js"></script>
+<script src="js/blocks.js"></script>
+<script src="js/blocks-showcase.js"></script>
 <script src="js/presets.js"></script>
 <script src="js/custom-presets.js"></script>
 <script src="js/templates.js"></script>
 <script src="js/reference.js"></script>
+<script src="js/page-map.js"></script>
 <script src="js/profile-import.js"></script>
 <script src="js/profile-library.js"></script>
 <script src="js/tags.js"></script>
 <script src="js/hardcode-styles.js"></script>
 <script src="js/proxy-terminal-style.js"></script>
 <script src="js/hardcode.js"></script>
+<script src="js/hardcode-sections.js"></script>
 <script src="js/profile-info.js"></script>
 <script src="js/app.js"></script>
+<script src="js/menu.js"></script>
+<script src="js/canvas.js"></script>
+<script src="js/layers.js"></script>
+<script src="js/insert.js"></script>
+<script src="js/inspector.js"></script>
 <script src="js/changelog.js"></script>
 </body>
 </html>

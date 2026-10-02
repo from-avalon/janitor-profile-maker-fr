@@ -9,6 +9,77 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-10-02 — 26 new elements and 8 new animations
+
+**Insert** has a batch of ready-made pieces borrowed from what hand-built
+profiles do best. **Motion**: a scrolling *Marquee tape*, a *Film reel* of
+pictures that runs across the page, a *Typewriter*, *Glitch*, *Shimmer* and
+*Neon* titles, and a *Flip card*. **Layout**: CSS-only *Tabs*, a *Corner panel*,
+a *Stat sheet*, *Profile cards*, an *Accordion*, a *Timeline* and *Progress
+bars*. **Links**: a *Skew button* with a sweeping shine, *Social orbs* with a
+spinning ring, a live *Status chip* and a *Ribbon tag*. **Text and Media**:
+*Poster title*, *Section head*, *Speech bubble*, *Hover swap*, *Gallery*,
+*Avatar ring*, *Hazard stripe* and *Polaroid*. Drag one in, then restyle each
+part from the properties panel like anything else.
+
+Everything is plain HTML and CSS that stays inside JanitorAI's limits — no
+scripts, buttons, SVG, `url()` or variables — so what you see is what the
+profile will show. Hover effects and Tabs need **Preview** mode to try. Tabs run
+on the page's single `#anchor`, so with two sets, picking a tab in one sends the
+other back to its first tab.
+
+**Animations** gained Bounce, Shake, Heartbeat, Flicker, Rainbow, Sway, Zoom in
+and Flip in. And links in the older Button and Link row elements no longer turn
+purple on hover, which JanitorAI does to every link unless told otherwise.
+
+## 2026-10-02 — The studio is a canvas now
+
+The whole studio has been rebuilt around the preview. **Click** anything on the
+page to select it and its properties appear on the right — layout, text, fill,
+border, effects, and the raw CSS — each one reading from and writing to your
+About Me code. **Double-click** to retype text where it sits. Elements you add
+can be **dragged** to a new place (a line shows where they will land),
+resized by their handles, duplicated with Ctrl+D and removed with Delete, and
+every change can be undone with Ctrl+Z.
+
+The left side is now **Layers** (the page as an outline, with your own elements
+under About Me), **Insert** and **Profile data**. Insert is the whole library:
+elements and shapes to drag onto the page, **Sections** (the pieces of the
+community templates — drag one to where you want it instead of taking the whole
+design), **Styles** for the whole profile, and **Animations** you can give to
+whatever is selected. **Right-click** the canvas to add something exactly
+there. Images can be dragged in from another tab or pasted as a link.
+
+Layouts built from your Profile data are no longer hands-off. They show an
+amber outline while they are linked to Profile data; edit one by hand and it is
+unlinked so your change stays, with Ctrl+Z to link it back. Right-click one for
+**Add a character…** to grow it the linked way.
+
+The old Design, Settings, View, Selectors, Templates and Hard coding buttons
+are gone: the viewport and zoom live in the top bar, preview settings appear on
+the right when nothing is selected, and **Code** opens your About Me in a dock
+under the canvas with the Selectors reference beside it. Clicks in **Design**
+mode select instead of activating links, so switch to **Preview** in the top
+bar to try hover effects and CSS-only menus. And the studio is red and black
+now.
+
+## 2026-09-15 — Add characters wherever they appear
+
+The Profile panel now recognises character appearances in pasted and imported
+hardcoded layouts. Select one or more characters, choose a detected featured
+selector, character archive or duplicated film reel, and add them to all of
+those sections together. Existing entries and unrelated hand-written markup
+are left alone, and archive counts plus new name-index letters stay in sync.
+
+Profile snapshots now repair themselves on startup: entries whose saved MHTML
+is missing are removed, repeated copies are collapsed, and importing the same
+capture again refreshes its existing snapshot instead of adding another item.
+Your CSS and Profile edits are kept when a snapshot is refreshed, and filenames
+that already contain the creator handle no longer repeat it in the switcher.
+
+Character checkboxes now stay selected when clicked, without opening their
+details row, so chosen characters can be added to detected code sections.
+
 ## 2026-09-14 — Profile information replaces Cards
 
 The **Cards** tab is now **Profile**: everything a hardcoded profile is built
