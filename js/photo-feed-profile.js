@@ -1,5 +1,5 @@
 /*
- * The "Photo feed" design: Golden Hour, written from Profile data.
+ * The "Instagram-style" design: Golden Hour, written from Profile data.
  *
  * Golden Hour ships as a template (templates/golden-hour) whose markup is
  * placeholder copy to be retyped on the canvas. This is the same page with the

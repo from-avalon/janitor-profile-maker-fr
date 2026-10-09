@@ -12,7 +12,7 @@ paragraphs.
 ## 2026-10-10 — Pick a design in Profile data, and switch whenever you like
 
 **Profile data** now starts with a **Profile design** menu. Choose Steam
-profile, Photo feed, Contact select or Proxy Terminal and it is written into
+profile, Instagram-style, Contact select or Proxy Terminal and it is written into
 About Me there and then; choose another and the page is swapped for it. All of
 them are built from the same Profile data, so your bio, friends, links and
 sections carry over, and one Undo takes a switch back.
@@ -21,7 +21,7 @@ The panel narrows to what the chosen design uses — Inventory and Workshop
 items only show for Steam, each design's own options sit under **Design
 options** — and nothing in a hidden section is lost.
 
-**Photo feed** is new in that menu: the Golden Hour page filled in from Profile
+**Instagram-style** is new in that menu: the Golden Hour page filled in from Profile
 data, with a story highlight for About and for each of your sections, your
 links as stickers and your friends as mentions.
 
@@ -84,7 +84,7 @@ to see your own view.
 
 ## 2026-10-09 — New template: Golden Hour
 
-A photo-feed profile, in **Insert** with the other templates. Your real avatar sits in a
+An Instagram-style profile, in **Insert** with the other templates. Your real avatar sits in a
 gradient story ring, your real follower count sits in a row of stats, and a
 line of highlight circles opens full story cards — about, rules, requests,
 links and friends — each with a progress bar and arrows to the next one.

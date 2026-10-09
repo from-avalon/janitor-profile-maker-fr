@@ -366,8 +366,8 @@
     }
   }, {
     id: GH,
-    name: 'A photo-feed profile',
-    blurb: 'Build Golden Hour — the profile that looks like a photo app — one piece at a time: story-ring avatar, stats, highlights that open stories, and your characters as a grid.',
+    name: 'An Instagram-style profile',
+    blurb: 'Build Golden Hour — the Instagram-style profile — one piece at a time: story-ring avatar, stats, highlights that open stories, and your characters as a grid.',
     meta: '11 short steps · about 5 minutes',
     steps: [
       blankStep(),
