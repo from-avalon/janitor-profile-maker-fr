@@ -202,7 +202,10 @@ to the VPS docroot with `--delete`, so the server always mirrors `main` exactly.
   so check the live headers after touching `.htaccess`. There is no auth; the
   studio is public.
 - Never commit the deploy key; it is a GitHub Actions secret.
-- `assets/` holds the link-preview image (`og.png`, 1200×630) and the touch icon.
+- `assets/` holds the link-preview image (`link-preview.png`, 1200×630) and the
+  touch icon, both rendered by `tools/link-preview/render.mjs`. Discord and the
+  like cache the image by its address: a new picture needs a new file name
+  (and the two meta tags pointed at it), or the old one keeps showing.
   The Open Graph tags in `index.html` use absolute URLs of the deployed address.
 - Manual re-deploy: Actions → "Deploy studio" → *Run workflow*.
 - Anything not in the rsync list above is never published — build tools, raw
