@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { background: #050506; font-family: "Segoe UI", Inter, system-ui, sans-serif; }
+
+  /* ---- link preview, 1200 x 630 ---- */
+  #og {
+    position: relative; width: 1200px; height: 630px; overflow: hidden;
+    background: #070405; color: #f2efef;
+  }
+  #og .art {
+    position: absolute; right: -40px; top: -150px;
+    width: 860px; height: 860px; object-fit: cover;
+  }
+  /* The picture fades into the page on the left, where the words are. */
+  #og .fade {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(90deg, #070405 0, #070405 30%, #070405e6 42%, #07040599 54%, #07040533 68%, transparent 82%),
+      linear-gradient(0deg, #070405cc 0, transparent 26%),
+      linear-gradient(180deg, #07040580 0, transparent 20%);
+  }
+  #og .glow {
+    position: absolute; left: -160px; top: -200px; width: 700px; height: 700px;
+    background: radial-gradient(circle, #e11d3626 0, transparent 62%);
+  }
+  #og .copy { position: absolute; left: 72px; top: 64px; width: 600px; }
+  .mark {
+    display: flex; width: 92px; height: 92px; align-items: center; justify-content: center;
+    border-radius: 22px;
+    background: linear-gradient(140deg, #ff4d5e, #e11d36 55%, #9f0f24);
+    box-shadow: 0 14px 40px #e11d3666, inset 0 1px 0 #ffffff55;
+    color: #fff; font: 700 44px/1 "JetBrains Mono", Consolas, monospace; letter-spacing: -2px;
+  }
+  #og h1 { margin-top: 34px; font-size: 62px; font-weight: 700; line-height: 1.04; letter-spacing: -1.5px; }
+  #og h1 em { font-style: normal; color: #ff4d5e; }
+  #og p { margin-top: 22px; max-width: 520px; color: #c9c1c3; font-size: 25px; line-height: 1.45; }
+  #og .chips { display: flex; gap: 10px; margin-top: 26px; }
+  #og .chips span {
+    padding: 8px 14px; border: 1px solid #ff4d5e55; border-radius: 999px;
+    background: #e11d361f; color: #ffd6da;
+    font: 600 17px/1 "JetBrains Mono", Consolas, monospace;
+  }
+  #og .foot {
+    position: absolute; left: 72px; right: 56px; bottom: 44px;
+    display: flex; justify-content: space-between; align-items: center;
+    color: #8f8689; font: 500 19px/1 "JetBrains Mono", Consolas, monospace;
+  }
+  #og .foot b { color: #ff4d5e; font-weight: 700; }
+  #og .foot .tag { padding: 8px 14px; border-radius: 8px; background: #070405b3; color: #c9c1c3; }
+
+  /* ---- touch icon, 180 x 180 ---- */
+  #icon { position: relative; width: 180px; height: 180px; overflow: hidden; margin-top: 40px; background: #070405; }
+  #icon img { position: absolute; left: -196px; top: -52px; width: 400px; height: 400px; object-fit: cover; }
+  #icon .shade { position: absolute; inset: 0; background: linear-gradient(0deg, #070405e6 0, transparent 55%); }
+  #icon .mark {
+    position: absolute; left: 12px; bottom: 12px; width: 56px; height: 56px; border-radius: 14px;
+    font-size: 26px; letter-spacing: -1px; box-shadow: 0 6px 16px #000000aa, inset 0 1px 0 #ffffff55;
+  }
+</style>
+</head>
+<body>
+  <div id="og">
+    <img class="art" src="raccoon.webp" alt="">
+    <div class="fade"></div>
+    <div class="glow"></div>
+    <div class="copy">
+      <div class="mark">{ }</div>
+      <h1>JanitorAI Profile<br><em>CSS Studio</em></h1>
+      <p>Design your profile with a live preview of the real page. What renders here renders on your profile.</p>
+      <div class="chips"><span>templates</span><span>drag &amp; drop</span><span>no code needed</span></div>
+    </div>
+    <div class="foot">
+      <span>tools.from-avalon.com/janitor-profile-maker</span>
+      <span class="tag">an <b>Avalon</b> tool</span>
+    </div>
+  </div>
+
+  <div id="icon">
+    <img src="raccoon.webp" alt="">
+    <div class="shade"></div>
+    <div class="mark">{ }</div>
+  </div>
+</body>
+</html>
