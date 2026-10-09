@@ -247,7 +247,7 @@ try {
   }));
   if (!help.visible || help.topics < 4) fail(`help panel incomplete (${JSON.stringify(help)})`);
 
-  // The shell: a rail of five panels on the left, properties on the right,
+  // The shell: a rail of panels on the left, properties on the right,
   // and the About Me code tucked away in a dock until asked for.
   const panels = await page.evaluate(() => ({
     rail: [...document.querySelectorAll('.rail button[data-panel]')].map((button) => button.dataset.panel),
@@ -255,7 +255,7 @@ try {
     topbarButtons: document.querySelectorAll('.topbar button').length,
     codeHidden: document.getElementById('dock').hidden,
   }));
-  if (panels.rail.join(',') !== 'layers,insert,info,help') fail(`left rail is ${panels.rail.join(',')}`);
+  if (panels.rail.join(',') !== 'layers,insert,info,tutorials,help') fail(`left rail is ${panels.rail.join(',')}`);
   if (!panels.inspector) fail('the properties panel is missing');
   if (panels.topbarButtons > 10) fail(`top bar has grown to ${panels.topbarButtons} buttons`);
   if (!panels.codeHidden) fail('raw code should be hidden initially');
@@ -576,6 +576,38 @@ try {
   if (!ogTags.title)                             fail("og:title missing");
   if (ogTags.card !== "summary_large_image")     fail(`twitter:card is "${ogTags.card}"`);
 
+  // The default view is a stranger's: nothing only the owner would see.
+  const visitor = await page.evaluate(() => {
+    // Through the element, not a frame handle: the page has reloaded since.
+    const doc = document.getElementById('preview').contentDocument;
+    return {
+      owner: [...doc.querySelectorAll('.sim-owner-only')].map((node) => doc.defaultView.getComputedStyle(node).display),
+      follow: !!doc.querySelector('.pp-uc-follow-button')?.getClientRects().length,
+    };
+  });
+  if (visitor.owner.length < 2 || visitor.owner.some((d) => d !== 'none') || !visitor.follow) {
+    fail(`the default preview is not a visitor's view (${JSON.stringify(visitor)})`);
+  }
+
+  // Tutorials: starting one puts its step over the canvas, a step ticks itself
+  // off when the document says it is done, and leaving takes the card away.
+  await page.evaluate(() => window.JaiStudio.setCode('', 'load', { now: true }));
+  await page.click('.rail button[data-panel="tutorials"]');
+  await page.click('#tutorial-list .tutorial button');
+  await page.waitForTimeout(250);
+  const lesson = () => page.evaluate(() => window.JaiTutorials.state()?.step ?? null);
+  const firstStep = await lesson();
+  await page.click('#coach button:has-text("Show me")');
+  await page.waitForTimeout(300);
+  const pointedAt = await page.evaluate(() => document.querySelector('.tut-pulse')?.dataset.part || null);
+  await page.click('#coach button:has-text("Do it for me")');
+  await page.waitForTimeout(450);
+  if (firstStep !== 1 || pointedAt !== 'golden-hour-backdrop' || (await lesson()) !== 2) {
+    fail(`the tutorial did not walk its first steps (start ${firstStep}, pointed at ${pointedAt}, then ${await lesson()})`);
+  }
+  await page.click('#coach button[aria-label="Leave the tutorial"]');
+  if (!(await page.locator('#coach').isHidden())) fail('leaving a tutorial left its card on the canvas');
+
   // The changelog dialog: opens from the toolbar and renders at least one entry.
   await page.click("#changelog-toggle");
   const dialog = await page.evaluate(() => {
@@ -733,6 +765,27 @@ async function canvasChecks(page, preview) {
   await page.keyboard.press('Control+z');
   await settle();
   if (await preview.locator('.jx-box').count() !== 2) fail('Undo did not bring the deleted element back');
+
+  // Dragging one of JanitorAI's own elements slides it instead: the press
+  // lands on the word "Follow", the button's wrapper is what moves, and the
+  // whole gesture is one rule and one Undo.
+  const beforeSlide = await code();
+  const follow = await preview.locator('.pp-uc-follow-button').boundingBox();
+  await page.mouse.move(follow.x + follow.width / 2, follow.y + follow.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(follow.x + follow.width / 2 + 20, follow.y + follow.height / 2 + 8, { steps: 4 });
+  await page.mouse.move(follow.x + follow.width / 2 + 44, follow.y + follow.height / 2 + 18, { steps: 4 });
+  await page.mouse.up();
+  await settle(450);
+  const slid = /\.pp-uc-follow-flex \{\s*position: relative;\s*left: (\d+)px;\s*top: (\d+)px;\s*\}/.exec(await code());
+  const followAfter = await preview.locator('.pp-uc-follow-button').boundingBox();
+  if (!slid || +slid[1] < 20 || +slid[2] < 8) fail(`sliding the Follow button did not write its offset (${(await code()).slice(-200)})`);
+  if (Math.abs(followAfter.x - follow.x - 44) > 2 || Math.abs(followAfter.y - follow.y - 18) > 2) {
+    fail(`the Follow button did not follow the pointer (${followAfter.x - follow.x}, ${followAfter.y - follow.y})`);
+  }
+  await page.keyboard.press('Control+z');
+  await settle();
+  if ((await code()) !== beforeSlide) fail('one Undo did not take back a slide');
 
   // Layers lists the creator's elements under About Me and selects from there.
   await page.click('.rail button[data-panel="layers"]');

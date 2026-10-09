@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "id": "golden-hour",
+  "version": "1.0.0",
+  "status": "draft",
+  "name": "Golden Hour",
+  "author": "Sweepercom",
+  "license": "All rights reserved",
+  "credit": "Golden Hour template by Sweepercom; inspired by Instagram's profile layout",
+  "description": "A photo-feed profile: story-ring avatar, a stat row built around your real follower count, tappable highlights that open full story cards, and JanitorAI's own character list turned into a three-across grid that updates itself.",
+  "tags": ["social", "photo-feed", "dark", "minimal", "stories", "live-roster", "animated"],
+  "entry": "source.txt",
+  "components": [
+    {
+      "key": "backdrop",
+      "name": "Black backdrop & system type",
+      "blurb": "The flat black page and the system font the whole profile is set in.",
+      "affects": ["Page background", "Typography"]
+    },
+    {
+      "key": "layout",
+      "name": "Profile header",
+      "blurb": "The centred column and the header grid: the avatar in its story ring, your username, follower count, badges, and the Follow and Options buttons. Includes its phone layout.",
+      "affects": ["Page layout", "Profile identity", "Follow & options"]
+    },
+    {
+      "key": "splash",
+      "name": "Launch splash",
+      "blurb": "A one-second app-launch screen with a gradient mark.",
+      "affects": ["Loading screen", "Motion"]
+    },
+    {
+      "key": "bio",
+      "name": "Stats & bio",
+      "needs": ["layout"],
+      "blurb": "The two extra counts beside your followers, your display name, category, bio text, link, and a friends line.",
+      "affects": ["About & status", "Links & social"]
+    },
+    {
+      "key": "highlights",
+      "name": "Highlights & stories",
+      "needs": ["layout"],
+      "blurb": "A row of highlight circles. Each opens a full-screen story card with a progress bar, previous and next arrows, and its own content: about, rules, requests, links and friends.",
+      "affects": ["Content panels", "Links & social", "Motion"]
+    },
+    {
+      "key": "grid",
+      "name": "Character grid",
+      "blurb": "JanitorAI's own character list as a three-across grid of picture tiles; pointing at one shows its name, tags and chat count. The tab, search and pagination are restyled to match.",
+      "affects": ["Character gallery", "Character cards", "Character filters", "Pagination"]
+    },
+    {
+      "key": "site-chrome",
+      "name": "Header & menus",
+      "blurb": "The site header, search, user menu and the phone navigation bar in flat black and grey.",
+      "affects": ["Header & search", "Mobile navigation", "User menu"]
+    },
+    {
+      "key": "inbox",
+      "name": "Floating notifications",
+      "blurb": "The notification bell leaves the header and becomes a pill in the bottom corner, the way a message inbox floats; its panel opens upward as a list of round pictures. On a phone the bell stays in the header and only the panel is restyled.",
+      "affects": ["Notifications", "Header & search"]
+    },
+    {
+      "key": "credit",
+      "name": "Template credit",
+      "recommended": true,
+      "needs": ["layout"],
+      "blurb": "A small credit line under the highlights.",
+      "affects": ["Credits"]
+    }
+  ],
+  "assets": [
+    {
+      "id": "highlight-cover",
+      "label": "Optional highlight cover pictures",
+      "required": false,
+      "kind": "image",
+      "recommendedRatio": "1:1",
+      "recommendedMinimum": "160x160",
+      "placement": "Replace the symbol inside a gh-hl-cover element with an img"
+    }
+  ],
+  "compatibility": {
+    "platform": "JanitorAI public profile About Me",
+    "testedReferenceDate": "2026-10-09",
+    "requiresJavaScript": false,
+    "usesBlockedFeatures": false,
+    "notes": [
+      "The avatar, username, follower count, badges and Follow button are JanitorAI's own elements, restyled.",
+      "The character grid is the native list, so it needs no edits when a bot is published.",
+      "The bot and chat counts beside the follower count are written by hand.",
+      "Stories open with :target; the page has one target, so only one story is open at a time.",
+      "The floating notifications pill removes the blur behind JanitorAI's header; a blurred header would keep the pill pinned inside it.",
+      "No CSS background images or custom properties are used."
+    ]
+  }
+}
