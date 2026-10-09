@@ -1196,6 +1196,81 @@ body:has(.gh-story:target) {
   visibility: hidden;
 }
 
+/* A featured character's highlight wears the story ring, and its story is the
+   character's picture at full height with the words over a shade. */
+.gh-hl-live .gh-hl-ring {
+  border: 0;
+  background: conic-gradient(from 200deg, #feda75, #fa7e1e, #d62976, #962fbf, #4f5bd5, #feda75);
+}
+
+.gh-hl-live .gh-hl-cover {
+  box-sizing: border-box;
+  width: 81px;
+  height: 81px;
+  border: 3px solid #000;
+}
+
+.gh-story-face {
+  overflow: hidden;
+}
+
+.gh-story-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gh-story-char .gh-story-card {
+  background: #121212;
+}
+
+.gh-story-art {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.gh-story-char .gh-story-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg, #00000080 0, transparent 22%, transparent 42%, #000000e0 100%);
+  pointer-events: none;
+}
+
+.gh-story-char .gh-story-card > :not(.gh-story-art) {
+  position: relative;
+  z-index: 1;
+}
+
+.gh-story-char .gh-story-body {
+  justify-content: flex-end;
+}
+
+.gh-story-char .gh-story-body p {
+  max-height: 4.5em;
+  overflow: hidden;
+}
+
+.gh-story-char .gh-story-stickers a {
+  align-self: flex-start;
+  transform: none;
+}
+
+@media screen and (max-width: 735px) {
+  .gh-hl-live .gh-hl-cover {
+    width: 60px;
+    height: 60px;
+  }
+}
+
 @keyframes gh-story-in {
   from { opacity: 0; transform: scale(.94); }
   to { opacity: 1; transform: scale(1); }

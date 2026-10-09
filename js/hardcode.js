@@ -75,16 +75,17 @@
     steamLevel: '',
     steamStatus: 'Currently Online',
     steamSubtitle: '',
-    // The Photo feed design (js/photo-feed-profile.js).
+    // The Instagram-style design: Golden Hour's own parts, with their copy
+    // written from Profile data (js/photo-feed-profile.js).
     feedName: '',
-    feedCategory: 'Bot creator'
+    feedCategory: 'Bot creator',
+    feedStories: true
   };
 
   /* A design with markup all of its own writes it itself; the rest share the
    * contact-select markup below. */
   function ownEmitter(o) {
     if (o.style === 'steam') return global.JaiSteamProfile || null;
-    if (o.style === 'photo-feed') return global.JaiPhotoFeed || null;
     return null;
   }
 

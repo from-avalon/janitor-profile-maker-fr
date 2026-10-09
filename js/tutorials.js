@@ -379,11 +379,14 @@
         '<b>Add</b> the part called <b>Stats &amp; bio</b> — or drag its row onto the canvas. It puts two counts beside your followers and a bio underneath.'),
       {
         title: 'Make it yours',
-        body: 'On the canvas, <b>double-click</b> the line that says <b>Your display name</b>, type your own, and press <kbd>Enter</kbd>. The counts, the bio and the link are changed the same way.',
+        body: 'On the canvas, <b>double-click</b> the name at the top of the bio, type what you want it to say, and press <kbd>Enter</kbd>. The counts, the bio and the link are changed the same way. (If your profile is in Profile data, these start out filled in from it.)',
         show: function () { showOnCanvas({ cls: 'gh-bio-name' }); },
-        done: function () {
+        // Done when the name reads differently from when the step began,
+        // whatever it began as: a placeholder, or a name from Profile data.
+        enter: function (flags) { flags.nameWas = textOf('gh-bio-name'); },
+        done: function (flags) {
           var text = textOf('gh-bio-name');
-          return text != null && text !== 'Your display name';
+          return text != null && flags.nameWas != null && text !== flags.nameWas;
         }
       },
       partStep('highlights', 'Add the highlights',

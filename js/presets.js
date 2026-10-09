@@ -585,6 +585,29 @@
     return out;
   }
 
+  /* What is between a part's markup markers right now, or null if it is not
+   * on the page. */
+  function partInner(payload, part) {
+    var open = htmlHeader(part);
+    var start = payload.indexOf(open);
+    if (start === -1) return null;
+    var end = payload.indexOf(htmlFooter(part), start);
+    if (end === -1) return null;
+    return payload.slice(start + open.length, end).replace(/^\n+|\n+$/g, '');
+  }
+
+  /* Rewrites a part's markup where it stands — wherever it was dragged to —
+   * leaving its stylesheet and everything round it alone. */
+  function replacePartMarkup(payload, part) {
+    var open = htmlHeader(part);
+    var start = payload.indexOf(open);
+    if (start === -1 || !part.html) return payload;
+    var close = htmlFooter(part);
+    var end = payload.indexOf(close, start);
+    if (end === -1) return payload;
+    return payload.slice(0, start) + partMarkup(part) + payload.slice(end + close.length);
+  }
+
   global.JaiPresets = {
     all: PRESETS,
     isApplied: isApplied,
@@ -596,6 +619,8 @@
     applyPart: applyPart,
     applyPartCss: applyPartCss,
     partMarkup: partMarkup,
+    partInner: partInner,
+    replacePartMarkup: replacePartMarkup,
     partMarker: function (part) { return HTML_OPEN + ' ' + part.id + ' '; },
     removePart: removePart
   };

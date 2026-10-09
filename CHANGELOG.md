@@ -21,9 +21,23 @@ The panel narrows to what the chosen design uses — Inventory and Workshop
 items only show for Steam, each design's own options sit under **Design
 options** — and nothing in a hidden section is lost.
 
-**Instagram-style** is new in that menu: the Golden Hour page filled in from Profile
-data, with a story highlight for About and for each of your sections, your
-links as stickers and your friends as mentions.
+A design replaces what would fight it. Choosing one takes out any Style, any
+other template's parts, the other design and a custom page layout first — two
+whole-page designs in one document overwrite each other and leave you with
+neither. The message says what went, and Ctrl+Z brings it all back. Your own
+elements and CSS stay.
+
+**Instagram-style** in that menu is the Golden Hour template itself: the same
+nine parts **Insert → Sections** adds, shown there as added, with their copy
+written from Profile data — counts from your characters, bio from About me, a
+story highlight for each section, links as stickers, friends as mentions. What
+Profile data has nothing for keeps the template's placeholder, and a line you
+retype on the canvas is yours: Profile data stops rewriting that part.
+
+**Featured characters as stories.** Tick **Feature in showcases** on a
+character and, in Instagram-style, it gets a highlight with the story ring and
+a story of its own: its picture at full height, name, tags and a Chat now
+sticker. It is optional — there is a switch under Design options.
 
 ## 2026-10-10 — New layout: Steam profile, built from your own page
 

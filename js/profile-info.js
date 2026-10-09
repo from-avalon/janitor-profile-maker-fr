@@ -36,7 +36,9 @@
       // and what the creator has made that is not a bot.
       inventory: [],
       workshop: [],
-      layout: { style: '', options: {} }
+      // `generated`: the markup last written into a template part from here,
+      // so a part retyped by hand since can be told apart and left alone.
+      layout: { style: '', options: {}, generated: {} }
     };
   }
 
@@ -60,6 +62,7 @@
     if (saved.layout) {
       info.layout.style = saved.layout.style || '';
       info.layout.options = saved.layout.options || {};
+      info.layout.generated = saved.layout.generated || {};
     }
     return info;
   }
