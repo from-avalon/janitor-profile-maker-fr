@@ -256,10 +256,11 @@
     {
       id: 'photo-feed',
       name: 'Instagram-style (Golden Hour)',
-      blurb: 'The Golden Hour page, filled in from Profile data: counts from your characters, bio from About me, a story highlight for each section, your links as stickers and your friends as mentions.',
-      css: function (o) {
-        return global.JaiPhotoFeed ? global.JaiPhotoFeed.style(o) : '';
-      }
+      blurb: 'The Golden Hour template, filled in from Profile data: counts from your characters, bio from About me, story highlights for your featured characters and each section, your links as stickers and your friends as mentions.',
+      // Not generated here: this design is a template's parts (Insert →
+      // Sections shows them added), so it has no stylesheet of its own.
+      css: null,
+      template: 'golden-hour'
     },
     {
       id: 'none',

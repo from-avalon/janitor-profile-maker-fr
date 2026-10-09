@@ -95,14 +95,21 @@ the only source of truth; every canvas gesture is an edit to that text.
   `<img>`, never a CSS background: JanitorAI strips `url()`. A full-page
   backdrop goes at `z-index: -1` inside a column that is its own stacking
   context, or JanitorAI's wrappers paint over it.
-- The **Profile design** menu at the top of Profile data is that same list
-  (`#cards-opt-style`). Choosing one applies it at once (`useLayout`) and
-  replaces the one before: `JaiHardcode.apply` rewrites the single marked
-  block. Anything in the panel that only one design uses carries
-  `data-design="<ids>"` and is hidden for the others; adding a design means
-  adding its id there. `js/photo-feed-profile.js` generates Golden Hour's
-  markup from Profile data and takes its stylesheet from the built template in
-  `js/templates.js`, so edit the look in `templates/golden-hour/source.txt`.
+- The **Profile design** menu at the top of Profile data (`#cards-opt-style`)
+  lists the designs in `js/hardcode-styles.js`. A design is either generated
+  (`css`) or a template whose copy Profile data writes (`template`:
+  Instagram-style is Golden Hour's parts, with `js/photo-feed-profile.js`
+  writing the markup of two of them through `materialiseTemplatePart`). Every
+  way of choosing one goes through `applyDesign` in app.js, which first runs
+  `clearForDesign` — Styles, other templates' parts, the other kind of design
+  and the page-layout block come out — and writes one `setCode`, so one Undo.
+- The document, not the saved choice, says which design is worn
+  (`currentDesign`, `generatedStyleOf`): after an Undo they differ, and both
+  the menu and a change in Profile data follow the document. A template part
+  Profile data wrote is only rewritten while it is still as written
+  (`info.layout.generated` keeps the last few writings); retyped on the canvas,
+  it is left alone. Anything in the panel that one design uses carries
+  `data-design="<ids>"` and is hidden for the others.
 - Page layout (`js/page-layout.js`) moves the profile box and the character
   list — the two children of `.profile-page-flex`. The layout is a small model
   written as one block between `@jai:layout:start {json}` / `end` comments,

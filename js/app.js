@@ -1029,7 +1029,44 @@
       cards.join('\n') + '\n</div>\n</div>\n';
   }
 
+  /* The markup Profile data would write for a template part, or null when the
+   * part is not one it writes. Golden Hour's stats-and-bio and its highlights
+   * are (js/photo-feed-profile.js); the generator is handed the template's own
+   * markup to fall back on. */
+  function generatedPartHtml(part) {
+    var feed = window.JaiPhotoFeed;
+    if (!feed || !part || part.id.indexOf(feed.template + '-') !== 0) return null;
+    var write = feed.parts[part.key];
+    if (!write) return null;
+    return write(window.JaiHardcode.prepare(info.characters), cardEmitOptions(), part.html) || null;
+  }
+
+  /* What Profile data has written into a part, most recent last. Kept so a
+   * later change can tell a part that is still as it was written from one the
+   * creator has retyped since — and a short history rather than one entry,
+   * because Undo puts an earlier writing back and that is not a retyping. */
+  function rememberGenerated(id, html) {
+    var list = info.layout.generated[id];
+    if (!Array.isArray(list)) list = list ? [list] : [];
+    html = String(html).replace(/^\n+|\n+$/g, '');
+    list = list.filter(function (old) { return old !== html; });
+    list.push(html);
+    info.layout.generated[id] = list.slice(-12);
+    window.JaiProfileInfo.save(info);
+  }
+
+  function wasGenerated(id, html) {
+    var list = info.layout.generated[id];
+    if (!Array.isArray(list)) list = list ? [list] : [];
+    return list.indexOf(html) !== -1;
+  }
+
   function materialiseTemplatePart(part) {
+    var generated = generatedPartHtml(part);
+    if (generated != null) {
+      rememberGenerated(part.id, generated);
+      return Object.assign({}, part, { html: generated });
+    }
     if (!part || part.id.indexOf('hime-darkred-') !== 0) return part;
     var identity = darkRedIdentity();
     var about = (info && info.about) || {};
@@ -1343,23 +1380,164 @@
     syncLayouts();
   }
 
-  function useLayout(style) {
-    if (!info.characters.length) {
+  // ------------------------------------------------------------------ designs
+  //
+  // A design is a whole ready-made profile chosen in one go: one of the
+  // layouts generated from Profile data, or a template whose copy Profile data
+  // writes (Instagram-style is Golden Hour's nine parts). Whichever it is,
+  // choosing one — in Profile data's menu or with Use here — goes through
+  // applyDesign, which first takes out what would fight it. Two whole-page
+  // designs in one document do not combine; they overwrite each other rule by
+  // rule, and the creator is left with neither.
+
+  function isDesign(style) { return !!(style && (style.css || style.template)); }
+
+  function designParts(style) {
+    var tpl = style && style.template
+      ? templateList().filter(function (t) { return t.id === style.template; })[0] : null;
+    return tpl ? tpl.components : [];
+  }
+
+  /* The design the document is wearing, which is not always the one last
+   * chosen: Golden Hour added part by part from Insert is Instagram-style too. */
+  function currentDesign() {
+    var chosen = window.JaiHardcodeStyles.get(effectiveStyle());
+    var generated = generatedStyleOf(state.code);
+    if (generated) return window.JaiHardcodeStyles.get(generated);
+    var worn = window.JaiHardcodeStyles.list.filter(function (style) {
+      return style.template && designParts(style).some(function (c) {
+        return window.JaiPresets.isPartApplied(state.code, c);
+      });
+    })[0];
+    return worn || chosen;
+  }
+
+  /* Which generated layout a document holds, read off its markup. The choice
+   * saved with Profile data is what was last picked; after an Undo the
+   * document can be wearing the one before, and it is the document that the
+   * menu shows and that a change in Profile data has to be written into. */
+  function generatedStyleOf(code) {
+    if (!window.JaiHardcode.isApplied(code)) return '';
+    var m = window.JaiHardcode.markers;
+    var from = code.indexOf(m.htmlStart);
+    var to = code.indexOf(m.htmlEnd);
+    var html = to > from ? code.slice(from, to) : '';
+    if (html.indexOf('class="sp-') !== -1) return 'steam';
+    if (html.indexOf('zz-navigation') !== -1) return 'proxy-terminal';
+    return code.indexOf(m.styleStart) !== -1 ? 'contact-select' : 'none';
+  }
+
+  /* Emit options for writing one particular design, whatever is chosen. */
+  function emitOptionsFor(styleId) {
+    var opts = cardEmitOptions();
+    opts.style = styleId;
+    return opts;
+  }
+
+  // The same pattern js/page-layout.js writes its block with.
+  var PAGE_LAYOUT_BLOCK = /\s*\/\* @jai:layout:start (\{[^}]*\}) \*\/[\s\S]*?\/\* @jai:layout:end \*\/\n?/;
+
+  function eachStyleBlock(code, fn) {
+    var blocks = window.JaiPayload.styleBlocks(code);
+    for (var i = blocks.length - 1; i >= 0; i--) {
+      var next = fn(blocks[i].css);
+      if (next !== blocks[i].css) code = code.slice(0, blocks[i].cssStart) + next + code.slice(blocks[i].cssEnd);
+    }
+    return code;
+  }
+
+  /*
+   * Takes out everything that lays claim to the whole page: Styles, template
+   * parts (other than `keep`'s own), the other kind of design, and the page
+   * layout block, whose rules are all !important. The creator's own elements
+   * and hand-written CSS stay. Returns the new document and what went.
+   */
+  function clearForDesign(code, keep) {
+    var gone = { styles: 0, parts: 0, layout: false };
+    window.JaiPresets.all.forEach(function (preset) {
+      if (!window.JaiPresets.isApplied(window.JaiPayload.allCss(code), preset)) return;
+      code = eachStyleBlock(code, function (css) { return window.JaiPresets.remove(css, preset); });
+      gone.styles++;
+    });
+    var kept = {};
+    designParts(keep).forEach(function (c) { kept[c.id] = true; });
+    window.JaiPresets.allParts().slice().reverse().forEach(function (part) {
+      if (kept[part.id] || !window.JaiPresets.isPartApplied(code, part)) return;
+      code = window.JaiPresets.removePart(code, part);
+      markAuto(part.id, false);
+      gone.parts++;
+    });
+    code = eachStyleBlock(code, function (css) {
+      if (!PAGE_LAYOUT_BLOCK.test(css)) return css;
+      gone.layout = true;
+      return css.replace(PAGE_LAYOUT_BLOCK, '\n');
+    });
+    if (keep.template && window.JaiHardcode.isApplied(code)) {
+      code = window.JaiHardcode.remove(code);
+      gone.parts++;
+    }
+    return { code: code, gone: gone };
+  }
+
+  /* A template-backed design's parts, brought in line with Profile data: added
+   * if missing, rewritten if they are still as Profile data last wrote them,
+   * left alone if the creator has retyped them on the canvas since. */
+  function writeDesignParts(code, style, addMissing) {
+    designParts(style).forEach(function (part) {
+      if (!window.JaiPresets.isPartApplied(code, part)) {
+        if (addMissing) code = window.JaiPresets.applyPart(code, materialiseTemplatePart(part));
+        return;
+      }
+      var fresh = generatedPartHtml(part);
+      if (fresh == null) return;
+      fresh = fresh.replace(/^\n+|\n+$/g, '');
+      var now = window.JaiPresets.partInner(code, part);
+      if (now == null || now === fresh) return;
+      // As Profile data wrote it, or as the template ships it: ours to rewrite.
+      var untouched = wasGenerated(part.id, now) ||
+        now === String(part.html || '').replace(/^\n+|\n+$/g, '');
+      if (!untouched) return;
+      code = window.JaiPresets.replacePartMarkup(code, Object.assign({}, part, { html: fresh }));
+      rememberGenerated(part.id, fresh);
+    });
+    return code;
+  }
+
+  function applyDesign(style) {
+    if (style.css && !info.characters.length) {
+      info.layout.style = style.id;
+      saveInfo();
+      renderCards();
+      syncLayouts();
+      cardsStatus('“' + style.name + '” is chosen. Import your profile and it is built from your characters.');
       toast('Add your characters first — Profile data → Import profile fills them in.');
       showPanel('info');
       return;
     }
     info.layout.style = style.id;
     saveInfo();
-    var next = window.JaiHardcode.apply(state.code, info.characters, cardEmitOptions());
-    if (next !== state.code) setCode(next, 'cards');
+    var cleared = clearForDesign(state.code, style);
+    var next = style.template
+      ? writeDesignParts(cleared.code, style, true)
+      : window.JaiHardcode.apply(cleared.code, info.characters, emitOptionsFor(style.id));
+    var changed = next !== state.code;
+    if (changed) setCode(next, 'cards');
     reportToHost('layout_applied', style.id);
     renderCards();
-    syncLayouts();
-    toast('“' + style.name + '” is built from your Profile information.');
+    syncTemplates();
+    var went = [];
+    if (cleared.gone.styles) went.push(plural(cleared.gone.styles, 'style'));
+    if (cleared.gone.parts) went.push(plural(cleared.gone.parts, 'other part'));
+    if (cleared.gone.layout) went.push('the page layout');
+    toast(!changed ? '“' + style.name + '” is already your design.'
+      : '“' + style.name + '” is your design now' +
+        (went.length ? ' — replaced ' + went.join(', ') + '. Ctrl+Z brings them back.' : '.'));
   }
 
+  function useLayout(style) { applyDesign(style); }
+
   function syncLayouts() {
+    syncDesignPick();
     var applied = window.JaiHardcode.isApplied(state.code);
     var current = effectiveStyle();
     $$('.template[data-layout]').forEach(function (card) {
@@ -2969,10 +3147,7 @@
         return '<option value="' + style.id + '">' + escapeHtml(style.name) + '</option>';
       }).join('');
     }
-    var style = window.JaiHardcodeStyles.get(effectiveStyle());
-    styleSelect.value = style.id;
-    $('#cards-style-hint').textContent = style.blurb;
-    $('#info-layout-name').textContent = style.css ? style.name : '';
+    var style = syncDesignPick();
 
     var options = info.layout.options;
     $('#cards-opt-slots').value = cardOption('slots');
@@ -2987,12 +3162,7 @@
       var field = $('#cards-opt-' + key);
       if (document.activeElement !== field) field.value = options[key] || '';
     });
-    // Each design uses some of Profile data and has options of its own; the
-    // rest would only be fields that do nothing. Anything a hidden section
-    // holds is kept, and is back the moment its design is chosen again.
-    $$('[data-design]').forEach(function (node) {
-      node.hidden = node.dataset.design.split(' ').indexOf(style.id) === -1;
-    });
+    $('#cards-opt-feedStories').checked = cardOption('feedStories') !== false;
     var themeSelect = $('#cards-opt-steamTheme');
     if (!themeSelect.options.length && window.JaiSteamProfile) {
       themeSelect.innerHTML = Object.keys(window.JaiSteamProfile.themes).map(function (id) {
@@ -3055,11 +3225,33 @@
     reapplyCards(0);
   });
 
+  /* The menu at the top of Profile data, and the panel under it, show the
+   * design the document is wearing. Called whenever the document changes, so
+   * adding Golden Hour from Insert moves the menu to Instagram-style. */
+  function syncDesignPick() {
+    var styleSelect = $('#cards-opt-style');
+    var style = currentDesign();
+    if (!styleSelect || !styleSelect.options.length) return style;
+    if (document.activeElement !== styleSelect) styleSelect.value = style.id;
+    $('#cards-style-hint').textContent = style.blurb;
+    $('#info-layout-name').textContent = isDesign(style) ? style.name : '';
+    // Each design uses some of Profile data and has options of its own; the
+    // rest would only be fields that do nothing. Anything a hidden section
+    // holds is kept, and is back the moment its design is chosen again.
+    $$('[data-design]').forEach(function (node) {
+      node.hidden = node.dataset.design.split(' ').indexOf(style.id) === -1;
+    });
+    return style;
+  }
+
   function renderInsert() {
-    var applied = window.JaiHardcode.isApplied(state.code);
+    var worn = currentDesign();
+    var applied = window.JaiHardcode.isApplied(state.code) ||
+      (!!worn.template && designParts(worn).some(function (c) { return window.JaiPresets.isPartApplied(state.code, c); }));
     $('#cards-insert').textContent = applied ? 'Update About Me' : 'Insert into About Me';
-    $('#cards-insert').disabled = !info.characters.length;
-    $('#cards-insert-hint').textContent = !info.characters.length ? 'Add at least one character to build a profile.'
+    var needsRoster = !worn.template && !info.characters.length;
+    $('#cards-insert').disabled = needsRoster;
+    $('#cards-insert-hint').textContent = needsRoster ? 'Add at least one character to build a profile.'
       : applied ? 'Rewrites only the generated block.'
       : 'Adds a generated block; the rest of your code is untouched.';
   }
@@ -3072,14 +3264,26 @@
    */
   var reapplyTimer = null;
   function reapplyCards(delay) {
+    var worn = currentDesign();
+    if (worn.template) {
+      // A template-backed design: only its parts' copy follows Profile data.
+      clearTimeout(reapplyTimer);
+      reapplyTimer = setTimeout(function () {
+        var written = writeDesignParts(state.code, currentDesign(), false);
+        if (written !== state.code) setCode(written, 'cards');
+      }, delay == null ? 260 : delay);
+      return;
+    }
     if (!window.JaiHardcode.isApplied(state.code)) return;
     clearTimeout(reapplyTimer);
     reapplyTimer = setTimeout(function () {
       var generatedRoster = window.JaiHardcodeSections
         ? window.JaiHardcodeSections.rosterForGenerated(state.code, info.characters)
         : info.characters;
+      // Into the design that is there, not the one last chosen (see
+      // generatedStyleOf): after an Undo those can differ.
       var next = generatedRoster.length
-        ? window.JaiHardcode.apply(state.code, generatedRoster, cardEmitOptions())
+        ? window.JaiHardcode.apply(state.code, generatedRoster, emitOptionsFor(generatedStyleOf(state.code) || effectiveStyle()))
         : window.JaiHardcode.remove(state.code);
       if (next !== state.code) setCode(next, 'cards');
     }, delay == null ? 260 : delay);
@@ -3218,18 +3422,38 @@
    * is what both are built from, so nothing typed here is lost in the swap. */
   $('#cards-opt-style').addEventListener('change', function () {
     var style = window.JaiHardcodeStyles.get(this.value);
-    // Its own options are the next thing to look at, so they are opened.
-    if (style.css) $('#info-layout').open = true;
-    if (style.css && info.characters.length) {
-      useLayout(style);
+    this.blur();     // so the menu can show what the document ends up wearing
+    if (isDesign(style)) {
+      // Its own options are the next thing to look at, so they are opened.
+      $('#info-layout').open = true;
+      applyDesign(style);
       return;
     }
+    // "None": no ready-made design. A template-backed one is taken off; a
+    // generated one keeps its markup and loses its stylesheet, which is what
+    // "I style it myself" has always meant.
+    var worn = currentDesign();
     info.layout.style = this.value;
     saveInfo();
+    var next = state.code;
+    if (worn.template) {
+      designParts(worn).slice().reverse().forEach(function (part) {
+        next = window.JaiPresets.removePart(next, part);
+        markAuto(part.id, false);
+      });
+    } else if (window.JaiHardcode.isApplied(next)) {
+      next = window.JaiHardcode.apply(next, info.characters, emitOptionsFor(this.value));
+    }
+    if (next !== state.code) setCode(next, 'cards');
     renderCards();
+    syncTemplates();
+    if (worn.template) toast('“' + worn.name + '” taken off. Ctrl+Z brings it back.');
+  });
+
+  $('#cards-opt-feedStories').addEventListener('change', function () {
+    info.layout.options.feedStories = this.checked;
+    saveInfo();
     reapplyCards(0);
-    syncLayouts();
-    if (style.css) cardsStatus('“' + style.name + '” is chosen. Import your profile and it is built from your characters.');
   });
 
   $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText, #cards-opt-steamTheme, #cards-opt-steamBackground, #cards-opt-steamFrame, #cards-opt-steamFrameImage, #cards-opt-steamLevel, #cards-opt-steamStatus, #cards-opt-steamSubtitle, #cards-opt-feedName, #cards-opt-feedCategory')
@@ -3251,6 +3475,8 @@
     });
 
   $('#cards-insert').addEventListener('click', function () {
+    var worn = currentDesign();
+    if (worn.template) { applyDesign(worn); return; }
     commitStyle();
     var generatedRoster = window.JaiHardcodeSections
       ? window.JaiHardcodeSections.rosterForGenerated(state.code, info.characters)

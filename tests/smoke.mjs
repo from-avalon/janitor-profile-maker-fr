@@ -635,6 +635,25 @@ try {
   if (!steam.favourite || steam.tiles < 1 || !steam.optionsShown || !steam.frame || steam.blob || steam.issues) {
     fail(`the Steam profile layout did not build cleanly (${JSON.stringify(steam)})`);
   }
+  // Choosing another design replaces the one before. Instagram-style is the
+  // Golden Hour template's own parts, so Insert → Sections shows them added.
+  await page.selectOption('#cards-opt-style', 'photo-feed');
+  await page.waitForTimeout(700);
+  const swapped = await page.evaluate(() => {
+    const code = window.JaiStudio.code();
+    const parts = window.JaiPresets.allParts().filter((part) => part.id.startsWith('golden-hour-'));
+    return {
+      parts: parts.filter((part) => window.JaiPresets.isPartApplied(code, part)).length,
+      of: parts.length,
+      generated: window.JaiHardcode.isApplied(code),
+      card: document.querySelector('.template[data-template="golden-hour"]')?.classList.contains('is-on'),
+      pick: document.getElementById('cards-opt-style').value,
+      issues: window.JaiStudio.issues().length,
+    };
+  });
+  if (swapped.parts !== swapped.of || swapped.generated || !swapped.card || swapped.pick !== 'photo-feed' || swapped.issues) {
+    fail(`switching designs did not replace one with the other (${JSON.stringify(swapped)})`);
+  }
   await page.evaluate(() => window.JaiStudio.setCode('', 'load', { now: true }));
 
   // The changelog dialog: opens from the toolbar and renders at least one entry.
