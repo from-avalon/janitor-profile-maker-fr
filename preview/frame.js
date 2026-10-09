@@ -126,6 +126,8 @@
     if (editProfile) editProfile.classList.add('sim-owner-only');
     var editAvatar = doc.querySelector('.pp-uc-avatar-container .chakra-button');
     if (editAvatar) editAvatar.classList.add('sim-owner-only');
+    var customize = doc.querySelector('.profile-info-stack [aria-label="Customize profile page"]');
+    if (customize) (customize.parentElement || customize).classList.add('sim-owner-only');
 
     /* Character counter -- replaces the loading skeleton. */
     var counterBox = doc.querySelector('.character-list-pagination-box');
@@ -317,11 +319,28 @@
         String(d.background).replace(/['\\]/g, '') + "'); }");
     }
     if (d.showBadges === false) rules.push('.profile-badges { display: none; }');
-    if (d.viewMode === 'visitor') rules.push('.sim-owner-only { display: none; }');
+    // !important, unlike the rest of this sheet: for a visitor these controls
+    // are not on the page at all, so there is no creator rule they could lose
+    // an argument to — and JanitorAI's own `display` for its buttons comes
+    // later in the cascade and would otherwise put them back.
+    if (d.viewMode === 'visitor') {
+      rules.push('.sim-owner-only { display: none !important; }');
+      // The capture was taken signed in as the profile's owner, so the header
+      // carries their picture; a visitor's header has the visitor's own.
+      // Swapped here rather than by changing `src`, which would abandon the
+      // real picture's download half way.
+      rules.push('.pp-top-bar-app-menu img { content: url("' + VISITOR_AVATAR + '"); }');
+    }
     else if (d.viewMode === 'owner') rules.push('.css-1aq5geu { display: none; }');
 
     dataStyle.textContent = rules.join('\n');
   }
+
+  /* Nobody in particular: the picture in the header when the profile is being
+   * looked at by a visitor. */
+  var VISITOR_AVATAR = 'data:image/svg+xml,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#3a3f4b"/>' +
+    '<circle cx="32" cy="25" r="11" fill="#9aa3b2"/><path d="M10 64c2-15 11-22 22-22s20 7 22 22z" fill="#9aa3b2"/></svg>');
 
   function plusBadge() {
     return '<span class="_root_l8p4e_1"><span class="_wrapperPaired_1tafp_3" aria-label="janitor+ Subscriber">' +
@@ -389,6 +408,10 @@
   var chainNodes = [];      // its selectable ancestors, nearest first
   var hovered = null;
   var drag = null;          // a reorder in progress
+  var nudge = null;         // an element being slid to a new spot
+  var tap = null;           // a press that has not turned into a drag (yet)
+  var lastTapAt = 0;        // when the last such press was let go: tells a double-click's second half apart
+  var menuStack = [];       // what was under the last right-click, topmost first
   var resizing = null;
   var probeTarget = null;   // where a block dragged in from the studio would land
   var textEdit = null;      // a creator's element being retyped in place
@@ -555,7 +578,9 @@
       toggleAttr(ui.sel, 'data-locked', selected.hasAttribute('data-jx-lock'));
       ui.tag.textContent = resizing
         ? Math.round(r.width) + ' × ' + Math.round(r.height)
-        : (selectedLabel || bestSelector(selected) || selected.tagName.toLowerCase());
+        : nudge && nudge.active
+          ? 'x ' + nudge.x1 + '  y ' + nudge.y1
+          : (selectedLabel || bestSelector(selected) || selected.tagName.toLowerCase());
       ui.tag.style.display = 'block';
       ui.tag.style.left = Math.max(2, r.left) + 'px';
       ui.tag.style.top = (r.top > 24 ? r.top - 21 : Math.min(window.innerHeight - 22, r.bottom + 3)) + 'px';
@@ -564,7 +589,7 @@
       hide(ui.tag);
     }
 
-    if (hovered && hovered !== selected && mode === 'design' && !drag && !resizing && !sectionDrag && !splitting) {
+    if (hovered && hovered !== selected && mode === 'design' && !drag && !nudge && !resizing && !sectionDrag && !splitting) {
       show(ui.hover, hovered.getBoundingClientRect());
     } else {
       hide(ui.hover);
@@ -587,7 +612,7 @@
   // ---------------------------------------------------------------- pointer
 
   doc.addEventListener('mousemove', function (e) {
-    if (mode !== 'design' || drag || resizing) return;
+    if (mode !== 'design' || drag || nudge || resizing) return;
     hovered = isUi(e.target) ? hovered : selectable(e.target);
   });
   doc.addEventListener('mouseleave', function () { hovered = null; });
@@ -614,13 +639,84 @@
     // field in the studio was last typed in.
     window.focus();
     var node = selectable(e.target);
-    if (node !== selected) setSelected(node, true);
-    if (node && isCustom(node)) {
+    var prior = selected;
+    // The selection can be under the pointer and still not be what the press
+    // lands on: something slid beneath another element, say. It stays
+    // selected, so it can be dragged back out; only a press that ends without
+    // moving goes on to pick something else (see tapped()).
+    var covered = isCovered(e.target, e.clientX, e.clientY);
+    tap = { x: e.clientX, y: e.clientY, covered: covered, same: covered || node === selected };
+    if (covered) node = selected;
+    else if (node !== selected) setSelected(node, true);
+    // One of the creator's own elements is carried to a new place in the
+    // markup. JanitorAI's have no place in the markup to move to, so a drag
+    // slides them instead — and Alt does the same for the creator's.
+    if (node && isCustom(node) && !e.altKey) {
       drag = { node: node, x: e.clientX, y: e.clientY, active: false, pointer: e.pointerId };
+    } else if (node) {
+      nudge = { node: node, prior: prior, x: e.clientX, y: e.clientY, active: false, pointer: e.pointerId };
     }
   }, true);
 
+  // ------------------------------------------------------------ what is under
+  //
+  // Elements overlap: a design stacks them on purpose, and a slide can leave
+  // one beneath another by accident. Whatever is on top takes the click, so
+  // there has to be a way down. Three, all the same idea — a press on what is
+  // already selected means "not this one, the next one under it":
+  //   - click it again (a slow second click, not a double-click);
+  //   - double-click, where that has no other meaning;
+  //   - right-click → Select, which lists the whole pile by name.
+
+  /* Everything selectable under a point, topmost first, each once. */
+  function stackAt(x, y) {
+    var out = [];
+    doc.elementsFromPoint(x, y).forEach(function (hit) {
+      if (isUi(hit)) return;
+      var node = selectable(hit);
+      if (node && node !== doc.body && out.indexOf(node) === -1) out.push(node);
+    });
+    return out;
+  }
+
+  /* Whether the selection is under (x, y) but beneath whatever `target` is. */
+  function isCovered(target, x, y) {
+    if (!selected || selected === doc.body || selected.contains(target)) return false;
+    return stackAt(x, y).indexOf(selected) !== -1;
+  }
+
+  /* The next thing down from the selection at a point. Its own ancestors are
+   * skipped — Esc already reaches those — and the bottom wraps to the top. */
+  function selectUnder(x, y) {
+    var stack = stackAt(x, y).filter(function (node) {
+      if (node === selected) return true;
+      // The page's backdrop is under every click there is; counting it would
+      // make a second click on anything at all jump to the background.
+      var r = node.getBoundingClientRect();
+      if (r.width >= window.innerWidth * 0.95 && r.height >= window.innerHeight * 0.95) return false;
+      return !selected || !node.contains(selected);
+    });
+    if (stack.length < 2) return false;
+    var next = stack[(stack.indexOf(selected) + 1) % stack.length];
+    if (!next || next === selected) return false;
+    setSelected(next, true);
+    return true;
+  }
+
+  /* A press let go where it started. */
+  function tapped() {
+    var t = tap;
+    tap = null;
+    if (!t) return;
+    var now = Date.now();
+    var second = now - lastTapAt < 400;      // the second half of a double-click
+    lastTapAt = now;
+    if (second || !t.same) return;
+    selectUnder(t.x, t.y);
+  }
+
   doc.addEventListener('pointermove', function (e) {
+    if (nudge) { slide(e); return; }
     if (!drag) return;
     if (!drag.active) {
       if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) < 6) return;
@@ -640,9 +736,12 @@
   }, true);
 
   doc.addEventListener('pointerup', function () {
-    if (!drag) return;
+    var wasTap = !(nudge && nudge.active) && !(drag && drag.active);
+    if (nudge) { endSlide(true); if (wasTap) tapped(); else tap = null; return; }
+    if (!drag) { if (wasTap) tapped(); return; }
     var done = drag;
     cancelDrag();
+    if (wasTap) tapped(); else tap = null;
     if (done.active && done.target) {
       send({
         type: 'move',
@@ -656,10 +755,122 @@
   doc.addEventListener('pointercancel', cancelDrag, true);
 
   function cancelDrag() {
+    if (nudge) endSlide(false);
     drag = null;
     doc.documentElement.removeAttribute('data-sim-dragging');
     hide(ui.ghost);
     hide(ui.drop);
+  }
+
+  // ------------------------------------------------------------------ sliding
+  //
+  // Dragging an element that is not the creator's own markup — the avatar, the
+  // Follow button, a badge — slides it from where the page put it. The offset
+  // is `position: relative` with `left` and `top`: the element keeps its place
+  // in the layout, so nothing around it reflows, and every browser JanitorAI
+  // runs in has always had it. Something already taken out of the flow
+  // (absolute, fixed) is moved by the same two properties, with the opposite
+  // edges let go so the element is not stretched between them.
+
+  /* The two big blocks of the page have a grip of their own (page layout). */
+  function slidable(node) {
+    if (!node || node === doc.body || node === doc.documentElement) return false;
+    if (node.matches('.profile-page-flex, .pp-uc-background, .profile-page-container-flex-box, .pp-uc-about-me')) return false;
+    return getComputedStyle(node).display !== 'inline';
+  }
+
+  /*
+   * What a drag that started on `node` slides. A press lands on the innermost
+   * thing under the pointer — the word "Follow", the picture inside the avatar
+   * frame — and that is rarely what was meant:
+   *   - inside something already selected, it is that selection (select the
+   *     row, then drag the row from anywhere in it);
+   *   - on the label or icon of a button or link, it is the button;
+   *   - on something that fills its wrapper edge to edge, it is the wrapper,
+   *     so a frame travels with its picture.
+   */
+  function slideTarget(node, prior) {
+    if (prior && prior !== node && prior.contains(node) && slidable(prior)) return prior;
+    var target = node;
+    if (!isCustom(node)) {
+      var control = node.closest('button, a, [role="button"]');
+      if (control && control !== node && bestSelector(control) && slidable(control)) target = control;
+    }
+    for (var up = target.parentElement; up && slidable(up) && !customOf(up) === !customOf(target); up = up.parentElement) {
+      if (!(isCustom(up) || bestSelector(up))) break;
+      var a = target.getBoundingClientRect();
+      var b = up.getBoundingClientRect();
+      var snug = Math.abs(a.left - b.left) <= 8 && Math.abs(a.right - b.right) <= 8 &&
+                 Math.abs(a.top - b.top) <= 8 && Math.abs(a.bottom - b.bottom) <= 8;
+      if (!snug) break;
+      target = up;
+    }
+    return slidable(target) ? target : null;
+  }
+
+  function slide(e) {
+    var n = nudge;
+    if (!n.active) {
+      if (Math.abs(e.clientX - n.x) + Math.abs(e.clientY - n.y) < 5) return;
+      var target = slideTarget(n.node, n.prior);
+      if (!target) { nudge = null; return; }
+      n.node = target;
+      // The rule is written for whatever is selected, so the selection follows.
+      if (target !== selected) setSelected(target, true);
+      releaseInline();
+      var cs = getComputedStyle(n.node);
+      n.active = true;
+      n.style = n.node.getAttribute('style');
+      n.out = cs.position === 'absolute' || cs.position === 'fixed';
+      n.position = cs.position === 'static' ? 'relative' : null;
+      // For a relative element these are its offsets; for an absolute one, the
+      // place it has resolved to. Either way the drag adds to them.
+      n.left = n.position ? 0 : px(cs.left);
+      n.top = n.position ? 0 : px(cs.top);
+      doc.documentElement.setAttribute('data-sim-sliding', '');
+      try { doc.documentElement.setPointerCapture(n.pointer); } catch { /* pointer already gone */ }
+    }
+    var dx = e.clientX - n.x;
+    var dy = e.clientY - n.y;
+    // Shift keeps the move to one direction, whichever it has gone furthest in.
+    if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
+    n.x1 = Math.round(n.left + dx);
+    n.y1 = Math.round(n.top + dy);
+    if (n.position) n.node.style.setProperty('position', n.position, 'important');
+    if (n.out) {
+      n.node.style.setProperty('right', 'auto', 'important');
+      n.node.style.setProperty('bottom', 'auto', 'important');
+    }
+    n.node.style.setProperty('left', n.x1 + 'px', 'important');
+    n.node.style.setProperty('top', n.y1 + 'px', 'important');
+    paint();
+  }
+
+  function endSlide(commit) {
+    var done = nudge;
+    nudge = null;
+    doc.documentElement.removeAttribute('data-sim-sliding');
+    if (!done || !done.active) return;
+    if (!commit || done.x1 == null) {
+      if (done.style == null) done.node.removeAttribute('style');
+      else done.node.setAttribute('style', done.style);
+      paint();
+      return;
+    }
+    // Held inline until the studio's rule arrives, as a resize is.
+    heldInline = [{ node: done.node, style: done.style }];
+    // Let go underneath something else? The studio lifts it and says so.
+    var box = done.node.getBoundingClientRect();
+    var over = doc.elementsFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+      .filter(function (hit) { return !isUi(hit); })[0];
+    send({
+      type: 'slide',
+      position: done.position,
+      out: done.out,
+      left: done.x1 + 'px',
+      top: done.y1 + 'px',
+      covered: !!over && !done.node.contains(over) && !over.contains(done.node)
+    });
   }
 
   function edgeScroll(y) {
@@ -690,6 +901,7 @@
     var value = (e.target.closest && e.target.closest('.sim-edit-value')) ||
                 (holder && holder.querySelector('.sim-edit-value'));
     if (value) beginEdit(value);
+    else selectUnder(e.clientX, e.clientY);
   }, true);
 
   // ------------------------------------------------------------ drop targets
@@ -1189,6 +1401,11 @@
       }
       return;
     }
+    if (nudge && nudge.active && e.key === 'Escape') {
+      e.preventDefault();
+      endSlide(false);
+      return;
+    }
     // The studio owns undo, delete, duplicate and the rest; pass them up. Plain
     // arrow keys are left alone so they still scroll the page.
     var modifier = e.ctrlKey || e.metaKey;
@@ -1224,14 +1441,36 @@
     if (mode === 'design') {
       window.focus();
       var node = selectable(e.target);
-      if (node !== selected) setSelected(node, true);
+      // A right-click inside what is already selected is about that selection:
+      // the avatar frame that was just slid, not the picture inside it.
+      // …and so is one on a selection that something else is lying over.
+      var within = selected && selected !== doc.body &&
+        (selected.contains(e.target) || isCovered(e.target, e.clientX, e.clientY));
+      if (node !== selected && !within) setSelected(node, true);
       drop = dropAt(e.clientX, e.clientY, null);
+      // Page-level wrappers hold everything, so they are under every click
+      // and say nothing about this one. A wrapper shows itself by containing
+      // two things in the pile that are otherwise unrelated.
+      var pile = stackAt(e.clientX, e.clientY);
+      menuStack = pile.filter(function (n) {
+        var inside = pile.filter(function (other) { return other !== n && n.contains(other); });
+        return !inside.some(function (a) {
+          return inside.some(function (b) { return a !== b && !a.contains(b) && !b.contains(a); });
+        });
+      });
     }
     send({
       type: 'context',
       x: e.clientX, y: e.clientY,
       image: image,
-      drop: drop ? { ref: drop.ref, where: drop.where } : null
+      drop: drop ? { ref: drop.ref, where: drop.where } : null,
+      // The pile under the pointer, for "Select ▸": one of them by its place
+      // in this list, since a selector alone cannot say which card was meant.
+      stack: mode === 'design' ? menuStack.map(function (n) {
+        var d = describe(n);
+        d.current = n === selected;
+        return d;
+      }) : []
     });
   });
 
@@ -1340,7 +1579,9 @@
         setMode(m.mode);
         break;
       case 'select':
-        var node = m.depth != null ? chainNodes[m.depth] : resolve(m);
+        var node = m.depth != null ? chainNodes[m.depth]
+          : m.stack != null ? menuStack[m.stack]
+          : resolve(m);
         if (node && m.reveal) reveal(node);
         // `silent` is the studio restoring a selection it already knows about.
         setSelected(node || null, !m.silent);

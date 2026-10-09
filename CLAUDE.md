@@ -52,6 +52,28 @@ the only source of truth; every canvas gesture is an edit to that text.
   element ids unchanged — so the edit survives, and Undo restores the link.
   Anything placed *beside* a linked block's root goes outside the markers
   (`place()` in markup.js); never write between them by hand.
+- Dragging has two meanings. One of the creator's own elements is *carried*
+  to a new place in the markup (`move`). Anything else — JanitorAI's elements,
+  or the creator's with Alt held — is *slid*: the frame reports `slide` and
+  `canvas.js` writes `position: relative; left; top` (for something already
+  absolute or fixed: `left`/`top` plus `right: auto; bottom: auto`) through
+  `JaiStudio.writeValues`, which is one `setCode` and so one Undo. What a
+  press slides is decided by `slideTarget` in frame.js (the current selection
+  if the press is inside it, a button rather than its label, a snug wrapper
+  rather than its only child); the selection moves to that element first,
+  because the rule is written for whatever is selected.
+- Elements overlap, and the one on top takes the click. A press on what is
+  already selected means "the next one under it": a slow second click, a
+  double-click where that has no other meaning, or right-click → Select
+  (`stackAt` / `selectUnder` in frame.js). A selection that is under the
+  pointer but covered stays selected through a press, so it can be dragged
+  out. A slide that ends covered is written with `z-index: 5` as well.
+- Tutorials (`js/tutorials.js`) are data: a list of steps, each with a `done`
+  check that reads the document, an optional `show` (open the panel, pulse
+  the control) and `auto`. The list is in the Tutorials panel; the running
+  step is the `#coach` card over the canvas, because steps send the creator
+  to other panels. Steps never assume how the work got done — a check that
+  passes ticks the step whoever did it.
 - Page layout (`js/page-layout.js`) moves the profile box and the character
   list — the two children of `.profile-page-flex`. The layout is a small model
   written as one block between `@jai:layout:start {json}` / `end` comments,
@@ -85,6 +107,12 @@ the only source of truth; every canvas gesture is an edit to that text.
 - The theme is the token block at the top of `css/app.css` (red on black); the
   canvas overlay colours in `preview/frame.html` must be kept in step with
   `--sel` by hand, because the frame is a separate document.
+- The preview's default is a visitor's view. Owner-only controls carry
+  `sim-owner-only` and are hidden with `!important` from the preview's own
+  data stylesheet — the one place the simulator overrules the cascade, since
+  those elements do not exist for a visitor. The preview only follows a
+  `#hash` link whose target exists, so a template's "close" link needs a real
+  element to point at (Golden Hour's `#gh-feed`).
 - Design mode swallows clicks in the preview (a click is a selection). Anything
   that needs the page to react — tests included — switches to Preview mode.
 

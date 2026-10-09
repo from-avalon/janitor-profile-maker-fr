@@ -114,6 +114,9 @@
     <button type="button" role="tab" data-panel="info" title="Profile data — what hardcoded layouts are built from" aria-label="Profile data">
       <svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="6" r="2.5"/><path d="M3 13.5c.6-2.3 2.6-3.5 5-3.5s4.4 1.2 5 3.5"/></svg>
     </button>
+    <button type="button" role="tab" data-panel="tutorials" title="Tutorials — build a profile step by step" aria-label="Tutorials">
+      <svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 6L8 3l6.5 3L8 9z"/><path d="M4.5 7.6v3c1 .9 2.2 1.4 3.5 1.4s2.5-.5 3.5-1.4v-3"/><path d="M14.5 6v3.5"/></svg>
+    </button>
     <span class="rail-spacer"></span>
     <button type="button" role="tab" data-panel="help" title="Help" aria-label="Help">
       <svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M6.3 6.4a1.8 1.8 0 113 1.3c-.7.5-1.3.9-1.3 1.8"/><path d="M8 11.6v.1"/></svg>
@@ -346,6 +349,14 @@
         </div>
       </section>
 
+      <!-- Guided builds (js/tutorials.js). The list lives here; a tutorial that
+           is running shows its current step in the coach card over the canvas,
+           because its steps send you to the other panels. -->
+      <section class="panel" data-panel="tutorials" hidden>
+        <p class="panel-note">Build a whole profile one step at a time, with the same tools you would use on your own. Each step checks itself off when you have done it.</p>
+        <div id="tutorial-list"></div>
+      </section>
+
       <section class="panel help-panel" data-panel="help" hidden>
         <details open>
           <summary>Start here</summary>
@@ -359,6 +370,8 @@
         <details>
           <summary>Working on the canvas</summary>
           <p><b>Click</b> selects. <b>Double-click</b> retypes text. <b>Drag</b> one of your own elements to move it; a line shows where it will land. The corner handles resize. <b>Right-click</b> to add something exactly there, or for everything else.</p>
+          <p><b>Drag</b> one of JanitorAI's elements — the avatar, the Follow button, a badge — to slide it somewhere else; <kbd>Alt</kbd>+drag does the same to your own. <kbd>Shift</kbd> keeps the slide straight, <kbd>Esc</kbd> cancels it, and right-click → <b>Reset position</b> puts it back.</p>
+          <p><b>Something stuck under something else?</b> Click the thing on top, then click the same spot again (or double-click): the selection moves to what is underneath, and it can be dragged out from there. Right-click → <b>Select</b> lists everything under the pointer.</p>
           <p><b>Images</b> have to be online: drag one in from another tab, paste its link, or add an Image and paste the address on the right.</p>
           <p><kbd>Del</kbd> removes, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicates, <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> reorders, <kbd>Esc</kbd> selects the parent, <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes.</p>
           <p>Switch to <b>Preview</b> (top bar) when you want links, hover and CSS-only menus to behave like the real page.</p>
@@ -410,6 +423,10 @@
     </div>
 
     <!-- The About Me document itself. Closed until asked for. -->
+    <!-- The running tutorial's current step. Over the canvas rather than in a
+         panel, so it stays put while the step sends you to Insert or Layers. -->
+    <aside class="coach" id="coach" aria-live="polite" hidden></aside>
+
     <section class="dock" id="dock" hidden>
       <div class="dock-resizer" id="resize-dock" role="separator" aria-orientation="horizontal" aria-label="Resize code panel"></div>
       <div class="dock-head">
@@ -557,6 +574,7 @@
 <script src="js/layers.js"></script>
 <script src="js/insert.js"></script>
 <script src="js/inspector.js"></script>
+<script src="js/tutorials.js"></script>
 <script src="js/changelog.js"></script>
 </body>
 </html>

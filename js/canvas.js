@@ -139,6 +139,9 @@
       // JanitorAI wraps everything in several labelled containers. Only the
       // ancestors with a name of their own are worth showing or climbing to;
       // `depth` remembers where each one sits in the frame's full list.
+      // The nearest few as the frame gave them, named or not: where a slide's
+      // offset is looked for (see moved()).
+      selection.near = (chain || []).slice(0, 3);
       selection.chain = (chain || []).map(function (ancestor, depth) {
         ancestor.depth = depth;
         return ancestor;
@@ -400,6 +403,18 @@
       else clear();
     },
     hide: function () { writeStyle('display', 'none'); },
+    resetPosition: function () {
+      var sel = moved();
+      if (!sel) return;
+      // Only what a slide writes: an offset the creator typed for an element
+      // that was already positioned some other way is theirs to keep.
+      var values = { left: null, top: null };
+      if (S.readValue(sel, 'position') === 'relative') values.position = null;
+      if (S.readValue(sel, 'right') === 'auto') values.right = null;
+      if (S.readValue(sel, 'bottom') === 'auto') values.bottom = null;
+      if (S.readValue(sel, 'z-index') === '5') values['z-index'] = null;
+      S.writeValues(sel, values);
+    },
     unlink: unlinkNow,
     profileData: function () { S.showPanel('info'); },
     addCharacter: function () { S.addCharacter(); },
@@ -425,6 +440,60 @@
     if (m.width) writeStyle('width', m.width);
     if (m.height) writeStyle('height', m.height);
   });
+
+  /* The selector carrying a slide's offset, if the selection has been slid
+   * from where the page put it. A press lands on a button's label and the
+   * slide moves the button's wrapper, so the offset may sit a step or two up
+   * from what is selected; Reset position has to find it there. */
+  function moved() {
+    if (!selection) return null;
+    function has(sel) {
+      return !!sel && sel !== '@unique' && (S.readValue(sel, 'left') != null || S.readValue(sel, 'top') != null);
+    }
+    if (has(selection.target + selection.state)) return selection.target + selection.state;
+    var near = selection.near || [];
+    for (var i = 0; i < near.length; i++) {
+      if (near[i].kind !== 'custom' && has(near[i].selector)) return near[i].selector;
+    }
+    return null;
+  }
+
+  var slideHintShown = false;
+
+  /* An element dragged to a new spot on the canvas (see "sliding" in
+   * preview/frame.js). Written as one change, so Undo puts it straight back. */
+  S.on('frame:slide', function (m) {
+    if (!selection) return;
+    var values = {};
+    if (m.position) values.position = m.position;
+    if (m.out) { values.right = 'auto'; values.bottom = 'auto'; }
+    values.left = m.left;
+    values.top = m.top;
+    // Dropped beneath something else: lift it, so it can be seen and picked up
+    // again. (Where the page's own stacking keeps it under regardless, it is
+    // still selected, still draggable, and listed under right-click → Select.)
+    var lifted = m.covered && readStyle('z-index') == null;
+    if (lifted) values['z-index'] = '5';
+    S.writeValues(styleSelector(), values);
+    if (m.covered) {
+      S.toast('That landed under something else' + (lifted ? ', so it was brought to the front' : '') +
+        '. Click the same spot again to reach what is underneath.');
+    } else if (!slideHintShown) {
+      slideHintShown = true;
+      S.toast('Moved. Right-click it and choose Reset position to put it back.');
+    }
+  });
+
+  /* "Select ▸": everything under the right-click, topmost first, by name. */
+  function stackMenu(stack) {
+    return (stack || []).map(function (entry, i) {
+      return {
+        label: (entry.current ? '● ' : '') + nameOf(entry),
+        disabled: !!entry.current,
+        action: function () { S.post({ type: 'select', stack: i }); }
+      };
+    });
+  }
 
   // ------------------------------------------------------------ right-click
   //
@@ -493,6 +562,8 @@
         items.push(null);
       }
       items.push({ label: 'Select parent', hint: 'Esc', action: function () { run('selectParent'); } });
+      if (m.stack && m.stack.length > 1) items.push({ label: 'Select', items: stackMenu(m.stack) });
+      if (moved()) items.push({ label: 'Reset position', action: function () { run('resetPosition'); } });
       items.push({ label: 'Hide', action: function () { run('hide'); } });
       items.push({ label: 'Delete', hint: 'Del', danger: true, action: function () { run('delete'); } });
     } else if (design) {
@@ -500,6 +571,8 @@
       if (selection) {
         items.push(null);
         items.push({ label: 'Select parent', hint: 'Esc', action: function () { run('selectParent'); } });
+        if (m.stack && m.stack.length > 1) items.push({ label: 'Select', items: stackMenu(m.stack) });
+        if (moved()) items.push({ label: 'Reset position', action: function () { run('resetPosition'); } });
         items.push({ label: 'Hide element', action: function () { run('hide'); } });
       }
     }

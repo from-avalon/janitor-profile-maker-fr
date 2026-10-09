@@ -9,6 +9,44 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-10-09 — Drag anything, tutorials, and a visitor's view
+
+**Drag to move.** JanitorAI's own pieces — the avatar, the Follow and Options
+buttons, badges, your follower count — can now be dragged to a new spot on the
+canvas, not only resized. Hold Alt to do the same to an element of your own,
+Shift to keep the move straight, Esc to cancel. Right-click → **Reset
+position** puts it back, and each drag is one Undo.
+
+If something ends up under something else, it is not lost: it is brought to
+the front when you let go, and failing that, click the thing on top and then
+click the same spot again (or double-click) to select what is underneath —
+it drags out from there. Right-click → **Select** lists everything under the
+pointer by name.
+
+**Tutorials.** A new panel on the left, under Profile data. The first one
+builds the Golden Hour profile in eleven short steps using the studio's own
+tools. Each step can point at what it means (**Show me**), do itself (**Do it
+for me**), and ticks itself off when the page shows it is done.
+
+**The preview is a visitor's.** The default view now really is what a stranger
+sees: no Edit profile button, no avatar pencil, no Customize button, and
+somebody else's picture in the header. Switch to "Yourself" in the Page panel
+to see your own view.
+
+## 2026-10-09 — New template: Golden Hour
+
+A photo-feed profile, in **Insert** with the other templates. Your real avatar sits in a
+gradient story ring, your real follower count sits in a row of stats, and a
+line of highlight circles opens full story cards — about, rules, requests,
+links and friends — each with a progress bar and arrows to the next one.
+
+The character grid is JanitorAI's own list turned into three-across picture
+tiles, so it updates itself when you publish a bot. Pointing at a tile shows
+its name, tags and chat count.
+
+On a computer the notification bell leaves the header and floats in the bottom
+corner as a pill, like a message inbox; its panel opens upward.
+
 ## 2026-10-02 — Move the big blocks of your profile
 
 The profile box (with your About Me in it) and the character list can now be

@@ -766,9 +766,9 @@
 
   /* The rule a visual edit for `selector` belongs in: the last top-level one
    * the creator owns, in the last <style> block that has one. */
-  function ownRule(selector) {
+  function ownRule(selector, code) {
     var wanted = window.CssModel.normaliseSelector(selector);
-    var blocks = window.JaiPayload.styleBlocks(state.code);
+    var blocks = window.JaiPayload.styleBlocks(code == null ? state.code : code);
     for (var b = blocks.length - 1; b >= 0; b--) {
       var generated = generatedCssRanges(blocks[b].css);
       var nodes = window.CssModel.parse(blocks[b].css);
@@ -804,6 +804,35 @@
       return css + (css && !/\n\s*$/.test(css) ? '\n\n' : (css.trim() ? '\n' : '')) +
         sel + ' {\n  ' + prop + ': ' + value + ';\n}\n';
     }, from);
+  }
+
+  /* Several properties of one rule as a single change. Sliding an element
+   * sets `position`, `left` and `top` together: that is one gesture, so it has
+   * to be one Undo. A null value removes the property. */
+  function writeValues(sel, values, from) {
+    var code = state.code;
+    Object.keys(values).forEach(function (prop) {
+      var value = values[prop];
+      var removing = value == null || value === '';
+      setLive(sel, prop, removing ? null : value);
+      var own = ownRule(sel, code);
+      if (own) {
+        var next = window.CssModel.setDeclaration(own.block.css, sel, prop, removing ? null : value, { rule: own.rule });
+        code = code.slice(0, own.block.cssStart) + next + code.slice(own.block.cssEnd);
+      } else if (!removing) {
+        code = window.JaiPayload.editCss(code, function (css) {
+          return css + (css && !/\n\s*$/.test(css) ? '\n\n' : (css.trim() ? '\n' : '')) +
+            sel + ' {\n  ' + prop + ': ' + value + ';\n}\n';
+        });
+      }
+    });
+    // Taking the last property out of a rule leaves `selector { }` behind;
+    // a rule this wrote and then emptied should not stay in the document.
+    var hollow = new RegExp('(^|\\n)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\{\\s*\\}\\n?', 'g');
+    code = window.JaiPayload.editCss(code, function (css) {
+      return css.replace(hollow, '$1').replace(/\n{3,}/g, '\n\n');
+    });
+    if (code !== state.code) setCode(code, from || 'canvas');
   }
 
   /* Renames one property of the creator's rule in place (the raw declaration
@@ -2091,6 +2120,7 @@
     layers: 'Layers',
     insert: 'Insert',
     info: 'Profile data',
+    tutorials: 'Tutorials',
     help: 'Help'
   };
 
@@ -3046,6 +3076,7 @@
     markup: function () { return window.JaiMarkup.parse(state.code); },
     readValue: readValue,
     writeValue: writeValue,
+    writeValues: writeValues,
     ruleDeclarations: ruleDeclarations,
     renameDeclaration: renameDeclaration,
     issues: function () { return lintIssues; },
@@ -3056,6 +3087,7 @@
     setMode: setMode,
     setData: setData,
     placePart: placePart,
+    togglePart: togglePart,
     addCharacter: addCharacter,
     toggleUi: toggleUi,
     addRuleStub: addRuleStub,
