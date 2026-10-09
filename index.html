@@ -194,11 +194,27 @@
            (js/profile-info.js). Every section starts closed so the tab reads as
            a table of contents. -->
       <section class="panel" data-panel="info" hidden>
-        <p class="panel-note">What your hardcoded profile is built from. Importing your profile fills in everything JanitorAI knows; friends, links and About Me sections are yours to add.</p>
+        <!-- Which ready-made profile all of this is poured into. Choosing one
+             writes it into About Me there and then, and the sections below
+             narrow to what that design uses. -->
+        <div class="design-pick">
+          <label class="field">Profile design
+            <select id="cards-opt-style"></select>
+          </label>
+          <p class="field-hint" id="cards-style-hint"></p>
+        </div>
+        <p class="panel-note">What the design is built from. Importing your profile fills in everything JanitorAI knows; friends, links and About Me sections are yours to add.</p>
         <div class="info-import">
           <label class="btn btn-primary btn-sm profile-import-button" for="profile-file-info">Import profile</label>
           <input id="profile-file-info" type="file" accept=".mhtml,.mht,.html,.htm,text/html,multipart/related" hidden>
           <button type="button" id="info-fill" class="btn btn-ghost btn-sm" title="Read the profile currently shown in the preview">Fill from preview</button>
+        </div>
+        <!-- A saved page only holds the characters that were on it. The rest of
+             a long list comes in here: page 2, 3… saved the same way, added to
+             the characters already listed without touching the preview. -->
+        <div class="info-import">
+          <label class="btn btn-ghost btn-sm profile-pages-button" for="profile-pages-info" title="Saved page 2, 3… of your character list. Pick several files at once; characters you already have are not added twice.">Add more pages</label>
+          <input id="profile-pages-info" type="file" multiple accept=".mhtml,.mht,.html,.htm,text/html,multipart/related" hidden>
         </div>
         <p class="cards-status" id="cards-status" aria-live="polite"></p>
 
@@ -294,13 +310,38 @@
           </div>
         </details>
 
-        <details class="info-section" id="info-layout">
-          <summary><span class="info-section-name">Layout &amp; theme</span><span class="info-count" id="info-layout-name"></span></summary>
+        <details class="info-section" id="info-inventory" data-design="steam">
+          <summary><span class="info-section-name">Inventory</span><span class="info-count" id="info-inventory-count"></span></summary>
           <div class="info-body">
-            <label class="field">Layout
-              <select id="cards-opt-style"></select>
-            </label>
-            <p class="field-hint" id="cards-style-hint"></p>
+            <p class="field-hint">Things to show off: emotes, badges, art, cards, anything with a picture. The Steam profile lays them out as an item showcase.</p>
+            <div class="info-list" data-list="inventory"></div>
+            <button type="button" class="btn btn-ghost btn-sm info-add" data-add="inventory">Add item</button>
+          </div>
+        </details>
+
+        <details class="info-section" id="info-workshop" data-design="steam">
+          <summary><span class="info-section-name">Workshop items</span><span class="info-count" id="info-workshop-count"></span></summary>
+          <div class="info-body">
+            <p class="field-hint">What you have made besides bots: lorebooks, prompts, presets, guides, scripts. The Steam profile shows them as a workshop showcase.</p>
+            <div class="info-list" data-list="workshop"></div>
+            <button type="button" class="btn btn-ghost btn-sm info-add" data-add="workshop">Add workshop item</button>
+          </div>
+        </details>
+
+        <details class="info-section" id="info-layout">
+          <summary><span class="info-section-name">Design options</span><span class="info-count" id="info-layout-name"></span></summary>
+          <div class="info-body">
+            <p class="field-hint" data-design="none">Nothing to set here: with no design chosen, the look is your own CSS.</p>
+            <div data-design="photo-feed">
+              <label class="field">Display name
+                <input type="text" id="cards-opt-feedName" placeholder="Defaults to your username">
+              </label>
+              <label class="field">Line under it
+                <input type="text" id="cards-opt-feedCategory" placeholder="Bot creator">
+              </label>
+              <p class="field-hint">The bio is your <b>About me</b> introduction. Creator notes and each extra section become a story highlight; social links become stickers and friends become mentions.</p>
+            </div>
+            <div data-design="contact-select proxy-terminal">
             <div class="info-grid">
               <label class="field">Accent
                 <input type="color" id="cards-opt-accent">
@@ -309,6 +350,37 @@
                 <input type="color" id="cards-opt-preview">
               </label>
             </div>
+            </div>
+            <div id="steam-options" data-design="steam">
+              <label class="field">Theme
+                <select id="cards-opt-steamTheme"></select>
+              </label>
+              <div class="field">Background
+                <div class="swatches" id="steam-backdrops" role="radiogroup" aria-label="Profile background"></div>
+              </div>
+              <label class="field">…or your own picture
+                <input type="url" id="cards-opt-steamBackground" placeholder="https://… a wide picture, hosted online">
+              </label>
+              <label class="field">Avatar frame
+                <select id="cards-opt-steamFrame"></select>
+              </label>
+              <label class="field">…or your own frame picture
+                <input type="url" id="cards-opt-steamFrameImage" placeholder="https://… a transparent PNG">
+              </label>
+              <p class="field-hint">Pictures have to be online (an image link ending in .png, .jpg or .webp works). Who appears in the showcases is chosen under Characters: open one and tick <b>Feature in showcases</b>.</p>
+              <div class="info-grid">
+                <label class="field">Level
+                  <input type="number" id="cards-opt-steamLevel" min="1" max="999" step="1" placeholder="auto">
+                </label>
+                <label class="field">Status
+                  <input type="text" id="cards-opt-steamStatus" placeholder="Currently Online">
+                </label>
+              </div>
+              <label class="field">Line under your name
+                <input type="text" id="cards-opt-steamSubtitle" placeholder="Bot creator · she/they · EN/ES">
+              </label>
+            </div>
+            <div data-design="contact-select proxy-terminal">
             <p class="info-subhead">Character select</p>
             <label class="field">Roster title
               <input type="text" id="cards-opt-title" placeholder="Contact&#10;Select">
@@ -330,6 +402,8 @@
             <label class="field">…or choose the chips yourself
               <input type="text" id="cards-opt-filterlist" placeholder="Female, OC, AnyPOV, Fluff">
             </label>
+            </div>
+            <div data-design="proxy-terminal">
             <p class="info-subhead">Proxy Terminal</p>
             <label class="field">Profile label
               <input type="text" id="cards-opt-profileLabel" placeholder="INTER-KNOT / CREATOR CHANNEL">
@@ -340,6 +414,7 @@
             <label class="field">Footer text
               <input type="text" id="cards-opt-footerText" placeholder="Choose a file. Enter a story.">
             </label>
+            </div>
           </div>
         </details>
 
@@ -396,6 +471,7 @@
         <details>
           <summary>Using your profile</summary>
           <p>Open your JanitorAI profile, press <b>Ctrl + S</b>, and save it as <b>Webpage, Single File</b> (<code>.mhtml</code>). Import that file from the Profile data panel, or from the Page panel on the right when nothing is selected; it stays in your browser.</p>
+          <p>A saved page only holds the characters that were on it. If your list runs to several pages, open page 2, 3… on JanitorAI, save each the same way, and press <b>Add more pages</b> in Profile data — you can pick them all at once.</p>
         </details>
 
         <details>
@@ -564,6 +640,8 @@
 <script src="js/tags.js"></script>
 <script src="js/hardcode-styles.js"></script>
 <script src="js/proxy-terminal-style.js"></script>
+<script src="js/steam-profile.js"></script>
+<script src="js/photo-feed-profile.js"></script>
 <script src="js/hardcode.js"></script>
 <script src="js/hardcode-sections.js"></script>
 <script src="js/profile-info.js"></script>

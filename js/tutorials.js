@@ -42,8 +42,11 @@
   function pulse(node) {
     if (!node) return;
     node.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    node.classList.remove('tut-pulse');
-    void node.offsetWidth;                 // restart the animation if it is mid-run
+    // One thing lit at a time: the last step's target stops when this starts.
+    Array.prototype.forEach.call(document.querySelectorAll('.tut-pulse'), function (other) {
+      other.classList.remove('tut-pulse');
+    });
+    void node.offsetWidth;                // restart the animation if it is mid-run
     node.classList.add('tut-pulse');
     setTimeout(function () { node.classList.remove('tut-pulse'); }, 3200);
   }
@@ -88,6 +91,248 @@
 
   var GH = 'golden-hour';
 
+  // ------------------------------------------------------------ shared steps
+
+  function blankStep() {
+    return {
+      title: 'Start with a blank page',
+      body: 'This design replaces the whole page, so it is best built on an empty About Me. Clearing can be undone with <kbd>Ctrl</kbd>+<kbd>Z</kbd>.',
+      choices: [
+        { label: 'Clear my page', primary: true, run: function (flags) { if (!blank()) S.setCode('', 'tutorial', { now: true }); flags.started = true; } },
+        { label: 'Keep what I have', run: function (flags) { flags.started = true; } }
+      ],
+      enter: function (flags) { if (blank()) flags.started = true; },
+      done: function (flags) { return !!flags.started; }
+    };
+  }
+
+  /*
+   * Getting your own profile into the studio. The file is the page JanitorAI
+   * served you, saved by your browser: nothing is uploaded, and the studio
+   * reads your name, avatar, badges and every character card out of it.
+   *
+   * `shots` are optional pictures for a step, shown under its text. They live
+   * in assets/tutorials/ and are listed in SHOTS below; a step with none
+   * listed simply has none.
+   */
+  var SHOTS = {
+    save: [{ src: 'assets/tutorials/profile-menu.webp', alt: 'JanitorAI with the menu under your picture open, Profile at the top of it' }],
+    saveAs: [{ src: 'assets/tutorials/save-as.png', alt: 'The Save As window, with Save as type set to Webpage, Single File (*.mhtml)' }],
+    importFile: [{ src: 'assets/tutorials/import-profile.png', alt: 'The Import profile button in Profile data, and the saved file being picked' }]
+  };
+
+  function saveSteps() {
+    return [
+      {
+        title: 'Open your profile on JanitorAI',
+        body: 'This part happens outside the studio, on a computer, in <b>Chrome, Edge, Brave or Opera</b> (Firefox and phones cannot save this kind of file).' +
+          '<ol><li>Go to <b>janitorai.com</b> and sign in.</li>' +
+          '<li>Click your picture in the top right, then <b>Profile</b>.</li>' +
+          '<li>Scroll down until every character you want has appeared — only the cards on the page are saved.</li></ol>',
+        shots: SHOTS.save,
+        choices: [
+          { label: 'I am on my profile', primary: true, run: function (flags) { flags.onProfile = true; } },
+          // Someone who has already brought their profile in does not do it
+          // again for every design: one press passes all of these steps. It
+          // names whose profile is here, because Profile data may be holding
+          // the sample one.
+          {
+            label: function () {
+              return 'Skip — @' + (S.info().identity.username || 'my profile') + ' is already in';
+            },
+            when: profileIsIn,
+            run: function (flags) { flags.haveProfile = true; }
+          }
+        ],
+        done: function (flags) { return !!flags.onProfile || !!flags.imported || !!flags.haveProfile; }
+      },
+      {
+        title: 'Save the page as one file',
+        body: '<ol><li>Press <kbd>Ctrl</kbd>+<kbd>S</kbd> (<kbd>⌘</kbd>+<kbd>S</kbd> on a Mac).</li>' +
+          '<li>Where it says <b>Save as type</b>, choose <b>Webpage, Single File (*.mhtml)</b>.</li>' +
+          '<li>Save it somewhere you will find it again, like the Desktop.</li></ol>' +
+          'The file stays on your computer; the studio only reads it in this browser.',
+        shots: SHOTS.saveAs,
+        choices: [{ label: 'I have the file', primary: true, run: function (flags) { flags.saved = true; } }],
+        done: function (flags) { return !!flags.saved || !!flags.imported || !!flags.haveProfile; }
+      },
+      {
+        title: 'Bring it into the studio',
+        body: 'Open <b>Profile data</b> and press <b>Import profile</b>, then pick the file you just saved. The preview becomes your own page, and your characters are listed under <b>Characters</b>.',
+        shots: SHOTS.importFile,
+        show: function () {
+          S.showPanel('info');
+          pulse($('.info-import .profile-import-button'));
+        },
+        choices: [{
+          label: 'Use the sample profile',
+          run: function (flags) {
+            S.showPanel('info');
+            var fill = $('#info-fill');
+            if (fill) fill.click();
+            flags.imported = true;
+          }
+        }],
+        done: function (flags) { return !!flags.imported || !!flags.haveProfile; }
+      },
+      {
+        title: 'More than one page of characters?',
+        body: function () {
+          var have = info().characters.length;
+          var total = rosterTotal();
+          return (total > have
+            ? 'Your profile lists <b>' + total + '</b> characters and <b>' + have + '</b> came in: a saved page only holds the cards that were on it. '
+            : 'A saved page only holds the characters that were on it, so a long list comes in a page at a time. ') +
+            'Only the ones here can be featured in a showcase; your full list still shows on JanitorAI either way.' +
+            '<ol><li>On JanitorAI, go to <b>page 2</b> at the bottom of your character list.</li>' +
+            '<li>Save it the same way: <kbd>Ctrl</kbd>+<kbd>S</kbd>, <b>Webpage, Single File</b>. Do the same for each further page.</li>' +
+            '<li>Back here, press <b>Add more pages</b> in <b>Profile data</b> and pick all of those files at once.</li></ol>' +
+            'Characters you already have are not added twice, and your page in the preview is left alone.';
+        },
+        show: function () {
+          S.showPanel('info');
+          pulse($('.profile-pages-button'));
+        },
+        choices: [{ label: 'These are all I need', run: function (flags) { flags.pages = true; } }],
+        enter: function (flags) { if (rosterComplete()) flags.pages = true; },
+        done: function (flags) { return !!flags.pages || !!flags.haveProfile || rosterComplete(); }
+      }
+    ];
+  }
+
+  /* Profile data already holds somebody's page: a name and their characters. */
+  function profileIsIn() {
+    var held = S.info();
+    return !!held.identity.username && held.characters.length > 0;
+  }
+
+  /* How many characters the profile says it has, when it says. */
+  function rosterTotal() {
+    var n = parseInt(String(S.info().identity.characterCount || '').replace(/[^\d]/g, ''), 10);
+    return isNaN(n) ? 0 : n;
+  }
+
+  /* Every character the profile lists is in Profile data. */
+  function rosterComplete() {
+    var total = rosterTotal();
+    return total > 0 && S.info().characters.length >= total;
+  }
+
+  // -------------------------------------------------------- the Steam lesson
+
+  function info() { return S.info(); }
+
+  function layoutOption(key) { return (info().layout.options || {})[key] || ''; }
+
+  function setLayoutOption(key, value) {
+    info().layout.options[key] = value;
+    S.touchInfo();
+  }
+
+  function showInfoSection(id, target) {
+    S.showPanel('info');
+    var section = $('#' + id);
+    if (section) section.open = true;
+    pulse(target ? $(target) : section);
+  }
+
+  /* A step that is done when one of Profile data's lists has an entry with a
+   * name. Nobody can be made up on someone's behalf, so there is no "Do it for
+   * me": the step is optional, and Skip is right there. */
+  function listStep(list, sectionId, title, body) {
+    return {
+      title: title,
+      body: body,
+      optional: true,
+      show: function () { showInfoSection(sectionId, '#' + sectionId + ' [data-add="' + list + '"]'); },
+      done: function () {
+        return (info()[list] || []).some(function (entry) { return String(entry.name || '').trim(); });
+      }
+    };
+  }
+
+  function steamSteps() {
+    return saveSteps().concat([
+      blankStep(),
+      {
+        title: 'Build the Steam profile',
+        body: 'At the top of <b>Profile data</b> is <b>Profile design</b>. Choose <b>Steam profile</b>: the page is written from what Profile data holds, and you can switch to another design there at any time without losing any of it.',
+        show: function () {
+          S.showPanel('info');
+          pulse($('.design-pick'));
+        },
+        auto: function () {
+          var pick = $('#cards-opt-style');
+          if (!pick) return;
+          pick.value = 'steam';
+          pick.dispatchEvent(new Event('change', { bubbles: true }));
+        },
+        done: function () {
+          return window.JaiHardcode.isApplied(S.code()) && info().layout.style === 'steam';
+        }
+      },
+      {
+        title: 'Choose who goes in the showcases',
+        body: 'The <b>Favorite Character</b> box and the row under it show the characters you feature. In <b>Profile data → Characters</b>, open a character and tick <b>Feature in showcases</b>. The first one you feature is the favourite; the next four fill the row.',
+        show: function () { showInfoSection('info-characters', '#cards-list'); },
+        auto: function () {
+          // The most-chatted few: the ones a visitor is most likely to know.
+          var ranked = info().characters.slice().sort(function (a, b) {
+            return (parseFloat(b.chats) || 0) * (/k/i.test(b.chats) ? 1000 : 1) -
+                   (parseFloat(a.chats) || 0) * (/k/i.test(a.chats) ? 1000 : 1);
+          });
+          ranked.slice(0, 5).forEach(function (c) { c.featured = true; });
+          S.touchInfo();
+        },
+        done: function () { return info().characters.some(function (c) { return c.featured; }); }
+      },
+      {
+        title: 'Pick a theme or a background',
+        body: 'Open <b>Profile data → Design options</b>. Pick one of the <b>Background</b> tiles, or choose a <b>Theme</b> — or paste the address of a wide picture into <b>Profile background</b> to put your own art behind the page.',
+        show: function () { showInfoSection('info-layout', '#steam-options'); },
+        auto: function () { setLayoutOption('steamTheme', 'cosmic'); },
+        done: function () {
+          var chosen = layoutOption('steamTheme');
+          var wall = layoutOption('steamBackdrop');
+          return (chosen && chosen !== 'default') || (wall && wall !== 'theme') || !!layoutOption('steamBackground');
+        }
+      },
+      {
+        title: 'Frame your avatar',
+        body: 'In the same place, choose an <b>Avatar frame</b>. The built-in ones are drawn for you; <b>your own frame picture</b> takes a transparent PNG and lays it over your avatar.',
+        show: function () { showInfoSection('info-layout', '#cards-opt-steamFrame'); },
+        auto: function () { setLayoutOption('steamFrame', 'holo'); },
+        done: function () {
+          var chosen = layoutOption('steamFrame');
+          return (chosen && chosen !== 'none') || !!layoutOption('steamFrameImage');
+        }
+      },
+      {
+        title: 'Write your summary',
+        body: 'The text beside your avatar is your <b>Introduction</b>. Open <b>Profile data → About me</b> and write a line or two. <b>Creator notes</b> and any extra sections become boxes of their own under the showcases.',
+        show: function () {
+          showInfoSection('info-about', '[data-about="body"]');
+          var field = $('[data-about="body"]');
+          if (field) field.focus();
+        },
+        optional: true,
+        done: function () { return !!String(info().about.body || '').trim(); }
+      },
+      listStep('friends', 'info-friends', 'Add your friends',
+        'The right-hand column lists your friends under <b>Characters</b>. Open <b>Profile data → Friends</b>, press <b>Add friend</b> and type a name. A picture and a link to their profile are optional; the note is the grey line under the name ("Online", "Writes the best villains").'),
+      listStep('inventory', 'info-inventory', 'Fill your inventory',
+        'An inventory is for showing things off: emotes, badges, art, cards — anything with a picture. Open <b>Profile data → Inventory</b>, press <b>Add item</b>, name it and paste the address of its picture. Your items become an <b>Item Showcase</b>, and <b>Inventory</b> appears in the right-hand column with a count.'),
+      listStep('workshop', 'info-workshop', 'Stock your workshop',
+        'The workshop is for what you have made besides bots: lorebooks, prompts, presets, guides. Open <b>Profile data → Workshop items</b>, press <b>Add workshop item</b>, give it a title and the link people should follow. A wide picture and a line about it are optional.'),
+      {
+        title: 'Take it to JanitorAI',
+        body: 'Press <b>Copy for About Me</b> in the top bar. On JanitorAI, open <b>Edit profile</b>, paste into the <b>About Me</b> box and save. When you publish a new bot, the list updates itself; import again whenever you want the showcases refreshed.',
+        show: function () { pulse($('#copy-css')); },
+        done: function (flags) { return !!flags.copied; }
+      }
+    ]);
+  }
+
   function partStep(key, title, body) {
     var id = GH + '-' + key;
     return {
@@ -100,21 +345,32 @@
   }
 
   var TUTORIALS = [{
+    id: 'own-profile',
+    name: 'Bring in your own profile',
+    blurb: 'Save your JanitorAI profile page as a file and open it here, so the preview is your page and the studio knows your characters. Nothing is uploaded.',
+    meta: '4 steps · about 3 minutes',
+    steps: saveSteps(),
+    finish: {
+      title: 'Your profile is in.',
+      body: 'The preview is your own page now, and your characters are under <b>Profile data</b>. Any layout or tutorial you start from here uses them.'
+    }
+  }, {
+    id: 'steam',
+    name: 'A Steam-style profile',
+    blurb: 'A player profile built from your own page: level, a favourite-character showcase, featured characters, your own background and avatar frame. Starts by bringing your profile in.',
+    meta: '14 short steps · about 10 minutes — fewer if your profile is already in',
+    steps: steamSteps(),
+    finish: {
+      title: 'That is the whole profile.',
+      body: 'It stays linked to <b>Profile data</b>: change a character, a friend or the theme there and the page follows. Import your profile again whenever you want the showcases brought up to date.'
+    }
+  }, {
     id: GH,
     name: 'A photo-feed profile',
     blurb: 'Build Golden Hour — the profile that looks like a photo app — one piece at a time: story-ring avatar, stats, highlights that open stories, and your characters as a grid.',
     meta: '11 short steps · about 5 minutes',
     steps: [
-      {
-        title: 'Start with a blank page',
-        body: 'This design replaces the whole page, so it is best built on an empty About Me. Clearing can be undone with <kbd>Ctrl</kbd>+<kbd>Z</kbd>.',
-        choices: [
-          { label: 'Clear my page', primary: true, run: function (flags) { if (!blank()) S.setCode('', 'tutorial', { now: true }); flags.started = true; } },
-          { label: 'Keep what I have', run: function (flags) { flags.started = true; } }
-        ],
-        enter: function (flags) { if (blank()) flags.started = true; },
-        done: function (flags) { return !!flags.started; }
-      },
+      blankStep(),
       partStep('backdrop', 'Paint the page black',
         'Every piece of this design is under <b>Insert → Sections → Golden Hour → Choose parts</b>. Press <b>Add</b> beside <b>Black backdrop &amp; system type</b>.'),
       partStep('layout', 'Build the header',
@@ -258,6 +514,23 @@
     return b;
   }
 
+  /* A step's picture is a screenshot of a whole window squeezed into a card;
+   * a click shows it at a size where it can be read. Any click or key closes. */
+  function zoom(shot) {
+    var veil = el('div', 'coach-zoom');
+    var big = el('img');
+    big.src = shot.src;
+    big.alt = shot.alt || '';
+    veil.appendChild(big);
+    function close() {
+      veil.remove();
+      document.removeEventListener('keydown', close, true);
+    }
+    veil.addEventListener('click', close);
+    document.addEventListener('keydown', close, true);
+    document.body.appendChild(veil);
+  }
+
   function renderCoach() {
     if (!coach) return;
     if (!run) { coach.hidden = true; coach.innerHTML = ''; return; }
@@ -295,9 +568,12 @@
     if (run.small) return;
 
     if (run.finished) {
-      coach.appendChild(el('h3', 'coach-title', 'That is the whole profile.'));
-      coach.appendChild(el('div', 'coach-body',
-        'Everything you added is ordinary About Me code now: restyle any of it on the right, drag things around, or take parts back out under Insert → Sections.'));
+      var finish = tut.finish || {
+        title: 'That is the whole profile.',
+        body: 'Everything you added is ordinary About Me code now: restyle any of it on the right, drag things around, or take parts back out under Insert → Sections.'
+      };
+      coach.appendChild(el('h3', 'coach-title', S.escapeHtml(finish.title)));
+      coach.appendChild(el('div', 'coach-body', finish.body));
       var end = el('div', 'coach-actions');
       end.appendChild(button('Done', 'btn-primary', stop));
       end.appendChild(el('span', 'coach-spacer'));
@@ -308,7 +584,18 @@
 
     var isDone = step.done(run.flags);
     coach.appendChild(el('h3', 'coach-title', (isDone ? '<span class="coach-tick">✓</span>' : '') + S.escapeHtml(step.title)));
-    coach.appendChild(el('div', 'coach-body', step.body));
+    coach.appendChild(el('div', 'coach-body', typeof step.body === 'function' ? step.body() : step.body));
+    (step.shots || []).forEach(function (shot) {
+      var picture = el('img', 'coach-shot');
+      picture.alt = shot.alt || '';
+      picture.loading = 'lazy';
+      // A picture that is missing leaves no hole in the step.
+      picture.addEventListener('error', function () { picture.remove(); });
+      picture.title = 'Click to enlarge';
+      picture.addEventListener('click', function () { zoom(shot); });
+      picture.src = shot.src;
+      coach.appendChild(picture);
+    });
 
     var actions = el('div', 'coach-actions');
     if (isDone) {
@@ -316,7 +603,9 @@
       actions.appendChild(button('Next', 'btn-primary', function () { run.hold = false; go(run.step + 1); check(); }));
     } else {
       (step.choices || []).forEach(function (choice) {
-        actions.appendChild(button(choice.label, choice.primary ? 'btn-primary' : '', function () {
+        if (choice.when && !choice.when()) return;
+        var label = typeof choice.label === 'function' ? choice.label() : choice.label;
+        actions.appendChild(button(label, choice.primary ? 'btn-primary' : '', function () {
           choice.run(run.flags);
           check();
         }));
@@ -365,6 +654,11 @@
   // ------------------------------------------------------------------ wiring
 
   S.on('change', check);
+  S.on('profile:imported', function () {
+    if (run) run.flags.imported = true;
+    check();
+  });
+  S.on('info', check);
   S.on('mode', function (mode) {
     if (run && mode === 'preview') run.flags.previewed = true;
     check();
@@ -377,9 +671,9 @@
   if (copyButton) {
     copyButton.addEventListener('click', function () {
       if (!run) return;
-      // Only the last step is about copying; an earlier copy is not it.
+      // Only a step about copying counts; an earlier copy is not it.
       var steps = tutorial(run.id).steps;
-      if (!run.finished && run.step === steps.length - 1) run.flags.copied = true;
+      if (!run.finished && /JanitorAI$/.test(steps[run.step].title)) run.flags.copied = true;
       check();
     });
   }
