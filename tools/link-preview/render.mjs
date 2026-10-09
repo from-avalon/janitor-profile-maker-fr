@@ -10,7 +10,7 @@ try {
   const page = await (await browser.newContext({ viewport: { width: 1300, height: 950 }, deviceScaleFactor: 1 })).newPage();
   await page.goto(pathToFileURL(html).href);
   await page.waitForTimeout(800);
-  await page.locator('#og').screenshot({ path: outdir + '/og.png' });
+  await page.locator('#og').screenshot({ path: outdir + '/link-preview.png' });
   await page.locator('#icon').screenshot({ path: outdir + '/apple-touch-icon.png' });
   console.log('done');
 } finally { await browser.close(); }
