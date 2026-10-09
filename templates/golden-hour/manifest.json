@@ -7,8 +7,8 @@
   "author": "Sweepercom",
   "license": "All rights reserved",
   "credit": "Golden Hour template by Sweepercom; inspired by Instagram's profile layout",
-  "description": "A photo-feed profile: story-ring avatar, a stat row built around your real follower count, tappable highlights that open full story cards, and JanitorAI's own character list turned into a three-across grid that updates itself.",
-  "tags": ["social", "photo-feed", "dark", "minimal", "stories", "live-roster", "animated"],
+  "description": "An Instagram-style profile: story-ring avatar, a stat row built around your real follower count, tappable highlights that open full story cards, and JanitorAI's own character list turned into a three-across grid that updates itself.",
+  "tags": ["social", "instagram-style", "photo-feed", "dark", "minimal", "stories", "live-roster", "animated"],
   "entry": "source.txt",
   "components": [
     {

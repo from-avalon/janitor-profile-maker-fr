@@ -61,8 +61,32 @@
     username: '',
     sections: null,
     friends: null,
-    socials: null
+    socials: null,
+    // The Steam profile layout (js/steam-profile.js).
+    identity: null,
+    inventory: null,
+    workshop: null,
+    steamTheme: 'default',
+    // '' = your picture if there is one, otherwise the theme's own backdrop.
+    steamBackdrop: '',
+    steamBackground: '',
+    steamFrame: 'none',
+    steamFrameImage: '',
+    steamLevel: '',
+    steamStatus: 'Currently Online',
+    steamSubtitle: '',
+    // The Photo feed design (js/photo-feed-profile.js).
+    feedName: '',
+    feedCategory: 'Bot creator'
   };
+
+  /* A design with markup all of its own writes it itself; the rest share the
+   * contact-select markup below. */
+  function ownEmitter(o) {
+    if (o.style === 'steam') return global.JaiSteamProfile || null;
+    if (o.style === 'photo-feed') return global.JaiPhotoFeed || null;
+    return null;
+  }
 
   // ------------------------------------------------------------------ text
 
@@ -137,7 +161,10 @@
       link: String((entry && entry.link) || '').trim(),
       portrait: portrait,
       art: art,
-      hover: String((entry && entry.hover) || '').trim()
+      hover: String((entry && entry.hover) || '').trim(),
+      chats: String((entry && entry.chats) || '').trim(),
+      tokens: String((entry && entry.tokens) || '').trim(),
+      featured: !!(entry && entry.featured)
     };
   }
 
@@ -222,6 +249,8 @@
     var files = prepare(roster);
     var o = options(opts);
     if (!files.length) return '';
+    var own = ownEmitter(o);
+    if (own) return own.markup(files, o);
     var filters = o.filters ? filterTags(files, o.filterLimit, chosenFilters(o.filters)) : [];
     var html = [];
 
@@ -410,6 +439,8 @@
     var files = prepare(roster);
     var o = options(opts);
     if (!files.length) return '';
+    var own = ownEmitter(o);
+    if (own) return own.css(files, o);
     var first = files[0];
     var rest = files.slice(1);
     var filters = o.filters ? filterTags(files, o.filterLimit, chosenFilters(o.filters)) : [];
@@ -669,8 +700,12 @@
     return out;
   }
 
-  /* Counts render as the site writes them ("1.2k"); keep them that way. */
-  function count(node) { return text(node).replace(/[^\d.,kKmM]/g, ''); }
+  /* Counts render as the site writes them ("1.2k"); keep them that way. Only
+   * the number and its own suffix: "1.8k tokens" has a second k in it. */
+  function count(node) {
+    var match = /[\d][\d.,]*\s*[kKmM]?/.exec(text(node));
+    return match ? match[0].replace(/\s+/g, '') : '';
+  }
 
   function text(node) { return node ? String(node.textContent || '').trim() : ''; }
 

@@ -32,6 +32,10 @@
       sections: [],
       friends: [],
       socials: [],
+      // Things a player profile shows off besides characters: collectibles,
+      // and what the creator has made that is not a bot.
+      inventory: [],
+      workshop: [],
       layout: { style: '', options: {} }
     };
   }
@@ -45,7 +49,7 @@
       if (saved.identity && saved.identity[k] != null) info.identity[k] = saved.identity[k];
     });
     if (!Array.isArray(info.identity.badges)) info.identity.badges = [];
-    ['characters', 'sections', 'friends', 'socials'].forEach(function (k) {
+    ['characters', 'sections', 'friends', 'socials', 'inventory', 'workshop'].forEach(function (k) {
       if (Array.isArray(saved[k])) info[k] = saved[k];
     });
     if (saved.about) {
@@ -148,17 +152,21 @@
    * matched by link, then by name, so renaming one in the panel does not turn
    * the next import into a duplicate. Returns how many were added or changed.
    */
-  function merge(info, found) {
+  function merge(info, found, opts) {
     var result = { added: 0, updated: 0 };
     if (!found) return result;
 
-    var identity = info.identity;
-    ['username', 'avatar', 'followers', 'memberSince', 'characterCount'].forEach(function (k) {
-      if (found.identity[k]) identity[k] = found.identity[k];
-    });
-    identity.verified = found.identity.verified;
-    identity.janitorPlus = found.identity.janitorPlus;
-    if (found.identity.badges.length) identity.badges = found.identity.badges;
+    // `charactersOnly`: a page that belongs to somebody else's profile can
+    // lend its characters without also renaming the creator.
+    if (!(opts && opts.charactersOnly)) {
+      var identity = info.identity;
+      ['username', 'avatar', 'followers', 'memberSince', 'characterCount'].forEach(function (k) {
+        if (found.identity[k]) identity[k] = found.identity[k];
+      });
+      identity.verified = found.identity.verified;
+      identity.janitorPlus = found.identity.janitorPlus;
+      if (found.identity.badges.length) identity.badges = found.identity.badges;
+    }
 
     var byLink = {}, byName = {};
     function remember(c) {
@@ -199,9 +207,12 @@
     out.aboutBody = info.about.body;
     out.creatorNotes = info.about.notes;
     out.username = info.identity.username;
+    out.identity = info.identity;
     out.sections = info.sections;
     out.friends = info.friends;
     out.socials = info.socials;
+    out.inventory = info.inventory;
+    out.workshop = info.workshop;
     return out;
   }
 

@@ -246,6 +246,22 @@
       }
     },
     {
+      id: 'steam',
+      name: 'Steam profile',
+      blurb: 'A player profile: level, a favourite-character showcase, featured characters, friends and links, with your own background and avatar frame. Your character list becomes a library underneath.',
+      css: function (o) {
+        return global.JaiSteamProfile ? global.JaiSteamProfile.style(o) : '';
+      }
+    },
+    {
+      id: 'photo-feed',
+      name: 'Instagram-style (Golden Hour)',
+      blurb: 'The Golden Hour page, filled in from Profile data: counts from your characters, bio from About me, a story highlight for each section, your links as stickers and your friends as mentions.',
+      css: function (o) {
+        return global.JaiPhotoFeed ? global.JaiPhotoFeed.style(o) : '';
+      }
+    },
+    {
       id: 'none',
       name: 'None — I style it myself',
       blurb: 'Writes markup and wiring only. Your own CSS supplies the look.',

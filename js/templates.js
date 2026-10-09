@@ -315,7 +315,7 @@ window.JAI_TEMPLATES = [
   "name": "Golden Hour",
   "author": "Sweepercom",
   "credit": "Golden Hour template by Sweepercom; inspired by Instagram's profile layout",
-  "blurb": "A photo-feed profile: story-ring avatar, a stat row built around your real follower count, tappable highlights that open full story cards, and JanitorAI's own character list turned into a three-across grid that updates itself.",
+  "blurb": "An Instagram-style profile: story-ring avatar, a stat row built around your real follower count, tappable highlights that open full story cards, and JanitorAI's own character list turned into a three-across grid that updates itself.",
   "components": [
    {
     "id": "golden-hour-backdrop",

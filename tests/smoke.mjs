@@ -363,7 +363,7 @@ try {
   await page.click('button[data-panel="info"]');
   const infoSections = await page.evaluate(() =>
     [...document.querySelectorAll('.info-section')].map((d) => d.id + (d.open ? ':open' : '')));
-  if (infoSections.join(',') !== 'info-identity,info-characters,info-about,info-friends,info-socials,info-layout') {
+  if (infoSections.join(',') !== 'info-identity,info-characters,info-about,info-friends,info-socials,info-inventory,info-workshop,info-layout') {
     fail(`Profile information sections are ${infoSections.join(',')}`);
   }
   await page.click('#info-characters > summary');
@@ -593,7 +593,7 @@ try {
   // off when the document says it is done, and leaving takes the card away.
   await page.evaluate(() => window.JaiStudio.setCode('', 'load', { now: true }));
   await page.click('.rail button[data-panel="tutorials"]');
-  await page.click('#tutorial-list .tutorial button');
+  await page.click('#tutorial-list .tutorial[data-tutorial="golden-hour"] button');
   await page.waitForTimeout(250);
   const lesson = () => page.evaluate(() => window.JaiTutorials.state()?.step ?? null);
   const firstStep = await lesson();
@@ -607,6 +607,35 @@ try {
   }
   await page.click('#coach button[aria-label="Leave the tutorial"]');
   if (!(await page.locator('#coach').isHidden())) fail('leaving a tutorial left its card on the canvas');
+
+  // The Steam profile: a layout with markup of its own, built from Profile
+  // data. Characters come from the preview, the showcases from the roster, and
+  // a choice in the panel reaches the document.
+  await page.evaluate(() => window.JaiStudio.setCode('', 'load', { now: true }));
+  await page.click('.rail button[data-panel="info"]');
+  await page.click('#info-fill');
+  await page.evaluate(() => { document.getElementById('info-layout').open = true; });
+  await page.selectOption('#cards-opt-style', 'steam');
+  await page.click('#cards-insert');
+  await page.waitForTimeout(450);
+  await page.selectOption('#cards-opt-steamFrame', 'gold');
+  await page.waitForTimeout(600);
+  const steam = await page.evaluate(() => {
+    const doc = document.getElementById('preview').contentDocument;
+    const code = window.JaiStudio.code();
+    return {
+      favourite: !!doc.querySelector('.sp-fav-name')?.textContent.trim(),
+      tiles: doc.querySelectorAll('.sp-tile').length,
+      optionsShown: !document.getElementById('steam-options').hidden,
+      frame: /\.pp-uc-avatar-container::before \{/.test(code),
+      blob: /blob:/.test(code),
+      issues: window.JaiStudio.issues().length,
+    };
+  });
+  if (!steam.favourite || steam.tiles < 1 || !steam.optionsShown || !steam.frame || steam.blob || steam.issues) {
+    fail(`the Steam profile layout did not build cleanly (${JSON.stringify(steam)})`);
+  }
+  await page.evaluate(() => window.JaiStudio.setCode('', 'load', { now: true }));
 
   // The changelog dialog: opens from the toolbar and renders at least one entry.
   await page.click("#changelog-toggle");

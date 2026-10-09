@@ -1618,6 +1618,7 @@
       // information fills in from the file itself; the preview only catches up
       // once the frame has processed the new snapshot.
       fillInfo(new DOMParser().parseFromString(profile.html, 'text/html'), '“' + filename + '”');
+      emit('profile:imported');
       toast(existing ? 'Profile refreshed — your editor changes were kept' : 'Profile saved locally — you can switch between profiles');
     }).catch(function (error) {
       if (!existing) {
@@ -1642,6 +1643,70 @@
     });
     this.value = '';
   }
+
+  /*
+   * More pages of a character list. JanitorAI shows a long roster a page at a
+   * time and a saved page holds only the cards that were on it, so a creator
+   * with 163 bots imports 34 of them. Each further page is saved the same way
+   * and read here — for its characters only: no new preview profile, no change
+   * of document, nothing that interrupts the work in progress. Characters are
+   * matched by link (see JaiProfileInfo.merge), so a page read twice adds
+   * nothing the second time.
+   */
+  function addProfilePages(files) {
+    var list = Array.prototype.slice.call(files || []);
+    if (!list.length) return;
+    var total = { added: 0, updated: 0, read: 0, skipped: [] };
+    cardsStatus('Reading ' + plural(list.length, 'file') + '…');
+
+    list.reduce(function (chain, file) {
+      return chain.then(function () {
+        return window.JaiProfileImport.read(file).then(function (profile) {
+          var doc = new DOMParser().parseFromString(profile.html, 'text/html');
+          // Only the text is needed; the pictures it unpacked are not shown.
+          if (profile.release) profile.release();
+          var found = window.JaiProfileInfo.fromDocument(doc);
+          if (!found) { total.skipped.push(file.name + ' has no JanitorAI profile in it'); return; }
+          var mine = String(info.identity.username || '').toLowerCase();
+          var theirs = String(found.identity.username || '').toLowerCase();
+          var foreign = !!mine && !!theirs && mine !== theirs;
+          if (foreign && !confirm('“' + file.name + '” is @' + found.identity.username +
+              '’s profile, and your Profile data is @' + info.identity.username +
+              '’s. Add its characters anyway?')) {
+            total.skipped.push(file.name + ' belongs to @' + found.identity.username);
+            return;
+          }
+          var result = window.JaiProfileInfo.merge(info, found, { charactersOnly: foreign });
+          total.added += result.added;
+          total.updated += result.updated;
+          total.read++;
+        }).catch(function (error) {
+          total.skipped.push(file.name + ' could not be read (' + error.message + ')');
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      saveInfo();
+      renderInfo();
+      reapplyCards(0);
+      emit('profile:pages', total);
+      reportToHost('profile_pages_added', String(total.added));
+      var parts = [];
+      if (total.read) {
+        parts.push(total.added
+          ? 'Added ' + plural(total.added, 'character') + ' from ' + plural(total.read, 'page')
+          : 'Nothing new in ' + (total.read === 1 ? 'that page' : 'those pages') + ' — you already have its characters');
+        parts.push(rosterProgress());
+      }
+      if (total.skipped.length) parts.push('Skipped: ' + total.skipped.join('; '));
+      cardsStatus(parts.join('. ') + '.');
+      toast(total.added ? plural(total.added, 'character') + ' added' : 'No new characters');
+    });
+  }
+
+  $('#profile-pages-info').addEventListener('change', function () {
+    addProfilePages(this.files);
+    this.value = '';
+  });
 
   // The same import lives in the Settings and Profile panels; importing from
   // either also fills in Profile information.
@@ -2434,7 +2499,8 @@
     { key: 'art', label: 'Stage art override (optional)', type: 'url', placeholder: 'Defaults to the bot image; any aspect ratio works' },
     { key: 'hover', label: 'Hover art override (optional)', type: 'url', placeholder: 'Any aspect ratio; centered and clipped' },
     { key: 'chats', label: 'Chats', half: true, placeholder: '752' },
-    { key: 'tokens', label: 'Tokens', half: true, placeholder: '1,845' }
+    { key: 'tokens', label: 'Tokens', half: true, placeholder: '1,845' },
+    { key: 'featured', label: 'Feature in showcases', type: 'checkbox' }
   ];
 
   /* The small repeatable lists. The first field names a row in its summary. */
@@ -2465,6 +2531,26 @@
         { key: 'note', label: 'Note (optional)', type: 'textarea', placeholder: 'What visitors should know about them.' }
       ]
     },
+    inventory: {
+      noun: 'item',
+      empty: 'No items yet. Each one needs a name; a picture makes it a tile worth looking at.',
+      fields: [
+        { key: 'name', label: 'Name', placeholder: 'Midnight Emote Pack' },
+        { key: 'image', label: 'Picture', type: 'url', placeholder: 'https://… square works best' },
+        { key: 'note', label: 'Kind (optional)', placeholder: 'Rare · Emote' },
+        { key: 'link', label: 'Link (optional)', type: 'url', placeholder: 'https://…' }
+      ]
+    },
+    workshop: {
+      noun: 'workshop item',
+      empty: 'Nothing here yet. Lorebooks, prompts, presets, guides — anything you made that is not a bot.',
+      fields: [
+        { key: 'name', label: 'Title', placeholder: 'Hale University lorebook' },
+        { key: 'image', label: 'Picture (optional)', type: 'url', placeholder: 'https://… wide works best' },
+        { key: 'note', label: 'What it is (optional)', type: 'textarea', placeholder: 'One or two lines.' },
+        { key: 'link', label: 'Link', type: 'url', placeholder: 'https://…' }
+      ]
+    },
     socials: {
       noun: 'link',
       empty: 'No social links yet. Each one needs an address; the label and icon are optional.',
@@ -2481,12 +2567,28 @@
   var hardcodeTargets = {};
   var cardIdSeq = 0;
 
-  function saveInfo() { window.JaiProfileInfo.save(info); }
+  function saveInfo() {
+    window.JaiProfileInfo.save(info);
+    emit('info');
+  }
+
+  /* For a change made to Profile information from outside this panel (a
+   * tutorial doing a step for someone): saved, shown, and written through to
+   * the document like one typed here. */
+  function touchInfo() {
+    saveInfo();
+    renderInfo();
+    reapplyCards(0);
+  }
 
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
 
   function fieldHtml(f, value) {
     if (f.key === 'tags' && Array.isArray(value)) value = value.join(', ');
+    if (f.type === 'checkbox') {
+      return '<label class="field field-check"><input type="checkbox" data-field="' + f.key + '"' +
+        (value ? ' checked' : '') + '> <span>' + escapeHtml(f.label) + '</span></label>';
+    }
     var v = escapeHtml(value == null ? '' : value);
     var placeholder = escapeHtml(f.placeholder || '');
     return '<label class="field">' + escapeHtml(f.label) +
@@ -2522,12 +2624,31 @@
       ? '<img class="info-thumb" src="' + escapeHtml(src) + '" alt="">' : '';
   }
 
+  /* How many characters the profile says it has, when it says. */
+  function rosterTotal() {
+    var n = parseInt(String(info.identity.characterCount || '').replace(/[^\d]/g, ''), 10);
+    return isNaN(n) ? 0 : n;
+  }
+
+  /* "34 of 163 here" — or just the count, once the list is complete. */
+  function rosterProgress() {
+    var have = info.characters.length;
+    var total = rosterTotal();
+    return total > have
+      ? have + ' of ' + total + ' characters are here; save and add the other pages for the rest'
+      : plural(have, 'character') + ' in Profile data';
+  }
+
   function updateCounts() {
     $('#info-identity-count').textContent = info.identity.username ? '@' + info.identity.username : '';
-    $('#info-characters-count').textContent = info.characters.length || '';
+    $('#info-characters-count').textContent = !info.characters.length ? ''
+      : rosterTotal() > info.characters.length ? info.characters.length + ' of ' + rosterTotal()
+      : info.characters.length;
     $('#info-about-count').textContent = info.sections.length ? '+' + plural(info.sections.length, 'section') : '';
     $('#info-friends-count').textContent = info.friends.length || '';
     $('#info-socials-count').textContent = info.socials.length || '';
+    $('#info-inventory-count').textContent = info.inventory.length || '';
+    $('#info-workshop-count').textContent = info.workshop.length || '';
   }
 
   /* Leaves the field being typed in alone, so a re-render from elsewhere (an
@@ -2578,8 +2699,12 @@
     if (result.added) parts.push('added ' + plural(result.added, 'character'));
     if (result.updated) parts.push('updated ' + plural(result.updated, 'character'));
     if (found.identity.badges.length) parts.push(plural(found.identity.badges.length, 'badge'));
-    cardsStatus('Filled from ' + source + (parts.length ? ': ' + parts.join(', ') : '') +
-      '. Friends, social links and About Me sections are yours to add.');
+    var missing = rosterTotal() - info.characters.length;
+    cardsStatus('Filled from ' + source + (parts.length ? ': ' + parts.join(', ') : '') + '. ' +
+      (missing > 0
+        ? 'That page held ' + info.characters.length + ' of your ' + rosterTotal() +
+          ' characters — save the other pages of your list the same way and press Add more pages.'
+        : 'Friends, social links and About Me sections are yours to add.'));
   }
 
   $('#info-fill').addEventListener('click', function () {
@@ -2818,6 +2943,7 @@
           ? entry.tags.split(',').filter(function (t) { return t.trim(); })
           : (entry.tags || [])).length;
         var meta = [pad2(i + 1)];
+        if (entry.featured) meta.push('★ featured');
         if (entry.chats) meta.push(entry.chats + ' chats');
         if (tagCount) meta.push(plural(tagCount, 'tag'));
         if (!entry.art && !entry.portrait) meta.push('no image');
@@ -2855,10 +2981,79 @@
     $('#cards-opt-accent').value = cardOption('accent');
     $('#cards-opt-preview').value = cardOption('preview');
     // Empty means "the layout's own wording", which the placeholders show.
-    ['title', 'kicker', 'launch', 'profileLabel', 'profileMark', 'friendsTitle', 'footerText'].forEach(function (key) {
-      $('#cards-opt-' + key).value = options[key] || '';
+    ['title', 'kicker', 'launch', 'profileLabel', 'profileMark', 'friendsTitle', 'footerText',
+      'steamBackground', 'steamFrameImage', 'steamLevel', 'steamStatus', 'steamSubtitle',
+      'feedName', 'feedCategory'].forEach(function (key) {
+      var field = $('#cards-opt-' + key);
+      if (document.activeElement !== field) field.value = options[key] || '';
+    });
+    // Each design uses some of Profile data and has options of its own; the
+    // rest would only be fields that do nothing. Anything a hidden section
+    // holds is kept, and is back the moment its design is chosen again.
+    $$('[data-design]').forEach(function (node) {
+      node.hidden = node.dataset.design.split(' ').indexOf(style.id) === -1;
+    });
+    var themeSelect = $('#cards-opt-steamTheme');
+    if (!themeSelect.options.length && window.JaiSteamProfile) {
+      themeSelect.innerHTML = Object.keys(window.JaiSteamProfile.themes).map(function (id) {
+        return '<option value="' + id + '">' + escapeHtml(window.JaiSteamProfile.themes[id].name) + '</option>';
+      }).join('');
+      $('#cards-opt-steamFrame').innerHTML = Object.keys(window.JaiSteamProfile.frames).map(function (id) {
+        return '<option value="' + id + '">' + escapeHtml(window.JaiSteamProfile.frames[id]) + '</option>';
+      }).join('');
+    }
+    themeSelect.value = cardOption('steamTheme');
+    $('#cards-opt-steamFrame').value = cardOption('steamFrame');
+    renderBackdrops();
+  }
+
+  /* The Steam profile's backgrounds, as tiles painted with the real thing: the
+   * same gradient the page will get, in the theme currently chosen. */
+  function renderBackdrops() {
+    var host = $('#steam-backdrops');
+    var steam = window.JaiSteamProfile;
+    if (!host || !steam) return;
+    var options = cardEmitOptions();
+    var current = steam.backdrop(options);
+    var palette = steam.theme(options);
+    var picture = info.layout.options.steamBackground || '';
+    host.innerHTML = '';
+    Object.keys(steam.backdrops).forEach(function (id) {
+      var tile = el('button', 'swatch' + (id === current ? ' is-on' : ''));
+      tile.type = 'button';
+      tile.dataset.backdrop = id;
+      tile.title = steam.backdrops[id].name;
+      tile.setAttribute('role', 'radio');
+      tile.setAttribute('aria-checked', String(id === current));
+      tile.setAttribute('aria-label', steam.backdrops[id].name);
+      if (steam.backdrops[id].draw) {
+        tile.style.background = steam.backdrops[id].draw(palette);
+      } else {
+        tile.classList.add('swatch-picture');
+        if (window.JaiHardcode.usable(picture)) {
+          tile.style.backgroundImage = 'url("' + String(picture).replace(/["\\]/g, '') + '")';
+        } else {
+          tile.textContent = '+';
+        }
+      }
+      host.appendChild(tile);
     });
   }
+
+  $('#steam-backdrops').addEventListener('click', function (e) {
+    var tile = e.target.closest('[data-backdrop]');
+    if (!tile) return;
+    if (tile.dataset.backdrop === 'picture' && !window.JaiHardcode.usable(info.layout.options.steamBackground)) {
+      // Nothing to show yet: the tile is the way to the field that takes one.
+      $('#cards-opt-steamBackground').focus();
+      cardsStatus('Paste the address of a wide picture below the tiles, and it becomes your background.');
+      return;
+    }
+    info.layout.options.steamBackdrop = tile.dataset.backdrop;
+    saveInfo();
+    renderBackdrops();
+    reapplyCards(0);
+  });
 
   function renderInsert() {
     var applied = window.JaiHardcode.isApplied(state.code);
@@ -2896,7 +3091,7 @@
     if (!row || !field) return;
     var entry = info.characters[+row.dataset.index];
     if (!entry) return;
-    entry[field] = e.target.value;
+    entry[field] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     if (field === 'name') $('.card-row-name', row).textContent = e.target.value || 'Untitled';
     saveInfo();
     reapplyCards();
@@ -3018,15 +3213,26 @@
     $('#cards-add').click();
   }
 
+  /* Choosing a design is asking for it: it is written into About Me there and
+   * then, replacing the one before it (one Undo takes it back). Profile data
+   * is what both are built from, so nothing typed here is lost in the swap. */
   $('#cards-opt-style').addEventListener('change', function () {
+    var style = window.JaiHardcodeStyles.get(this.value);
+    // Its own options are the next thing to look at, so they are opened.
+    if (style.css) $('#info-layout').open = true;
+    if (style.css && info.characters.length) {
+      useLayout(style);
+      return;
+    }
     info.layout.style = this.value;
     saveInfo();
     renderCards();
     reapplyCards(0);
     syncLayouts();
+    if (style.css) cardsStatus('“' + style.name + '” is chosen. Import your profile and it is built from your characters.');
   });
 
-  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText')
+  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText, #cards-opt-steamTheme, #cards-opt-steamBackground, #cards-opt-steamFrame, #cards-opt-steamFrameImage, #cards-opt-steamLevel, #cards-opt-steamStatus, #cards-opt-steamSubtitle, #cards-opt-feedName, #cards-opt-feedCategory')
     .forEach(function (input) {
       input.addEventListener('input', function () {
         var key = input.id.replace('cards-opt-', '');
@@ -3035,6 +3241,10 @@
         else if (key === 'filterlist') options.filterList = input.value;
         else if (key === 'slots') options.slots = parseInt(input.value, 10) || 1;
         else options[key] = input.value;
+        // A picture pasted in is a picture chosen; emptied, the choice falls
+        // back to the drawn backgrounds. A new theme repaints the tiles.
+        if (key === 'steamBackground') options.steamBackdrop = input.value.trim() ? 'picture' : '';
+        if (key === 'steamBackground' || key === 'steamTheme') renderBackdrops();
         saveInfo();
         reapplyCards();
       });
@@ -3092,7 +3302,8 @@
     toggleUi: toggleUi,
     addRuleStub: addRuleStub,
     scale: function () { return stageScale; },
-    info: function () { return info; }
+    info: function () { return info; },
+    touchInfo: touchInfo
   };
 
   // ------------------------------------------------------------------ start

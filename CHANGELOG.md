@@ -9,6 +9,55 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-10-10 — Pick a design in Profile data, and switch whenever you like
+
+**Profile data** now starts with a **Profile design** menu. Choose Steam
+profile, Instagram-style, Contact select or Proxy Terminal and it is written into
+About Me there and then; choose another and the page is swapped for it. All of
+them are built from the same Profile data, so your bio, friends, links and
+sections carry over, and one Undo takes a switch back.
+
+The panel narrows to what the chosen design uses — Inventory and Workshop
+items only show for Steam, each design's own options sit under **Design
+options** — and nothing in a hidden section is lost.
+
+**Instagram-style** is new in that menu: the Golden Hour page filled in from Profile
+data, with a story highlight for About and for each of your sections, your
+links as stickers and your friends as mentions.
+
+## 2026-10-10 — New layout: Steam profile, built from your own page
+
+A player profile, under **Insert → Sections** with the layouts built from
+Profile data. Your avatar, name, badges, follower count and Follow button are
+the real ones; a level, a **Favorite Character** showcase, a row of featured
+characters, About boxes, friends and links are written from your Profile data;
+and JanitorAI's own character list becomes a library underneath, so it keeps
+itself up to date.
+
+It is yours to dress: six themes, a **background** picked from a row of tiles
+(eight drawn ones — starfield, aurora, grid, sunset and more, each in your
+theme's colours — or your own wide picture), and an **avatar frame** — four drawn ones, or your own
+transparent picture laid over the avatar. Who appears in the showcases is up to
+you: open a character under Profile data and tick **Feature in showcases**.
+
+A long character list comes in a page at a time: a saved page only holds the
+characters that were on it. Save page 2, 3… the same way and press **Add more
+pages** under Profile data — several files at once is fine, nothing is added
+twice, and your page in the preview is left alone. The panel shows how far
+along you are ("34 of 163").
+
+Profile data has two new lists for it. **Inventory** is for things to show off
+(emotes, badges, art — a name and a picture each) and becomes an Item Showcase;
+**Workshop items** is for what you have made besides bots (lorebooks, prompts,
+presets) and becomes a Workshop Showcase. Both appear with a count in the
+right-hand column under Characters, next to your friends.
+
+Two new tutorials go with it. **Bring in your own profile** shows how to save
+your JanitorAI page as a file and open it here, and **A Steam-style profile**
+carries on from there to the finished page, friends, inventory and workshop
+included. If your profile is already in, the first step offers to skip the
+saving and importing.
+
 ## 2026-10-09 — Drag anything, tutorials, and a visitor's view
 
 **Drag to move.** JanitorAI's own pieces — the avatar, the Follow and Options
@@ -35,7 +84,7 @@ to see your own view.
 
 ## 2026-10-09 — New template: Golden Hour
 
-A photo-feed profile, in **Insert** with the other templates. Your real avatar sits in a
+An Instagram-style profile, in **Insert** with the other templates. Your real avatar sits in a
 gradient story ring, your real follower count sits in a row of stats, and a
 line of highlight circles opens full story cards — about, rules, requests,
 links and friends — each with a progress bar and arrows to the next one.
