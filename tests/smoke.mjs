@@ -740,11 +740,17 @@ try {
     const count = (re) => (code.match(re) || []).length;
     return {
       generated: window.JaiHardcode.isApplied(code),
-      keys: count(/class="fp-key fp-key-op" id="fp-op-\d+"/g),
+      keys: count(/class="fp-key fp-key-op fp-k-\d+" id="fp-op-\d+"/g),
       tiles: count(/<a class="fp-card" href="#fp-op-\d+"/g),
       files: count(/<section class="fp-screen fp-file fp-file-\d+"/g),
-      rules: count(/:has\(#fp-op-\d+:target\) \.fp-file-\d+/g),
+      rules: count(/:has\(\.fp-k-\d+:target\) \.fp-file-\d+/g),
       slides: count(/<div class="fp-slide fp-slide-\d+"/g),
+      // Recruit: every draw a pool's button can make has a key to land on.
+      pools: count(/class="fp-key fp-key-pool" id="fp-pool-[a-z0-9-]+"/g),
+      gates: count(/<div class="fp-gate fp-gate-[a-z0-9-]+"/g),
+      draws: count(/<a href="#fp-pull-[a-z0-9-]+-\d+" aria-label="Recruit">/g),
+      drawKeys: count(/class="fp-key fp-key-pull [^"]*" id="fp-pull-[a-z0-9-]+-\d+"/g),
+      day: code.includes('.fp-file { background: #e8e7e2; }'),
       templates: window.JaiPresets.allParts().filter((part) => window.JaiPresets.isPartApplied(code, part)).length,
       blob: /blob:/.test(code),
       pick: document.getElementById('cards-opt-style').value,
@@ -753,9 +759,18 @@ try {
   });
   if (!terminal.generated || !terminal.keys || terminal.keys !== terminal.tiles || terminal.keys !== terminal.files ||
       terminal.keys !== terminal.rules || !terminal.slides || terminal.templates || terminal.blob ||
+      !terminal.pools || terminal.pools !== terminal.gates || !terminal.draws || terminal.draws !== terminal.drawKeys || !terminal.day ||
       terminal.pick !== 'frontier' || terminal.issues) {
     fail(`the Operator terminal did not build cleanly (${JSON.stringify(terminal)})`);
   }
+  // Its theme is an option: the whole interface, a character's file included,
+  // is repainted when it changes.
+  await page.selectOption('#cards-opt-fpTheme', 'night');
+  await page.waitForTimeout(1200);
+  const night = await page.evaluate(() => window.JaiStudio.code().includes('.fp-file { background: #0f1013; }'));
+  await page.selectOption('#cards-opt-fpTheme', 'day');
+  await page.waitForTimeout(1200);
+  if (!night) fail('the Operator terminal did not follow its theme option');
   await page.evaluate(() => window.JaiStudio.setCode('', 'load', { now: true }));
 
   // The changelog dialog: opens from the toolbar and renders at least one entry.

@@ -53,6 +53,9 @@
   var MAX_FILES = 36;
   var MAX_SLIDES = 5;
   var SLIDE_SECONDS = 7;
+  var MAX_TAG_POOLS = 6;
+  // How long each character holds the Recruit button before the next takes it.
+  var CYCLE_SECONDS = 0.3;
 
   function theme(o) { return THEMES[o.fpTheme] || THEMES.day; }
 
@@ -117,6 +120,51 @@
     return (featured.length ? featured : list).slice(0, MAX_SLIDES);
   }
 
+  /* A tag as it can be written into an id and a class name. */
+  function slugOf(tag) {
+    return String(global.JaiTags.slug(tag) || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  }
+
+  /*
+   * The pools a visitor can recruit from: everyone, the featured ones, and a
+   * handful of tags. A pool is the positions (1-based) of its characters in
+   * the roster. The tags are the creator's list (fpPools) or, left empty, the
+   * ones most characters share, since a pool of one is not a draw.
+   */
+  function pools(files, o) {
+    var list = roster(files);
+    if (list.length < 2) return [];
+    var everyone = list.map(function (f, i) { return i + 1; });
+    var out = [{ key: 'all', label: 'All operators', members: everyone }];
+
+    var featured = everyone.filter(function (n) { return list[n - 1].featured; });
+    if (featured.length > 1 && featured.length < list.length) {
+      out.push({ key: 'featured', label: 'Featured', members: featured });
+    }
+
+    var byTag = {}, labels = {}, order = [];
+    list.forEach(function (f, i) {
+      var seen = {};
+      f.tags.forEach(function (tag) {
+        if (!global.JaiTags.isLinkable(tag)) return;
+        var key = slugOf(tag);
+        if (!key || seen[key]) return;
+        seen[key] = true;
+        if (!byTag[key]) { byTag[key] = []; labels[key] = global.JaiTags.label(tag); order.push(key); }
+        byTag[key].push(i + 1);
+      });
+    });
+    var chosen = String(o.fpPools || '').split(',').map(slugOf).filter(function (key) { return byTag[key]; });
+    var tags = chosen.length ? chosen : order.filter(function (key) {
+      return byTag[key].length > 1 && byTag[key].length < list.length;
+    }).sort(function (a, b) { return byTag[b].length - byTag[a].length; }).slice(0, MAX_TAG_POOLS);
+    tags.forEach(function (key) {
+      // The prefix keeps a tag called "all" or "featured" from colliding.
+      out.push({ key: 't-' + key, label: labels[key], members: byTag[key] });
+    });
+    return out;
+  }
+
   function socials(o) { return (o.socials || []).filter(function (s) { return s && usable(s.link); }); }
 
   function friends(o) { return (o.friends || []).filter(function (f) { return f && String(f.name || '').trim(); }); }
@@ -157,7 +205,17 @@
     // The keys: what every link in the interface points at.
     html.push('<span class="fp-key" id="fp-home"></span><span class="fp-key" id="fp-roster"></span>' +
       '<span class="fp-key" id="fp-dossier"></span><span class="fp-key" id="fp-network"></span><span class="fp-key" id="fp-log"></span>');
-    list.forEach(function (f, i) { html.push('<span class="fp-key fp-key-op" id="fp-op-' + (i + 1) + '"></span>'); });
+    // fp-k-N on a key says "this one opens file N", whichever way it was reached.
+    list.forEach(function (f, i) { html.push('<span class="fp-key fp-key-op fp-k-' + (i + 1) + '" id="fp-op-' + (i + 1) + '"></span>'); });
+    // Recruitment: a key per pool (which pool is chosen), and a key per pool
+    // and character (the draw: that character, reached from that pool).
+    var draws = pools(files, o);
+    draws.forEach(function (p) {
+      html.push('<span class="fp-key fp-key-pool" id="fp-pool-' + p.key + '"></span>');
+      p.members.forEach(function (n) {
+        html.push('<span class="fp-key fp-key-pull fp-kp-' + p.key + ' fp-k-' + n + '" id="fp-pull-' + p.key + '-' + n + '"></span>');
+      });
+    });
 
     html.push('<div class="fp-boot" aria-hidden="true"><div class="fp-boot-box"><b>' + esc(brand) + '</b>' +
       '<span>Establishing link</span><i></i><em>Operator files ' + pad(list.length) + ' · signal nominal</em></div></div>');
@@ -167,12 +225,20 @@
       (usable(o.fpEmblem) ? '<img class="fp-emblem" src="' + attr(o.fpEmblem) + '" alt="">' : '<span class="fp-emblem fp-emblem-mark"><i></i></span>') +
       '<div class="fp-brand-text"><b>' + esc(brand) + '</b><span>Terminal · online</span></div></div>');
 
+    // Numbered as they come: a screen with nothing in it is left out.
+    var at = 0;
+    var no = { home: ++at, roster: ++at };
+    if (draws.length) no.recruit = ++at;
+    no.dossier = ++at;
+    if (links.length || allies.length) no.network = ++at;
+    if (entries.length) no.log = ++at;
     html.push('<nav class="fp-nav" aria-label="Screens">' +
-      navItem('home', 1, 'Overview', 'Featured operators') +
-      navItem('roster', 2, 'Operators', pad(list.length) + ' files on record') +
-      navItem('dossier', 3, 'Dossier', 'About the creator') +
-      (links.length || allies.length ? navItem('network', 4, 'Network', 'Links &amp; allies') : '') +
-      (entries.length ? navItem('log', 5, 'Log', pad(entries.length) + (entries.length === 1 ? ' entry' : ' entries')) : '') +
+      navItem('home', no.home, 'Overview', 'Featured operators') +
+      navItem('roster', no.roster, 'Operators', pad(list.length) + ' files on record') +
+      (no.recruit ? navItem('recruit', no.recruit, 'Recruit', pad(draws.length) + (draws.length === 1 ? ' pool open' : ' pools open'), 'fp-pool-all') : '') +
+      navItem('dossier', no.dossier, 'Dossier', 'About the creator') +
+      (no.network ? navItem('network', no.network, 'Network', 'Links &amp; allies') : '') +
+      (no.log ? navItem('log', no.log, 'Log', pad(entries.length) + (entries.length === 1 ? ' entry' : ' entries')) : '') +
       '</nav>');
     html.push('<div class="fp-railfoot"><i class="fp-barcode"></i><span>ID ' + esc((name || 'unknown').toUpperCase()) + ' // ' + pad(list.length) + '-' + esc(compact(chats).toUpperCase()) + '</span></div>');
 
@@ -210,12 +276,39 @@
 
     // Operators
     html.push('<section class="fp-screen fp-screen-roster"><i class="fp-wipe"></i>' +
-      head(2, 'Operator roster', '<b>' + pad(list.length) + '</b> files on record') +
+      head(no.roster, 'Operator roster', '<b>' + pad(list.length) + '</b> files on record') +
       '<div class="fp-roster">' + list.map(function (f, i) {
         return '<a class="fp-card" href="#fp-op-' + (i + 1) + '"><span class="fp-card-art">' + picture(f.portrait, 'fp-card-img', '') + '</span>' +
           '<span class="fp-card-no">' + pad(i + 1) + '</span><span class="fp-card-name">' + esc(f.name) + '</span>' +
           '<span class="fp-card-meta">' + (f.chats ? esc(f.chats) + ' chats' : 'New file') + '</span></a>';
       }).join('') + '</div></section>');
+
+    // Recruit: choose a pool, press the button, and a character is drawn.
+    if (draws.length) {
+      html.push('<section class="fp-screen fp-screen-recruit"><i class="fp-wipe"></i>' +
+        head(no.recruit, 'Recruitment', 'Choose a pool, then draw') +
+        '<div class="fp-recruit"><div class="fp-recruit-side"><div class="fp-sub">Signal filter</div><div class="fp-pools">' +
+        draws.map(function (p) {
+          return '<a class="fp-pool fp-pool-' + p.key + '" href="#fp-pool-' + p.key + '"><b>' + esc(p.label) + '</b><span>' + pad(p.members.length) + '</span></a>';
+        }).join('') + '</div><div class="fp-sub">Candidates in range</div><div class="fp-cands">' +
+        list.map(function (f, i) {
+          var mine = draws.filter(function (p) { return p.members.indexOf(i + 1) !== -1; })
+            .map(function (p) { return ' fp-in-' + p.key; }).join('');
+          return '<span class="fp-cand' + mine + '">' + picture(f.portrait, 'fp-cand-img', '') + '</span>';
+        }).join('') + '</div></div>' +
+        // The gate: one per pool, only the chosen pool's is shown. Its button
+        // holds a link per character in the pool, stacked; they take turns a
+        // few times a second, so the draw depends on when the button is pressed.
+        '<div class="fp-gates"><i class="fp-gate-ring"></i><i class="fp-gate-ring fp-gate-ring-b"></i><i class="fp-gate-ring fp-gate-ring-c"></i>' +
+        draws.map(function (p) {
+          return '<div class="fp-gate fp-gate-' + p.key + '"><div class="fp-label"><i></i>Pool locked</div>' +
+            '<div class="fp-gate-name">' + esc(p.label) + '</div>' +
+            '<div class="fp-gate-count"><b>' + pad(p.members.length) + '</b>candidates</div>' +
+            '<span class="fp-draw fp-draw-' + p.members.length + '">' + p.members.map(function (n) {
+              return '<a href="#fp-pull-' + p.key + '-' + n + '" aria-label="Recruit"></a>';
+            }).join('') + '<span>Initiate recruitment</span><i></i></span></div>';
+        }).join('') + '</div></div></section>');
+    }
 
     // One file per character
     list.forEach(function (f, i) {
@@ -247,7 +340,7 @@
     // Dossier
     var about = written(o, 'aboutBody');
     var heading = written(o, 'aboutTitle');
-    html.push('<section class="fp-screen fp-screen-dossier"><i class="fp-wipe"></i>' + head(3, 'Creator dossier', 'Clearance: public') +
+    html.push('<section class="fp-screen fp-screen-dossier"><i class="fp-wipe"></i>' + head(no.dossier, 'Creator dossier', 'Clearance: public') +
       '<div class="fp-dossier"><div class="fp-idcard"><div class="fp-idcard-photo">' +
       (usable(identity.avatar) ? '<img src="' + attr(identity.avatar) + '" alt="">' : '<b>' + initial(name) + '</b>') + '</div>' +
       '<div class="fp-idcard-rows"><span>Callsign</span><b>' + esc(name ? '@' + name : 'Unregistered') + '</b>' +
@@ -261,7 +354,7 @@
 
     // Network
     if (links.length || allies.length) {
-      html.push('<section class="fp-screen fp-screen-network"><i class="fp-wipe"></i>' + head(4, 'Network', 'Outbound links &amp; allied creators'));
+      html.push('<section class="fp-screen fp-screen-network"><i class="fp-wipe"></i>' + head(no.network, 'Network', 'Outbound links &amp; allied creators'));
       if (links.length) {
         html.push('<div class="fp-links">' + links.map(function (s, i) {
           return '<a class="fp-link" href="' + attr(s.link) + '"><i>' + pad(i + 1) + '</i><b>' + esc(s.label || siteName(s.link)) + '</b>' +
@@ -282,7 +375,7 @@
 
     // Log
     if (entries.length) {
-      html.push('<section class="fp-screen fp-screen-log"><i class="fp-wipe"></i>' + head(5, 'Log', pad(entries.length) + ' on record') +
+      html.push('<section class="fp-screen fp-screen-log"><i class="fp-wipe"></i>' + head(no.log, 'Log', pad(entries.length) + ' on record') +
         '<div class="fp-log">' + entries.map(function (e, i) {
           return '<details class="fp-entry"' + (i === 0 ? ' open' : '') + '><summary><i>' + pad(i + 1) + '</i>' + esc(e.title) + '</summary>' +
             (e.body ? '<p>' + multiline(e.body) + '</p>' : '') + '</details>';
@@ -293,11 +386,31 @@
     var run = '<span>' + esc(ticker) + '</span>';
     html.push('<div class="fp-ticker" aria-hidden="true"><div class="fp-ticker-run">' + run + run + run + run + '</div></div>');
     html.push('</div>');
+
+    // The draw itself. It is one sequence laid over the whole interface, the
+    // same whoever is drawn: the drawn character's own file opens under it,
+    // and is what the sequence clears to show.
+    if (draws.length) {
+      html.push('<div class="fp-fx" aria-hidden="true"><i class="fp-fx-back"></i><i class="fp-fx-floor"></i>' +
+        '<i class="fp-fx-shut fp-fx-shut-a"></i><i class="fp-fx-shut fp-fx-shut-b"></i>' +
+        '<i class="fp-fx-ring fp-fx-ring-a"></i><i class="fp-fx-ring fp-fx-ring-b"></i><i class="fp-fx-ring fp-fx-ring-c"></i>' +
+        '<i class="fp-fx-cross"></i><i class="fp-fx-beam"></i>' +
+        '<div class="fp-fx-read"><b>Signal acquired</b><span class="fp-fx-rolls">' +
+        '<span class="fp-fx-roll"><i>07<br>31<br>94<br>58<br>12<br>66<br>20<br>83</i></span>' +
+        '<span class="fp-fx-roll fp-fx-roll-b"><i>A4<br>9F<br>C2<br>0E<br>7B<br>D1<br>55<br>3C</i></span>' +
+        '<span class="fp-fx-roll fp-fx-roll-c"><i>610<br>284<br>907<br>133<br>752<br>046<br>398<br>871</i></span></span>' +
+        '<em></em><span class="fp-fx-status">Decrypting operator file</span></div>' +
+        '<i class="fp-fx-slab"></i><i class="fp-fx-slab fp-fx-slab-b"></i>' +
+        '<div class="fp-fx-stamp"><b>Recruited</b><span>Contract signed</span></div></div>');
+      html.push('<div class="fp-pullbar">' + draws.map(function (p) {
+        return '<a class="fp-again fp-again-' + p.key + '" href="#fp-pool-' + p.key + '"><i></i>Draw again<span>' + esc(p.label) + '</span></a>';
+      }).join('') + '</div>');
+    }
     return html.join('');
   }
 
-  function navItem(key, n, label, note) {
-    return '<a class="fp-nav-item fp-nav-' + key + '" href="#fp-' + key + '"><i>' + pad(n) + '</i><b>' + label + '</b><span>' + note + '</span></a>';
+  function navItem(key, n, label, note, target) {
+    return '<a class="fp-nav-item fp-nav-' + key + '" href="#' + (target || 'fp-' + key) + '"><i>' + pad(n) + '</i><b>' + label + '</b><span>' + note + '</span></a>';
   }
 
   function head(n, title, note) {
@@ -314,9 +427,40 @@
     var n = show.length;
     var out = ['/* Generated from Profile data — edit it there, not here. */'];
 
+    // A file opens for its own key and for every draw that lands on it.
     out.push(list.map(function (f, i) {
-      return '.profile-info-stack:has(#fp-op-' + (i + 1) + ':target) .fp-file-' + (i + 1);
+      return '.profile-info-stack:has(.fp-k-' + (i + 1) + ':target) .fp-file-' + (i + 1);
     }).join(',\n') + ' { display: block; }');
+
+    var draws = pools(files, o);
+    if (draws.length) {
+      var S = '.profile-info-stack:has(#fp-pool-';
+      // The chosen pool: its chip lit, its gate shown, the rest of the
+      // candidates dimmed.
+      out.push(draws.map(function (p) { return S + p.key + ':target) .fp-pool-' + p.key; }).join(',\n') +
+        ' { border-color: ' + theme(o).ink + '; background: ' + theme(o).ink + '; color: ' + theme(o).bg + '; }');
+      out.push(draws.map(function (p) { return S + p.key + ':target) .fp-gate-' + p.key; }).join(',\n') + ' { display: flex; }');
+      out.push(draws.map(function (p) { return S + p.key + ':target) .fp-cand:not(.fp-in-' + p.key + ')'; }).join(',\n') +
+        ' { opacity: .16; filter: grayscale(1); transform: scale(.9); }');
+      // After a draw, the way back to the pool it came from.
+      out.push(draws.map(function (p) { return '.profile-info-stack:has(.fp-kp-' + p.key + ':target) .fp-again-' + p.key; }).join(',\n') + ' { display: flex; }');
+
+      // The turn-taking on the button: with N links each is there for one
+      // Nth of the loop, and each starts one step after the one before.
+      var sizes = {}, longest = 0;
+      draws.forEach(function (p) { sizes[p.members.length] = true; longest = Math.max(longest, p.members.length); });
+      Object.keys(sizes).forEach(function (size) {
+        var count = Number(size);
+        if (count < 2) return;
+        var share = Math.round(10000 / count) / 100;
+        out.push('@keyframes fp-turn-' + count + ' { 0% { visibility: visible; } ' + share + '%, 100% { visibility: hidden; } }');
+        out.push('.fp-draw-' + count + ' a { animation: fp-turn-' + count + ' ' + (Math.round(count * CYCLE_SECONDS * 100) / 100) + 's steps(1) infinite; }');
+      });
+      for (var k = 2; k <= longest; k++) {
+        out.push('.fp-draw a:nth-of-type(' + k + ') { animation-delay: -' + (Math.round((k - 1) * CYCLE_SECONDS * 100) / 100) + 's; }');
+      }
+      out.push('@media (prefers-reduced-motion: reduce) { .fp-draw a { animation: none; } }');
+    }
 
     if (n > 1) {
       var slot = 100 / n;
@@ -456,21 +600,25 @@
 '.fp-nav-item:hover { padding-left: 26px; background: @railInk@0d; color: @railMute@; }',
 '.fp-nav-home,',
 '.profile-info-stack:has(#fp-roster:target, .fp-key-op:target) .fp-nav-roster,',
+'.profile-info-stack:has(.fp-key-pool:target, .fp-key-pull:target) .fp-nav-recruit,',
 '.profile-info-stack:has(#fp-dossier:target) .fp-nav-dossier,',
 '.profile-info-stack:has(#fp-network:target) .fp-nav-network,',
 '.profile-info-stack:has(#fp-log:target) .fp-nav-log { background: @railInk@12; }',
 '.fp-nav-home b,',
 '.profile-info-stack:has(#fp-roster:target, .fp-key-op:target) .fp-nav-roster b,',
+'.profile-info-stack:has(.fp-key-pool:target, .fp-key-pull:target) .fp-nav-recruit b,',
 '.profile-info-stack:has(#fp-dossier:target) .fp-nav-dossier b,',
 '.profile-info-stack:has(#fp-network:target) .fp-nav-network b,',
 '.profile-info-stack:has(#fp-log:target) .fp-nav-log b { color: @a@; }',
 '.fp-nav-home::before,',
 '.profile-info-stack:has(#fp-roster:target, .fp-key-op:target) .fp-nav-roster::before,',
+'.profile-info-stack:has(.fp-key-pool:target, .fp-key-pull:target) .fp-nav-recruit::before,',
 '.profile-info-stack:has(#fp-dossier:target) .fp-nav-dossier::before,',
 '.profile-info-stack:has(#fp-network:target) .fp-nav-network::before,',
 '.profile-info-stack:has(#fp-log:target) .fp-nav-log::before { transform: scaleY(1); }',
 '.fp-nav-home::after,',
 '.profile-info-stack:has(#fp-roster:target, .fp-key-op:target) .fp-nav-roster::after,',
+'.profile-info-stack:has(.fp-key-pool:target, .fp-key-pull:target) .fp-nav-recruit::after,',
 '.profile-info-stack:has(#fp-dossier:target) .fp-nav-dossier::after,',
 '.profile-info-stack:has(#fp-network:target) .fp-nav-network::after,',
 '.profile-info-stack:has(#fp-log:target) .fp-nav-log::after { opacity: 1; transform: translate(0, -50%) rotate(45deg); }',
@@ -536,10 +684,11 @@
 '.fp-screen-home { display: block; }',
 '.profile-info-stack:has(.fp-key:not(#fp-home):target) .fp-screen-home { display: none; }',
 '.profile-info-stack:has(#fp-roster:target) .fp-screen-roster,',
+'.profile-info-stack:has(.fp-key-pool:target) .fp-screen-recruit,',
 '.profile-info-stack:has(#fp-dossier:target) .fp-screen-dossier,',
 '.profile-info-stack:has(#fp-network:target) .fp-screen-network,',
 '.profile-info-stack:has(#fp-log:target) .fp-screen-log { display: block; }',
-'.fp-screen-roster, .fp-screen-dossier, .fp-screen-network, .fp-screen-log { padding: 38px 44px 40px; overflow-y: auto; }',
+'.fp-screen-roster, .fp-screen-recruit, .fp-screen-dossier, .fp-screen-network, .fp-screen-log { padding: 38px 44px 40px; overflow-y: auto; }',
 '/* Changing screens: a slab of the accent crosses, and the screen is there. */',
 '.fp-wipe { position: absolute; inset: 0; z-index: 9; display: block; background: @a@; pointer-events: none; animation: fp-wipe .75s cubic-bezier(.7, 0, .2, 1) both; }',
 '',
@@ -705,6 +854,102 @@
 '.fp-entry[open] summary { border-bottom: 1px solid @line@; background: linear-gradient(90deg, @a@ 0 6px, transparent 6px); }',
 '.fp-entry p { margin: 0; padding: 16px 18px 18px; color: @ink@; font-size: 15px; line-height: 1.7; }',
 '',
+'/* ---- recruit: choose a pool, press, and a character is drawn ---- */',
+'.fp-recruit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 40%); gap: 34px; align-items: start; }',
+'.fp-recruit .fp-sub { margin: 0 0 12px; }',
+'.fp-recruit-side { animation: fp-rise .6s ease .36s both; }',
+'/* The pools. A flex row, so the whitespace between chips is not a gap. */',
+'.fp-pools { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 28px; }',
+'.fp-pool { display: flex; align-items: center; gap: 10px; padding: 9px 10px 9px 14px; border: 1px solid @ink@66; color: @ink@; font-family: @HEAD@; font-size: 16px; font-stretch: 75%; letter-spacing: .08em; line-height: 1; text-decoration: none; text-transform: uppercase; transition: background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease; }',
+'.fp-pool b { font-weight: 700; }',
+'.fp-pool span { padding: 2px 5px; background: @a@; color: @onA@; font-family: @MONO@; font-size: 10px; letter-spacing: 0; }',
+'.fp-pool:hover { border-color: @ink@; color: @ink@; transform: translateY(-2px); }',
+'/* Everyone on file. The ones outside the chosen pool fall back and fade. */',
+'.fp-cands { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 6px; }',
+'.fp-cand { position: relative; display: block; aspect-ratio: 1; overflow: hidden; border: 1px solid @line@; background: @panel@; transition: opacity .3s ease, filter .3s ease, transform .3s ease; }',
+'.fp-cand-img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; }',
+'.fp-cand .fp-noimg b { display: none; }',
+'/* The gate: the chosen pool\'s name and count over turning rings, and the button. */',
+'.fp-gates { position: relative; display: flex; align-items: center; justify-content: center; min-height: 380px; overflow: hidden; border: 1px solid @ink@; background: @panel@; animation: fp-rise .6s ease .44s both; }',
+'.fp-gates > i { position: absolute; top: 50%; left: 50%; display: block; pointer-events: none; }',
+'.fp-gate-ring { width: 300px; height: 300px; margin: -150px 0 0 -150px; border: 1px dashed @ink@40; border-radius: 50%; animation: fp-spin 40s linear infinite; }',
+'.fp-gate-ring-b { width: 230px; height: 230px; margin: -115px 0 0 -115px; border: 2px solid transparent; border-top-color: @a@; border-bottom-color: @a@; animation-duration: 9s; animation-direction: reverse; }',
+'.fp-gate-ring-c { width: 420px; height: 420px; margin: -210px 0 0 -210px; border: 1px solid @ink@1f; border-radius: 0; animation-duration: 70s; }',
+'.fp-gate { position: relative; z-index: 1; display: none; flex-direction: column; align-items: center; padding: 30px 24px; text-align: center; }',
+'.fp-gate-name { margin-top: 12px; color: @ink@; font-family: @HEAD@; font-size: clamp(30px, 3.6vw, 50px); font-stretch: 75%; font-weight: 700; letter-spacing: .03em; line-height: 1; text-transform: uppercase; }',
+'.fp-gate-count { display: flex; align-items: baseline; gap: 8px; margin-top: 10px; color: @mute@; font-family: @MONO@; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; }',
+'.fp-gate-count b { color: @ink@; font-family: @HEAD@; font-size: 30px; font-stretch: 75%; letter-spacing: .02em; }',
+'/* The button is a plate with its links laid over the whole of it. */',
+'.fp-draw { position: relative; display: flex; align-items: center; gap: 14px; margin-top: 26px; padding: 18px 30px; overflow: hidden; background: @a@; color: @onA@; font-family: @HEAD@; font-size: 19px; font-stretch: 75%; font-weight: 700; letter-spacing: .14em; line-height: 1; text-transform: uppercase; clip-path: polygon(0 0, 100% 0, 100% 64%, 94% 100%, 0 100%); transition: filter .18s ease, transform .18s ease; }',
+'.fp-draw::before { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 35%, #ffffff99 50%, transparent 65%); background-size: 300% 100%; animation: fp-gleam 3.2s ease-in-out infinite; }',
+'.fp-draw > span, .fp-draw > i { position: relative; }',
+'.fp-draw > i { width: 24px; height: 9px; background: @onA@; clip-path: polygon(0 38%, 72% 38%, 72% 0, 100% 50%, 72% 100%, 72% 62%, 0 62%); transition: transform .18s ease; }',
+'.fp-draw:hover { filter: brightness(1.08); transform: translateY(-3px); }',
+'.fp-draw:hover > i { transform: translateX(6px); }',
+'.fp-draw a { position: absolute; inset: 0; z-index: 2; visibility: hidden; }',
+'.fp-draw a:first-of-type { visibility: visible; }',
+'',
+'/* ---- the draw: one sequence over the whole interface ---- */',
+'.fp-fx { position: absolute; inset: 0; z-index: 25; display: none; overflow: hidden; pointer-events: none; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-fx { display: block; }',
+'.fp-fx > i { position: absolute; display: block; }',
+'/* Dark falls, and lifts once the file underneath is ready to be seen. */',
+'.fp-fx-back { inset: 0; background: radial-gradient(circle at 50% 46%, @fxMid@ 0%, @fxEdge@ 70%); animation: fp-fx-back 3s linear both; }',
+'/* A floor of lines rushing toward the viewer. */',
+'.fp-fx-floor { right: -50%; bottom: -10%; left: -50%; height: 62%; background-image: linear-gradient(@a@66 1px, transparent 1px), linear-gradient(90deg, @a@66 1px, transparent 1px); background-size: 70px 70px; transform: perspective(520px) rotateX(64deg); transform-origin: 50% 100%; animation: fp-fx-floor 3s linear both; }',
+'/* Shutters close from the top and the bottom, and part again at the end. */',
+'.fp-fx-shut { right: 0; left: 0; height: 50%; background: #050608; }',
+'.fp-fx-shut-a { top: 0; border-bottom: 2px solid @a@; transform-origin: 50% 0; animation: fp-fx-shut 3s cubic-bezier(.7, 0, .2, 1) both; }',
+'.fp-fx-shut-b { bottom: 0; border-top: 2px solid @a@; transform-origin: 50% 100%; animation: fp-fx-shut 3s cubic-bezier(.7, 0, .2, 1) both; }',
+'/* Three frames closing on the middle, each turning the other way. */',
+'.fp-fx-ring { top: 50%; left: 50%; width: 340px; height: 340px; margin: -170px 0 0 -170px; border: 2px solid @a@; opacity: 0; animation: fp-fx-ring 2.2s cubic-bezier(.2, .8, .2, 1) .25s both; }',
+'.fp-fx-ring-b { width: 230px; height: 230px; margin: -115px 0 0 -115px; border-color: #ffffff; animation-name: fp-fx-ring-b; animation-delay: .4s; }',
+'.fp-fx-ring-c { width: 460px; height: 460px; margin: -230px 0 0 -230px; border-style: dashed; border-radius: 50%; animation-delay: .1s; }',
+'.fp-fx-cross { top: 50%; left: 50%; width: 520px; height: 520px; margin: -260px 0 0 -260px; background: linear-gradient(@a@, @a@) center / 100% 1px no-repeat, linear-gradient(@a@, @a@) center / 1px 100% no-repeat; opacity: 0; animation: fp-fx-cross 2s ease .3s both; }',
+'/* The line of light that sweeps down while the file is read. */',
+'.fp-fx-beam { right: 0; left: 0; top: 0; height: 22%; background: linear-gradient(180deg, transparent, @a@40 80%, @a@); opacity: 0; animation: fp-fx-beam 1.5s linear .5s both; }',
+'.fp-fx-read { position: absolute; top: 50%; left: 50%; width: 300px; margin: -62px 0 0 -150px; text-align: center; animation: fp-fx-read 2.2s linear both; }',
+'.fp-fx-read b { display: block; color: #ffffff; font-family: @HEAD@; font-size: 30px; font-stretch: 75%; letter-spacing: .12em; text-transform: uppercase; }',
+'/* Three columns of figures spinning like a lock being tried. */',
+'.fp-fx-rolls { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }',
+'.fp-fx-roll { display: block; height: 22px; overflow: hidden; padding: 0 8px; border: 1px solid @a@; color: @a@; font-family: @MONO@; font-size: 14px; line-height: 22px; }',
+'.fp-fx-roll i { display: block; font-style: normal; animation: fp-fx-roll .5s steps(8) infinite; }',
+'.fp-fx-roll-b i { animation-duration: .36s; }',
+'.fp-fx-roll-c i { animation-duration: .64s; }',
+'.fp-fx-read em { display: block; height: 4px; margin-top: 14px; background: @a@; transform-origin: 0 50%; animation: fp-fx-bar 1.6s steps(12) .3s both; }',
+'.fp-fx-status { display: block; margin-top: 8px; color: #ffffffb3; font-family: @MONO@; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; animation: fp-blink .4s steps(2) infinite; }',
+'/* Two slabs of the accent cross on the slant, and the file is there. */',
+'.fp-fx-slab { top: -20%; bottom: -20%; left: 0; width: 46%; background: @a@; transform: translateX(-140%) skewX(-18deg); animation: fp-fx-slab .8s cubic-bezier(.7, 0, .2, 1) 1.95s both; }',
+'/* The second is a sliver, so it has further to go in its own widths. */',
+'.fp-fx-slab-b { width: 14%; background: #ffffff; transform: translateX(-500%) skewX(-18deg); animation-name: fp-fx-slab-b; animation-delay: 2.08s; }',
+'/* The stamp that lands on the art, and stays. */',
+'.fp-fx-stamp { position: absolute; bottom: 74px; left: 284px; padding: 10px 18px 9px; border: 3px solid @a@; background: @fxEdge@e6; color: @a@; transform: rotate(-7deg); animation: fp-fx-stamp .5s cubic-bezier(.2, 1.5, .4, 1) 3s both; }',
+'.fp-fx-stamp b { display: block; font-family: @HEAD@; font-size: 34px; font-stretch: 75%; letter-spacing: .14em; line-height: 1; text-transform: uppercase; }',
+'.fp-fx-stamp span { display: block; margin-top: 4px; color: #ffffffcc; font-family: @MONO@; font-size: 9px; letter-spacing: .22em; text-transform: uppercase; }',
+'',
+'/* A drawn file: it waits for the sequence, its art comes up out of shadow,',
+' * and the way back to the pool is offered where "Roster" was. */',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-file .fp-wipe { display: none; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-file-plate { animation-delay: 2.3s; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-file-art { animation-delay: 2.3s; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-file-img { animation: fp-unveil 1.5s ease-out 2.4s both; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-file-top { animation-delay: 2.7s; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-file-name { animation: fp-stamp-in .6s cubic-bezier(.2, .9, .2, 1) 2.8s both; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-file-line { animation-delay: 3s; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-quote { animation-delay: 3.08s; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-file-desc { animation-delay: 3.16s; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-file-info .fp-chips { animation-delay: 3.24s; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-stats { animation-delay: 3.32s; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-file-info .fp-actions { animation-delay: 3.4s; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-back { display: none; }',
+'.fp-pullbar { position: absolute; top: 30px; left: calc(46% + 158px); z-index: 26; display: none; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-pullbar { display: block; animation: fp-rise .5s ease 3.4s both; }',
+'.fp-again { display: none; align-items: center; gap: 9px; padding: 6px 12px 6px 10px; border: 1px solid @ink@; background: @bg@; color: @ink@; font-family: @MONO@; font-size: 10px; letter-spacing: .14em; text-decoration: none; text-transform: uppercase; transition: background .15s ease, color .15s ease; }',
+'.fp-again i { width: 9px; height: 9px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; }',
+'.fp-again span { padding: 1px 5px; background: @a@; color: @onA@; }',
+'.fp-again:hover { background: @ink@; color: @bg@; }',
+'.fp-again:hover i { animation: fp-spin .6s linear infinite; }',
+'',
 '/* ---- the ticker along the foot of the main area ---- */',
 '.fp-ticker { position: absolute; right: 0; bottom: 0; left: 0; z-index: 5; height: 28px; overflow: hidden; background: @rail@; }',
 '.fp-ticker-run { display: flex; width: max-content; animation: fp-ticker 36s linear infinite; }',
@@ -728,6 +973,22 @@
 '.pp-mnb-wrapper { border-top: 2px solid @a@; border-radius: 0; background: @rail@ !important; box-shadow: none !important; }',
 '.pp-mnb-container svg { color: @railInk@ !important; }',
 '',
+'@keyframes fp-gleam { 0%, 55% { background-position: 130% 0; } 100% { background-position: -40% 0; } }',
+'@keyframes fp-fx-back { 0% { opacity: 0; } 8% { opacity: 1; } 72% { opacity: 1; } 86%, 100% { opacity: 0; visibility: hidden; } }',
+'@keyframes fp-fx-floor { 0% { opacity: 0; background-position: 0 0; } 12% { opacity: 1; } 66% { opacity: 1; } 76%, 100% { opacity: 0; background-position: 0 700px; visibility: hidden; } }',
+'@keyframes fp-fx-shut { 0% { transform: scaleY(0); } 9% { transform: scaleY(1); } 16% { transform: scaleY(.34); } 68% { transform: scaleY(.34); } 80%, 100% { transform: scaleY(0); visibility: hidden; } }',
+'@keyframes fp-fx-ring { 0% { opacity: 0; transform: scale(3) rotate(0); } 30% { opacity: 1; transform: scale(1) rotate(90deg); } 78% { opacity: 1; transform: scale(.9) rotate(225deg); } 100% { opacity: 0; transform: scale(0) rotate(360deg); } }',
+'@keyframes fp-fx-ring-b { 0% { opacity: 0; transform: scale(3) rotate(45deg); } 30% { opacity: 1; transform: scale(1) rotate(-45deg); } 78% { opacity: 1; transform: scale(.9) rotate(-180deg); } 100% { opacity: 0; transform: scale(0) rotate(-315deg); } }',
+'@keyframes fp-fx-cross { 0% { opacity: 0; transform: scale(.2) rotate(-45deg); } 30% { opacity: .9; transform: scale(1) rotate(0); } 80% { opacity: .9; transform: scale(1) rotate(0); } 100% { opacity: 0; transform: scale(1.6) rotate(45deg); } }',
+'@keyframes fp-fx-beam { 0% { opacity: 0; transform: translateY(-100%); } 15% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; transform: translateY(460%); } }',
+'@keyframes fp-fx-read { 0%, 10% { opacity: 0; transform: scale(.9); } 20% { opacity: 1; transform: scale(1); } 86% { opacity: 1; transform: scale(1); } 94%, 100% { opacity: 0; transform: scale(1.3); visibility: hidden; } }',
+'@keyframes fp-fx-roll { from { transform: translateY(0); } to { transform: translateY(-176px); } }',
+'@keyframes fp-fx-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }',
+'@keyframes fp-fx-slab { 0% { transform: translateX(-140%) skewX(-18deg); } 100% { transform: translateX(340%) skewX(-18deg); } }',
+'@keyframes fp-fx-slab-b { 0% { transform: translateX(-500%) skewX(-18deg); } 100% { transform: translateX(1100%) skewX(-18deg); } }',
+'@keyframes fp-fx-stamp { 0% { opacity: 0; transform: rotate(-7deg) scale(3); } 100% { opacity: 1; transform: rotate(-7deg) scale(1); } }',
+'@keyframes fp-unveil { 0% { filter: brightness(0) contrast(1.4); transform: scale(1.14); } 45% { filter: brightness(0) contrast(1.4); } 100% { filter: brightness(1) contrast(1); transform: scale(1); } }',
+'@keyframes fp-stamp-in { 0% { opacity: 0; letter-spacing: .4em; transform: translateX(40px); } 100% { opacity: 1; letter-spacing: .01em; transform: translateX(0); } }',
 '@keyframes fp-spin { to { transform: rotate(360deg); } }',
 '@keyframes fp-blink { 0% { opacity: 1; } 100% { opacity: .2; } }',
 '@keyframes fp-ping { 0% { box-shadow: 0 0 0 0 @a@cc; } 80%, 100% { box-shadow: 0 0 0 9px @a@00; } }',
@@ -765,7 +1026,19 @@
 '  .fp-railfoot { display: none; }',
 '  .fp-main { grid-column: 1 / -1; grid-row: 8; height: auto; }',
 '  .fp-screen { position: relative; inset: auto; padding-bottom: 28px; }',
-'  .fp-screen-roster, .fp-screen-dossier, .fp-screen-network, .fp-screen-log { padding: 24px 16px 52px; overflow: visible; }',
+'  .fp-screen-roster, .fp-screen-recruit, .fp-screen-dossier, .fp-screen-network, .fp-screen-log { padding: 24px 16px 52px; overflow: visible; }',
+'  .fp-recruit { grid-template-columns: minmax(0, 1fr); gap: 24px; }',
+'  .fp-gates { grid-row: 1; min-height: 320px; }',
+'  /* On a phone the interface is taller than the screen, so the draw is',
+'   * pinned to the screen rather than laid over the interface. */',
+'  .fp-fx { position: fixed; z-index: 99999; }',
+'  .fp-fx-ring { width: 240px; height: 240px; margin: -120px 0 0 -120px; }',
+'  .fp-fx-ring-b { width: 170px; height: 170px; margin: -85px 0 0 -85px; }',
+'  .fp-fx-ring-c { width: 320px; height: 320px; margin: -160px 0 0 -160px; }',
+'  .fp-fx-cross { width: 360px; height: 360px; margin: -180px 0 0 -180px; }',
+'  .fp-fx-slab { left: -90%; width: 70%; }',
+'  .fp-fx-stamp { display: none; }',
+'  .fp-pullbar { position: fixed; top: auto; right: 12px; bottom: 76px; left: auto; z-index: 99998; }',
 '  .fp-screen-home { height: 800px; }',
 '  .fp-hud { top: 14px; right: 14px; gap: 14px; }',
 '  .fp-hud-live { display: none !important; }',
@@ -799,6 +1072,9 @@
 '',
 '@media (prefers-reduced-motion: reduce) {',
 '  .fp-boot, .fp-wipe { display: none !important; }',
+'  .fp-fx > i, .fp-fx-read { display: none !important; }',
+'  .fp-fx-stamp, .fp-draw::before, .fp-gate-ring, .fp-gates, .fp-recruit-side, .fp-pullbar { animation: none !important; }',
+'  .profile-info-stack:has(.fp-key-pull:target) .fp-file *, .profile-info-stack:has(.fp-key-pull:target) .fp-file-img, .profile-info-stack:has(.fp-key-pull:target) .fp-file-name { animation: none !important; }',
 '  .fp-emblem-mark i, .pp-uc-followers-count::before, .fp-hud, .fp-hud-live i, .fp-head, .fp-card, .fp-card:hover .fp-card-art::after, .fp-file-scene, .fp-file-plate, .fp-file-art, .fp-file-top, .fp-file-name, .fp-file-line, .fp-quote, .fp-file-desc, .fp-file-info .fp-chips, .fp-stats, .fp-file-info .fp-actions, .fp-idcard, .fp-about, .fp-links, .fp-allies, .fp-log, .fp-ticker-run { animation: none; }',
 '}'
   ];
@@ -858,7 +1134,7 @@
     var tokens = {
       bg: t.bg, panel: t.panel, ink: t.ink, mute: t.mute, line: t.line,
       rail: t.rail, railInk: t.railInk, railMute: t.railMute, railLine: t.railLine,
-      a: a, onA: onAccent(a), HEAD: HEAD, MONO: MONO, BODY: BODY
+      a: a, onA: onAccent(a), fxMid: '#1b1d24', fxEdge: '#050608', HEAD: HEAD, MONO: MONO, BODY: BODY
     };
     var lines = SHEET.concat(o.fpNative === true || o.fpNative === 'true' ? NATIVE_ON : NATIVE_OFF);
     return lines.join('\n').replace(/@([A-Za-z]+)@/g, function (all, key) {
@@ -871,6 +1147,7 @@
     theme: theme,
     roster: roster,
     slides: slides,
+    pools: pools,
     markup: markup,
     css: css,
     style: style

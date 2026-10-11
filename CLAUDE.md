@@ -110,7 +110,11 @@ the only source of truth; every canvas gesture is an edit to that text.
   `pulls()`. The Operator terminal (`js/frontier-profile.js`) is a generated
   design like Steam, and the one that hides JanitorAI's character list: it
   writes a `:target` screen per character (`css` emits the rule that opens
-  each). Its stylesheet is written with `@tokens@` filled in by `style`, and
+  each). Its Recruit screen is a key per pool and a key per pool-and-character;
+  a key carries `fp-k-N` for the file it opens, so a draw reuses the
+  character's own file under one shared sequence (`.fp-fx`) instead of a
+  result screen each. Going back to the pool between draws is what restarts
+  that sequence: an element that stays displayed does not replay. Its stylesheet is written with `@tokens@` filled in by `style`, and
   its height comes from the width (`vw`), never `vh`: the canvas is as tall
   as the page. Every
   way of choosing one goes through `applyDesign` in app.js, which first runs

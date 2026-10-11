@@ -3195,7 +3195,7 @@
     // Empty means "the layout's own wording", which the placeholders show.
     ['title', 'kicker', 'launch', 'profileLabel', 'profileMark', 'friendsTitle', 'footerText',
       'steamBackground', 'steamFrameImage', 'steamLevel', 'steamStatus', 'steamSubtitle',
-      'feedName', 'feedCategory', 'redditTagline', 'redditBannerImage', 'gachaTitle', 'gachaArt', 'fpBackground', 'fpEmblem', 'fpCallsign', 'fpTicker'].forEach(function (key) {
+      'feedName', 'feedCategory', 'redditTagline', 'redditBannerImage', 'gachaTitle', 'gachaArt', 'fpBackground', 'fpEmblem', 'fpCallsign', 'fpTicker', 'fpPools'].forEach(function (key) {
       var field = $('#cards-opt-' + key);
       if (document.activeElement !== field) field.value = options[key] || '';
     });
@@ -3499,7 +3499,7 @@
     reapplyCards(0);
   });
 
-  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText, #cards-opt-steamTheme, #cards-opt-steamBackground, #cards-opt-steamFrame, #cards-opt-steamFrameImage, #cards-opt-steamLevel, #cards-opt-steamStatus, #cards-opt-steamSubtitle, #cards-opt-feedName, #cards-opt-feedCategory, #cards-opt-redditTagline, #cards-opt-redditBanner, #cards-opt-redditBannerImage, #cards-opt-gachaTitle, #cards-opt-gachaArt, #cards-opt-fpTheme, #cards-opt-fpAccent, #cards-opt-fpBackground, #cards-opt-fpEmblem, #cards-opt-fpCallsign, #cards-opt-fpTicker')
+  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText, #cards-opt-steamTheme, #cards-opt-steamBackground, #cards-opt-steamFrame, #cards-opt-steamFrameImage, #cards-opt-steamLevel, #cards-opt-steamStatus, #cards-opt-steamSubtitle, #cards-opt-feedName, #cards-opt-feedCategory, #cards-opt-redditTagline, #cards-opt-redditBanner, #cards-opt-redditBannerImage, #cards-opt-gachaTitle, #cards-opt-gachaArt, #cards-opt-fpTheme, #cards-opt-fpAccent, #cards-opt-fpBackground, #cards-opt-fpEmblem, #cards-opt-fpCallsign, #cards-opt-fpTicker, #cards-opt-fpPools')
     .forEach(function (input) {
       input.addEventListener('input', function () {
         var key = input.id.replace('cards-opt-', '');

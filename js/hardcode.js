@@ -100,6 +100,9 @@
     fpEmblem: '',
     fpCallsign: '',
     fpTicker: '',
+    // Which tags Recruit offers as pools, comma separated; empty = the tags
+    // most of the roster shares.
+    fpPools: '',
     fpNative: false
   };
 

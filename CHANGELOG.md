@@ -26,11 +26,19 @@ an ID card; Network is your links and friends; Log is your notes. Screens
 change with a wipe of the accent, and there is a start-up screen when the page
 loads.
 
+Recruit is the game in it. A visitor picks a pool (everyone, your featured
+characters, or a tag such as Fluff or Angst), the candidates outside it fade
+back, and Initiate recruitment draws one: shutters close, frames lock on, a
+lock of figures spins, two slabs of the accent cross on the slant, and the
+drawn character's file opens with the art coming up out of silhouette and a
+stamp landing on it. Only characters carrying the pool's tag can come up, and
+which one depends on the moment the button is pressed.
+
 Your characters are written into the page, which is what lets each have its
 own screen, so it looks its best with your own pictures: a backdrop for the
 interface, and per character a tall piece of art, a roster tile and a wide
 scene. Under Design options you choose a light or dark theme, the accent, the
-wordmark and the ticker's text, and whether JanitorAI's live character list
+wordmark, the ticker's text and which tags Recruit offers, and whether JanitorAI's live character list
 stays underneath for bots Profile data does not have yet.
 
 ## 2026-10-12 — New template: Starfall, a gacha wish screen
