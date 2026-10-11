@@ -85,7 +85,12 @@
     // banner across the profile card: a colour, or a picture over it.
     redditTagline: '',
     redditBanner: '#0079d3',
-    redditBannerImage: ''
+    redditBannerImage: '',
+    // The Gacha design: Starfall's parts (js/starfall-profile.js). The
+    // banner's title, and a picture for its frame other than the first
+    // featured character's.
+    gachaTitle: '',
+    gachaArt: ''
   };
 
   /* A design with markup all of its own writes it itself; the rest share the

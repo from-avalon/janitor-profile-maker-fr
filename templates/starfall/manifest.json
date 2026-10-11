@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "id": "starfall",
+  "version": "0.1.0",
+  "status": "draft",
+  "name": "Starfall",
+  "author": "Sweepercom",
+  "license": "All rights reserved",
+  "credit": "Starfall template by Sweepercom",
+  "description": "A gacha game's wish screen under a night sky. A featured banner, three more screens behind tabs, and Wish buttons that play a falling star and reveal one of your characters. Your character list becomes an archive of foil cards.",
+  "tags": ["dark", "game", "gacha", "animated", "screens", "live-roster"],
+  "entry": "source.txt",
+  "components": [
+    {
+      "key": "cosmos",
+      "name": "Night sky",
+      "blurb": "The backdrop behind everything: drifting clouds of colour, three sheets of blinking stars, a shooting star now and then and a glow on the horizon.",
+      "affects": ["Page background", "Typography"]
+    },
+    {
+      "key": "intro",
+      "name": "Opening curtain",
+      "needs": ["cosmos"],
+      "blurb": "Two seconds over the page as it loads: a gold star turns once, rings spread from it and the word settles.",
+      "affects": ["Loading screen"]
+    },
+    {
+      "key": "stage",
+      "name": "Stage & player card",
+      "needs": ["cosmos"],
+      "blurb": "The glass stage with its gilt frame and the tabs across the top. Your avatar in a turning ring, your name, badges, followers as the currency counter and Follow as the gold button. Includes its phone layout.",
+      "affects": ["Page layout", "Profile identity", "Follow & options"]
+    },
+    {
+      "key": "banner",
+      "name": "Event banner & Wish buttons",
+      "needs": ["stage"],
+      "blurb": "The first screen: a title, a few lines, the featured names and a floating gilt frame for a picture. Under it, Wish ×1 and Wish ×10.",
+      "affects": ["About & status", "Featured characters"]
+    },
+    {
+      "key": "pulls",
+      "name": "Wish animation & results",
+      "needs": ["stage", "banner"],
+      "blurb": "What a Wish button opens: the screen darkens, a star falls, light bursts, and a character is revealed with five stars and a Chat now button. Wish ×10 deals a spread of ten cards.",
+      "affects": ["Featured characters", "Overlays"]
+    },
+    {
+      "key": "traveler",
+      "name": "Traveler screen",
+      "needs": ["stage"],
+      "blurb": "Behind the Traveler tab: an About card with a signature line, three stat tiles and your links as waypoints.",
+      "affects": ["About & status", "Links & social"]
+    },
+    {
+      "key": "details",
+      "name": "Details screen",
+      "needs": ["stage"],
+      "blurb": "Behind the Details tab: the fine print as lines that open on a click. Requests, reposting, feedback.",
+      "affects": ["About & status"]
+    },
+    {
+      "key": "party",
+      "name": "Party screen",
+      "needs": ["stage"],
+      "blurb": "Behind the Party tab: other creators lined up like party members, each with a ringed portrait and a line about them.",
+      "affects": ["Friends & shoutouts"]
+    },
+    {
+      "key": "archive",
+      "name": "Character Archive",
+      "blurb": "Your real character list as foil cards: the picture edge to edge in a gilt frame, five stars and the name on a plate, the chat count in the corner, and tags that slide up when the card is pointed at. Also the tabs, the filter bar and the page buttons.",
+      "affects": ["Character cards", "Tabs & filters", "Pagination"]
+    },
+    {
+      "key": "site-chrome",
+      "name": "Site header",
+      "blurb": "JanitorAI's top bar, search, menus and phone navigation in midnight blue and gold.",
+      "affects": ["Site header", "Menus", "Mobile navigation"]
+    },
+    {
+      "key": "credit",
+      "name": "Template credit",
+      "recommended": true,
+      "needs": ["stage"],
+      "blurb": "A small credit line at the foot of the stage.",
+      "affects": ["Credits"]
+    }
+  ],
+  "compatibility": {
+    "platform": "JanitorAI public profile About Me",
+    "testedReferenceDate": "2026-10-12",
+    "requiresJavaScript": false,
+    "usesBlockedFeatures": false,
+    "notes": [
+      "The avatar, username, follower count, badges, Follow button and character list are JanitorAI's own elements, restyled.",
+      "Screens and wishes are CSS only (:target and :has). One thing is open at a time.",
+      "Wish ×1 is not random: its links take turns quickly, so the result depends on when it is clicked.",
+      "An original design in the style of gacha games; not affiliated with any of them."
+    ]
+  }
+}

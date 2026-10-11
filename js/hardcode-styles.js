@@ -271,6 +271,14 @@
       template: 'front-page'
     },
     {
+      id: 'starfall',
+      name: 'Gacha (Starfall)',
+      blurb: 'The Starfall template, filled in from Profile data: a wish banner with your featured characters, Wish buttons that play a falling star and reveal one of them, and Traveler, Details and Party screens from your About me, links, sections and friends. Your character list becomes an archive of foil cards.',
+      // A template's parts, like Instagram-style: no stylesheet of its own.
+      css: null,
+      template: 'starfall'
+    },
+    {
       id: 'none',
       name: 'None — I style it myself',
       blurb: 'Writes markup and wiring only. Your own CSS supplies the look.',

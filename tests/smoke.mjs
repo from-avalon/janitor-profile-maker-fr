@@ -707,6 +707,30 @@ try {
   if (!painted.colour || !painted.picture || painted.issues || !unpainted.colour || !unpainted.picture) {
     fail(`the Reddit-style banner did not follow its options (${JSON.stringify({ painted, unpainted })})`);
   }
+  // Gacha is the Starfall template's parts. Its Wish button and its results
+  // are two parts that have to agree on how many characters there are.
+  await page.selectOption('#cards-opt-style', 'starfall');
+  await page.waitForTimeout(900);
+  const gacha = await page.evaluate(() => {
+    const code = window.JaiStudio.code();
+    const of = (prefix) => window.JaiPresets.allParts().filter((part) => part.id.startsWith(prefix));
+    const links = (code.match(/<span class="sf-wish sf-wish-1 sf-cycle-(\d)">((?:<a [^>]*><\/a>)+)/) || []);
+    return {
+      parts: of('starfall-').filter((part) => window.JaiPresets.isPartApplied(code, part)).length,
+      of: of('starfall-').length,
+      left: of('front-page-').filter((part) => window.JaiPresets.isPartApplied(code, part)).length,
+      cycle: Number(links[1] || 0),
+      wishLinks: (links[2] || '').split('</a>').length - 1,
+      results: (code.match(/<div class="sf-pull sf-pull-\d"/g) || []).length,
+      keys: (code.match(/class="sf-key sf-key-pull" id="sf-pull-\d"/g) || []).length,
+      pick: document.getElementById('cards-opt-style').value,
+      issues: window.JaiStudio.issues().length,
+    };
+  });
+  if (gacha.parts !== gacha.of || !gacha.of || gacha.left || !gacha.cycle || gacha.cycle !== gacha.wishLinks ||
+      gacha.cycle !== gacha.results || gacha.cycle !== gacha.keys || gacha.pick !== 'starfall' || gacha.issues) {
+    fail(`the Gacha design did not build from Profile data (${JSON.stringify(gacha)})`);
+  }
   await page.evaluate(() => window.JaiStudio.setCode('', 'load', { now: true }));
 
   // The changelog dialog: opens from the toolbar and renders at least one entry.

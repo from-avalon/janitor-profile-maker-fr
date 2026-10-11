@@ -9,6 +9,27 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-10-12 — New template: Starfall, a gacha wish screen
+
+A night sky with drifting colour, blinking stars and the odd shooting star,
+and on it a gacha game's wish screen. Your profile box is the stage: a
+featured banner with a floating gilt frame for a picture, and three more
+screens behind tabs (Traveler for your about and links, Details for the fine
+print, Party for other creators). Your avatar sits in a turning ring of light
+and your follower count is the currency counter in the corner.
+
+Press Wish and the screen goes dark, a star falls, light bursts, and one of
+your characters is revealed with five stars and a Chat now button. Wish ×1
+lands on a different featured character depending on when you press it; Wish
+×10 deals a spread of ten cards. Your character list is the Archive: foil
+cards that lift, shine and show their tags when pointed at. None of it needs
+a script, and it all stands still for visitors who ask for reduced motion.
+
+Add it from Insert, or choose **Gacha (Starfall)** under Profile data →
+Profile design to have it filled in from your characters, About me, links,
+sections and friends. To pick who the wishes land on, tick **Feature in
+showcases** on up to five characters.
+
 ## 2026-10-12 — New template: Front Page, a Reddit-style profile
 
 A dark-mode Reddit user page. Your profile box becomes the sidebar card on the

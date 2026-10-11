@@ -344,6 +344,15 @@
               <label class="field field-check"><input type="checkbox" id="cards-opt-feedStories"> <span>Featured characters as story highlights</span></label>
               <p class="field-hint">The bio is your <b>About me</b> introduction. Creator notes and each extra section become a story highlight; social links become stickers and friends become mentions. To feature a character, open it under <b>Characters</b> and tick <b>Feature in showcases</b>: it gets a highlight of its own, with its picture as the story.</p>
             </div>
+            <div data-design="starfall">
+              <label class="field">Banner title
+                <input type="text" id="cards-opt-gachaTitle" placeholder="Ballad of the Falling Stars">
+              </label>
+              <label class="field">Banner picture
+                <input type="url" id="cards-opt-gachaArt" placeholder="https://… defaults to your first featured character">
+              </label>
+              <p class="field-hint">The Wish buttons land on your featured characters, up to five: open a character under <b>Characters</b> and tick <b>Feature in showcases</b>. With none featured, the first five are used. Wish ×10 deals the first ten. The banner's lines are your <b>About me</b> introduction and its heading is the signature on the Traveler screen, where your social links are the waypoints. Creator notes and extra sections fill Details; friends fill Party.</p>
+            </div>
             <div data-design="front-page">
               <label class="field">After your u/handle
                 <input type="text" id="cards-opt-redditTagline" placeholder="they/them · bot maker">
@@ -659,6 +668,7 @@
 <script src="js/steam-profile.js"></script>
 <script src="js/photo-feed-profile.js"></script>
 <script src="js/front-page-profile.js"></script>
+<script src="js/starfall-profile.js"></script>
 <script src="js/hardcode.js"></script>
 <script src="js/hardcode-sections.js"></script>
 <script src="js/profile-info.js"></script>

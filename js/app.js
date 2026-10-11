@@ -1034,9 +1034,9 @@
    * are (js/photo-feed-profile.js); the generator is handed the template's own
    * markup to fall back on. */
   function partWriter(part) {
-    // One writer per template: Golden Hour's, and Front Page's
-    // (js/front-page-profile.js).
-    return [window.JaiPhotoFeed, window.JaiFrontPage].filter(function (writer) {
+    // One writer per template: Golden Hour's, Front Page's
+    // (js/front-page-profile.js) and Starfall's (js/starfall-profile.js).
+    return [window.JaiPhotoFeed, window.JaiFrontPage, window.JaiStarfall].filter(function (writer) {
       return writer && part && part.id.indexOf(writer.template + '-') === 0;
     })[0] || null;
   }
@@ -3185,7 +3185,7 @@
     // Empty means "the layout's own wording", which the placeholders show.
     ['title', 'kicker', 'launch', 'profileLabel', 'profileMark', 'friendsTitle', 'footerText',
       'steamBackground', 'steamFrameImage', 'steamLevel', 'steamStatus', 'steamSubtitle',
-      'feedName', 'feedCategory', 'redditTagline', 'redditBannerImage'].forEach(function (key) {
+      'feedName', 'feedCategory', 'redditTagline', 'redditBannerImage', 'gachaTitle', 'gachaArt'].forEach(function (key) {
       var field = $('#cards-opt-' + key);
       if (document.activeElement !== field) field.value = options[key] || '';
     });
@@ -3483,7 +3483,7 @@
     reapplyCards(0);
   });
 
-  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText, #cards-opt-steamTheme, #cards-opt-steamBackground, #cards-opt-steamFrame, #cards-opt-steamFrameImage, #cards-opt-steamLevel, #cards-opt-steamStatus, #cards-opt-steamSubtitle, #cards-opt-feedName, #cards-opt-feedCategory, #cards-opt-redditTagline, #cards-opt-redditBanner, #cards-opt-redditBannerImage')
+  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText, #cards-opt-steamTheme, #cards-opt-steamBackground, #cards-opt-steamFrame, #cards-opt-steamFrameImage, #cards-opt-steamLevel, #cards-opt-steamStatus, #cards-opt-steamSubtitle, #cards-opt-feedName, #cards-opt-feedCategory, #cards-opt-redditTagline, #cards-opt-redditBanner, #cards-opt-redditBannerImage, #cards-opt-gachaTitle, #cards-opt-gachaArt')
     .forEach(function (input) {
       input.addEventListener('input', function () {
         var key = input.id.replace('cards-opt-', '');

@@ -104,7 +104,10 @@ the only source of truth; every canvas gesture is an edit to that text.
   them); `partWriter` in app.js is where a new writer is listed. A writer can
   also own a declaration in a part's stylesheet (`css`, Front Page's banner
   colour): it is handed the part's CSS as it stands and returns it changed,
-  through `JaiPresets.replacePartCss`, so the creator's other edits stay. Every
+  through `JaiPresets.replacePartCss`, so the creator's other edits stay.
+  Gacha is Starfall's parts (`js/starfall-profile.js`); its banner part and
+  its wish-results part must agree on the number of results, so both read
+  `pulls()`. Every
   way of choosing one goes through `applyDesign` in app.js, which first runs
   `clearForDesign` — Styles, other templates' parts, the other kind of design
   and the page-layout block come out — and writes one `setCode`, so one Undo.
