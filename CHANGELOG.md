@@ -9,6 +9,20 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-10-12 — New template: Front Page, a Reddit-style profile
+
+A dark-mode Reddit user page. Your profile box becomes the sidebar card on the
+right, with a blue banner, your avatar and name, followers as karma, your
+member date as the cake day, Follow as the pill button and your badges in a
+trophy case. Two more sidebar cards are yours to fill in: where else to find
+you, and a list of rules that open on a click.
+
+Your characters are the feed. Each one is a post: the chat count is the score
+between the vote arrows, the name is the title, tags are flair, and the
+description, a thumbnail and the token count fill the rest. It is JanitorAI's
+own list restyled, so a new bot shows up without touching the code. Find it
+under Insert, with the other templates.
+
 ## 2026-10-11 — The code editor's colours line up with what you type
 
 In the About Me code panel, the coloured text could sit to the left of the text

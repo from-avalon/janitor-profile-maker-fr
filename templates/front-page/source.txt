@@ -1,0 +1,1325 @@
+<!--
+  FRONT PAGE · v0.1.0
+  Paste this entire document into JanitorAI's About Me field.
+
+  Your profile as a Reddit user page, dark mode. The profile box becomes the
+  sidebar card on the right (banner, avatar, follower count as karma, member
+  date as cake day, Follow as the pill button) and every character becomes a
+  post in the feed on the left: chats are the score in the vote rail, tags
+  are flair, tokens sit in the action row.
+
+  Everything in capitals or in a "u/yourname" shape below is placeholder copy.
+  Retype it; the avatar, name, counts, badges and characters are your real
+  ones and need nothing from you.
+-->
+
+<!-- @jai:component about:start -->
+<div class="rd-handle">u/yourname · they/them · bot maker</div>
+<p class="rd-bio">A couple of sentences about you. What you write, how often you post, and what a visitor should expect from your bots.</p>
+<div class="rd-links"><a href="#">Discord</a><a href="#">Ko-fi</a><a href="#">Carrd</a><a href="#">Tumblr</a></div>
+<!-- @jai:component about:end -->
+
+<!-- @jai:component communities:start -->
+<section class="rd-box rd-communities">
+  <h3 class="rd-box-title">Find me in these communities</h3>
+  <div class="rd-comm"><span class="rd-comm-icon">D</span><div class="rd-comm-text"><a class="rd-comm-name" href="#">r/mydiscord</a><span class="rd-comm-meta">Updates and requests</span></div><a class="rd-join" href="#">Join</a></div>
+  <div class="rd-comm"><span class="rd-comm-icon rd-comm-icon-b">K</span><div class="rd-comm-text"><a class="rd-comm-name" href="#">r/kofi</a><span class="rd-comm-meta">Tips keep the bots coming</span></div><a class="rd-join" href="#">Join</a></div>
+  <div class="rd-comm"><span class="rd-comm-icon rd-comm-icon-c">T</span><div class="rd-comm-text"><a class="rd-comm-name" href="#">r/tumblr</a><span class="rd-comm-meta">Art and ramblings</span></div><a class="rd-join" href="#">Join</a></div>
+</section>
+<!-- @jai:component communities:end -->
+
+<!-- @jai:component rules:start -->
+<section class="rd-box rd-rules">
+  <h3 class="rd-box-title">u/yourname rules</h3>
+  <details class="rd-rule"><summary>1. Requests are open</summary><p>Say where to send them and what you will not write.</p></details>
+  <details class="rd-rule"><summary>2. No reposting my bots</summary><p>Say what is fine (private edits, inspiration) and what is not.</p></details>
+  <details class="rd-rule"><summary>3. Reviews make my day</summary><p>Tell visitors what feedback helps you most.</p></details>
+</section>
+<!-- @jai:component rules:end -->
+
+<!-- @jai:component credit:start -->
+<div class="rd-credit">Front Page template by Sweepercom · not affiliated with Reddit</div>
+<!-- @jai:component credit:end -->
+
+<style>
+/* Each part carries its own phone and reduced-motion rules, so any one of
+   them can be added or removed without leaving pieces of itself behind. */
+
+/* @jai:component backdrop:start */
+html,
+body {
+  background: #030303;
+}
+
+body {
+  color: #d7dadc;
+  font-family: "IBM Plex Sans", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.profile-background-effect-image {
+  display: none;
+}
+
+.pp-page-background {
+  background: #030303 !important;
+}
+/* @jai:component backdrop:end */
+
+/* @jai:component layout:start */
+/* Phones first: the profile card on top, the feed under it. */
+.profile-page-flex {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center;
+  gap: 16px !important;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px 16px 0;
+}
+
+/* The profile box is clamped three ways; sizing it means all three. */
+.pp-uc-background {
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 640px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.profile-background-box-1,
+.profile-background-box-2,
+.profile-background-box-3 {
+  display: none;
+}
+
+.profile-info-wrapper-box {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.profile-page-container-flex-box {
+  width: 100% !important;
+  max-width: 640px;
+}
+
+/* Reddit's desktop page: the feed on the left, a 312px sidebar on the right.
+   62em is JanitorAI's own breakpoint for putting the two side by side. */
+@media screen and (min-width: 62em) {
+  .profile-page-flex {
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    justify-content: center;
+    gap: 24px !important;
+  }
+
+  .pp-uc-background {
+    order: 2;
+    width: 312px !important;
+    max-width: 312px !important;
+  }
+
+  .profile-page-container-flex-box {
+    order: 1;
+    flex: 1 1 0 !important;
+    min-width: 0;
+  }
+}
+
+/* The avatar, name and counts are nested three deep and About Me sits beside
+   them. Flattening the wrappers puts every piece, theirs and yours, on one
+   grid, so each can be given a row. */
+.profile-info-hstack,
+.profile-info-stack-inner,
+.pp-uc-about-me {
+  display: contents;
+}
+
+.profile-info-stack {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 !important;
+  align-items: start;
+  position: relative;
+  margin: 0 !important;
+  padding: 0 !important;
+  color: #d7dadc;
+}
+
+/* The first card is drawn behind rows 1 to 8, with the blue banner painted
+   across its top. A gradient, because JanitorAI strips url(). To recolour
+   the banner change the two blues. */
+.profile-info-stack::before {
+  content: "";
+  grid-column: 1 / -1;
+  grid-row: 1 / 9;
+  align-self: stretch;
+  border: 1px solid #343536;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #33a8ff, #0079d3) top / 100% 94px no-repeat, #1a1a1b;
+}
+
+/* Customize: only the owner has it. It is absolutely placed already; this
+   puts it on the banner's top right corner. */
+.profile-info-stack > div:first-child:not(.profile-info-hstack) {
+  top: 10px !important;
+  right: 10px !important;
+  bottom: auto !important;
+  left: auto !important;
+}
+
+.pp-uc-avatar-container {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  width: 86px;
+  height: 86px;
+  margin: 46px 0 0 12px;
+}
+
+.pp-uc-avatar {
+  box-sizing: border-box;
+  width: 100% !important;
+  height: 100% !important;
+  border: 4px solid #1a1a1b;
+  border-radius: 6px !important;
+  background: #1a1a1b;
+  object-fit: cover;
+}
+
+.profile-info-stack-inner-flex {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  min-width: 0;
+  margin: 6px 12px 0;
+}
+
+.pp-uc-title {
+  margin: 0;
+  overflow: hidden;
+  color: #d7dadc;
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 26px;
+  text-overflow: ellipsis;
+}
+
+/* Followers stand in for karma, the member date for the cake day. The label
+   is added here; the number and the date are JanitorAI's and stay live. */
+.pp-uc-followers-count,
+.pp-uc-member-since {
+  grid-row: 5;
+  margin: 14px 12px 0;
+  color: #818384;
+  font-family: "IBM Plex Sans", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.pp-uc-followers-count {
+  grid-column: 1;
+}
+
+.pp-uc-member-since {
+  grid-column: 2;
+  margin-left: 0;
+}
+
+.pp-uc-followers-count::before,
+.pp-uc-member-since::before {
+  display: block;
+  margin-bottom: 2px;
+  color: #d7dadc;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.pp-uc-followers-count::before {
+  content: "Karma";
+}
+
+.pp-uc-member-since::before {
+  content: "Cake day";
+}
+
+/* Follow and Options: only visitors have them. */
+.profile-info-stack > div:last-child:not(.pp-uc-about-me) {
+  grid-column: 1 / -1;
+  grid-row: 7;
+  box-sizing: border-box;
+  width: auto !important;
+  height: auto !important;
+  margin: 14px 12px 12px !important;
+  padding: 0 !important;
+}
+
+.profile-info-stack > div:last-child:not(.pp-uc-about-me) > div {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  margin: 0 !important;
+}
+
+.pp-uc-follow-flex {
+  flex: 1 1 auto;
+}
+
+.pp-uc-follow-button {
+  width: 100% !important;
+  height: 32px !important;
+  min-height: 32px !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: #d7dadc !important;
+  box-shadow: none !important;
+  transition: background .15s ease;
+}
+
+.pp-uc-follow-button::before,
+.pp-uc-follow-button::after {
+  display: none !important;
+}
+
+.pp-uc-follow-button:hover {
+  background: #fff !important;
+}
+
+.pp-uc-follow-text {
+  color: #1a1a1b !important;
+  font-family: "IBM Plex Sans", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pp-uc-options-menu {
+  flex: 0 0 auto;
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0 14px !important;
+  border: 1px solid #d7dadc !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #d7dadc !important;
+  font-family: "IBM Plex Sans", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pp-uc-options-menu:hover {
+  background: #d7dadc14 !important;
+}
+
+/* Edit profile: only the owner has it. */
+.profile-info-stack-inner > button {
+  grid-column: 1 / -1;
+  grid-row: 8;
+  justify-self: stretch;
+  height: 32px;
+  margin: 14px 12px 12px !important;
+  border: 1px solid #d7dadc !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #d7dadc !important;
+  font-weight: 700;
+}
+
+/* Badges get a card of their own, the way Reddit keeps a trophy case. */
+.profile-badges {
+  grid-column: 1 / -1;
+  grid-row: 9;
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px !important;
+  margin: 16px 0 0 !important;
+  padding: 12px;
+  border: 1px solid #343536;
+  border-radius: 4px;
+  background: #1a1a1b;
+}
+
+.profile-badges::before {
+  content: "Trophy case";
+  flex: 0 0 100%;
+  color: #818384;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  line-height: 12px;
+  text-transform: uppercase;
+}
+
+/* No badges, no empty case. */
+.profile-badges:not(:has(.profile-badge)) {
+  display: none !important;
+}
+
+.profile-badge {
+  margin: 0 !important;
+}
+
+@media screen and (max-width: 61.99em) {
+  .profile-page-flex {
+    padding: 8px 8px 0;
+  }
+}
+/* @jai:component layout:end */
+
+/* @jai:component about:start */
+.rd-handle {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  margin: 2px 12px 0;
+  color: #818384;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.rd-bio {
+  grid-column: 1 / -1;
+  grid-row: 4;
+  margin: 10px 12px 0;
+  color: #d7dadc;
+  font-size: 14px;
+  line-height: 21px;
+}
+
+/* A flex row: whitespace between the links is not a gap. */
+.rd-links {
+  grid-column: 1 / -1;
+  grid-row: 6;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 12px 0;
+}
+
+.rd-links a {
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: #272729;
+  color: #d7dadc;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  text-decoration: none;
+  transition: background .15s ease;
+}
+
+/* The colour is said again on hover: JanitorAI turns hovered links purple. */
+.rd-links a:hover {
+  background: #343536;
+  color: #fff;
+}
+
+/* With nothing after the links (the owner's own view of a card with no Edit
+   button, or a removed Follow row) the card still needs a floor. */
+.rd-links:last-child {
+  margin-bottom: 12px;
+}
+/* @jai:component about:end */
+
+/* @jai:component communities:start */
+/* .rd-box is the sidebar card. Each part that uses it says it again, so
+   either can be removed without the other losing its frame. */
+.rd-communities {
+  grid-column: 1 / -1;
+  grid-row: 10;
+  margin: 16px 0 0;
+  padding: 12px;
+  border: 1px solid #343536;
+  border-radius: 4px;
+  background: #1a1a1b;
+}
+
+.rd-communities .rd-box-title {
+  margin: 0 0 4px;
+  color: #818384;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  line-height: 12px;
+  text-transform: uppercase;
+}
+
+.rd-comm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* The round community icon: a letter on a colour. Three colours are given;
+   add -b or -c to the class, or neither for orange. */
+.rd-comm-icon {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ff4500;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 32px;
+  text-align: center;
+}
+
+.rd-comm-icon-b {
+  background: #0079d3;
+}
+
+.rd-comm-icon-c {
+  background: #46d160;
+}
+
+.rd-comm-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rd-comm-name {
+  display: block;
+  overflow: hidden;
+  color: #d7dadc;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-comm-name:hover {
+  color: #d7dadc;
+  text-decoration: underline;
+}
+
+.rd-comm-meta {
+  display: block;
+  overflow: hidden;
+  color: #818384;
+  font-size: 12px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-join {
+  flex: 0 0 auto;
+  padding: 4px 16px;
+  border-radius: 9999px;
+  background: #d7dadc;
+  color: #1a1a1b;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  text-decoration: none;
+  transition: background .15s ease;
+}
+
+.rd-join:hover {
+  background: #fff;
+  color: #1a1a1b;
+}
+/* @jai:component communities:end */
+
+/* @jai:component rules:start */
+.rd-rules {
+  grid-column: 1 / -1;
+  grid-row: 11;
+  margin: 16px 0 0;
+  padding: 12px 12px 4px;
+  border: 1px solid #343536;
+  border-radius: 4px;
+  background: #1a1a1b;
+}
+
+.rd-rules .rd-box-title {
+  margin: 0 0 6px;
+  color: #818384;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  line-height: 12px;
+  text-transform: uppercase;
+}
+
+/* Each rule opens on a click, with no script: it is a <details>. */
+.rd-rule {
+  border-bottom: 1px solid #343536;
+}
+
+.rd-rule:last-child {
+  border-bottom: 0;
+}
+
+.rd-rule summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 0;
+  color: #d7dadc;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 18px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.rd-rule summary::-webkit-details-marker {
+  display: none;
+}
+
+.rd-rule summary::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  border-right: 2px solid #818384;
+  border-bottom: 2px solid #818384;
+  transform: rotate(45deg);
+  transition: transform .15s ease;
+}
+
+.rd-rule[open] summary::after {
+  transform: rotate(-135deg);
+}
+
+.rd-rule p {
+  margin: 0;
+  padding: 0 0 12px;
+  color: #b8bbbe;
+  font-size: 14px;
+  line-height: 21px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rd-rule summary::after {
+    transition: none;
+  }
+}
+/* @jai:component rules:end */
+
+/* @jai:component feed:start */
+/* The tab strip: Reddit's OVERVIEW / POSTS / COMMENTS bar. */
+.pp-tabs-wrapper {
+  box-sizing: border-box;
+  width: 100% !important;
+  margin: 0 0 16px !important;
+  padding: 0 8px;
+  border: 1px solid #343536 !important;
+  border-radius: 4px;
+  background: #1a1a1b;
+}
+
+.pp-tabs-indicator {
+  display: none !important;
+}
+
+.pp-tabs-button {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  height: 40px;
+  margin: 0 !important;
+  padding: 0 10px !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #818384 !important;
+  font-family: inherit;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+}
+
+.pp-tabs-button:hover {
+  color: #d7dadc !important;
+}
+
+.pp-tabs-button[aria-selected="true"] {
+  border-bottom-color: #d7dadc !important;
+  color: #d7dadc !important;
+}
+
+.pp-tabs-panels,
+.profile-tab-panel {
+  padding: 0 !important;
+}
+
+/* JanitorAI spaces the bar, the posts and the page buttons 40px apart. */
+.characters-list-container-flex {
+  gap: 0 !important;
+}
+
+/* The count, search, filter and sort: the sort bar above the posts. */
+.character-list-pagination-flex {
+  box-sizing: border-box;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px !important;
+  margin: 0 0 16px !important;
+  padding: 10px 12px !important;
+  border: 1px solid #343536;
+  border-radius: 4px;
+  background: #1a1a1b;
+}
+
+.pp-pg-total {
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 6px 12px !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: #272729 !important;
+  box-shadow: none !important;
+  color: #d7dadc !important;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pp-pg-total::before,
+.pp-pg-total::after {
+  display: none !important;
+}
+
+.pp-pg-total .profile-badge-flex-inner {
+  gap: 5px;
+  background: transparent !important;
+}
+
+.pp-pg-total-count,
+.pp-pg-total-text {
+  color: #d7dadc !important;
+  font-family: "IBM Plex Sans", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
+  line-height: 20px !important;
+}
+
+.profile-character-search-input,
+.profile-filter-button,
+.react-select__control {
+  min-height: 36px !important;
+  height: 36px !important;
+  border: 1px solid #343536 !important;
+  border-radius: 9999px !important;
+  background: #272729 !important;
+  box-shadow: none !important;
+  color: #d7dadc !important;
+  font-family: "IBM Plex Sans", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
+  font-size: 14px !important;
+}
+
+.profile-character-search-input:hover,
+.profile-filter-button:hover,
+.react-select__control:hover {
+  border-color: #d7dadc !important;
+}
+
+.profile-character-search-input::placeholder {
+  color: #818384 !important;
+}
+
+.react-select__single-value {
+  color: #d7dadc !important;
+  font-family: "IBM Plex Sans", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
+  font-weight: 700;
+}
+
+.react-select__indicator-separator {
+  display: none;
+}
+
+.react-select__menu {
+  overflow: hidden;
+  border: 1px solid #343536;
+  border-radius: 4px !important;
+  background: #1a1a1b !important;
+  color: #d7dadc;
+}
+
+/* One post per row. */
+.pp-cc-list-container {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 10px !important;
+  padding: 0 !important;
+}
+
+.pp-cc-wrapper {
+  position: relative;
+  width: 100% !important;
+  min-width: 0;
+  max-width: none !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+  border: 1px solid #343536 !important;
+  border-radius: 4px !important;
+  background: #1a1a1b !important;
+  box-shadow: none !important;
+  transform: none !important;
+  transition: border-color .15s ease;
+}
+
+.pp-cc-wrapper:hover {
+  border-color: #818384 !important;
+}
+
+/* JanitorAI's glow layers, including the ones with no label, and the star. */
+.pp-cc-wrapper > div:not(.profile-character-card-stack),
+.pp-cc-star-line {
+  display: none !important;
+}
+
+/* The post: a vote rail, the text, and the picture as a thumbnail. */
+.profile-character-card-stack {
+  display: grid !important;
+  grid-template-columns: 40px minmax(0, 1fr) 150px;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 0 !important;
+  align-items: start;
+  width: 100%;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+/* The link wraps the name, the score and the picture. Dissolving it lets the
+   three go to different columns; each still opens the character. */
+a.profile-character-card-stack-link-component {
+  display: contents;
+}
+
+/* Column 1 · the vote rail. The chat count is the score. */
+.profile-character-card-stats-box {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  align-self: stretch;
+  position: static !important;
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 8px 0 0 !important;
+  background: #151516 !important;
+  text-align: center;
+}
+
+.profile-character-card-stats-box > span,
+.profile-character-card-stats-box .pp-cc-ribbon,
+.profile-character-card-stats-box .pp-cc-ribbon-wrap,
+.profile-character-card-stats-box .pp-cc-chats {
+  position: static !important;
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  /* The ribbon is cut to a notched shape, which bites the down arrow. */
+  clip-path: none !important;
+  transform: none !important;
+}
+
+.profile-character-card-stats-box .pp-cc-ribbon::before,
+.profile-character-card-stats-box .pp-cc-ribbon::after,
+.profile-character-card-stats-box .pp-cc-ribbon-wrap::before,
+.profile-character-card-stats-box .pp-cc-ribbon-wrap::after,
+.profile-character-card-stats-box .pp-cc-public-chats,
+.profile-character-card-stats-box svg {
+  display: none !important;
+}
+
+.pp-cc-chats-count {
+  display: block;
+  color: #d7dadc !important;
+  font-family: "IBM Plex Sans", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 700;
+  line-height: 16px;
+  transition: color .15s ease;
+}
+
+/* The arrows are characters, not pictures: JanitorAI strips <svg> and url(). */
+.pp-cc-chats-count::before,
+.pp-cc-chats-count::after {
+  display: block;
+  color: #818384;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 24px;
+  transition: color .15s ease;
+}
+
+.pp-cc-chats-count::before {
+  content: "\21E7";
+}
+
+.pp-cc-chats-count::after {
+  content: "\21E9";
+}
+
+/* Pointing at a post upvotes it. */
+.pp-cc-wrapper:hover .pp-cc-chats-count,
+.pp-cc-wrapper:hover .pp-cc-chats-count::before {
+  color: #ff4500 !important;
+}
+
+/* Row 1 · "Posted by". */
+.profile-character-card-creator-name-link {
+  grid-column: 2;
+  grid-row: 1;
+  display: block !important;
+  min-width: 0;
+  margin: 0 !important;
+  padding: 8px 8px 0 !important;
+  overflow: hidden;
+  color: #818384 !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 16px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-character-card-creator-name-link::before {
+  content: "Posted by ";
+}
+
+.pp-cc-creator-name {
+  display: inline !important;
+  padding: 0 !important;
+  color: #818384 !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+}
+
+.profile-character-card-creator-name-link:hover,
+.profile-character-card-creator-name-link:hover .pp-cc-creator-name {
+  color: #818384 !important;
+  text-decoration: underline;
+}
+
+/* Row 2 · the title. */
+.profile-character-card-stack-link-component-box {
+  grid-column: 2;
+  grid-row: 2;
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0;
+  margin: 0 !important;
+  padding: 4px 8px 0 !important;
+  background: transparent !important;
+}
+
+.pp-cc-name {
+  width: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  background: transparent !important;
+  color: #d7dadc !important;
+  font-family: inherit;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  line-height: 22px !important;
+  text-align: left !important;
+  text-overflow: clip !important;
+  white-space: normal !important;
+}
+
+/* Row 3 · tags as post flair, two lines at most. */
+.pp-cc-tags {
+  grid-column: 2;
+  grid-row: 3;
+  min-width: 0;
+  max-height: 48px;
+  margin: 8px 8px 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.pp-cc-tags ul {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 4px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.pp-cc-tags-wrap {
+  height: 22px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.pp-cc-tags-wrap a {
+  display: flex;
+  text-decoration: none;
+}
+
+.pp-cc-tags-item {
+  box-sizing: border-box;
+  height: 22px !important;
+  margin: 0 !important;
+  padding: 0 8px !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: #343536 !important;
+  box-shadow: none !important;
+  color: #d7dadc !important;
+  font-family: inherit;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 22px !important;
+  white-space: nowrap;
+}
+
+.pp-cc-tags-wrap a:hover .pp-cc-tags-item {
+  background: #4a4a4c !important;
+}
+
+/* The rating reads as the red NSFW-style flair. */
+.pp-cc-tags-item.pp-tag-limitless {
+  background: transparent !important;
+  box-shadow: inset 0 0 0 1px #ff585b !important;
+  color: #ff585b !important;
+}
+
+/* Row 4 · the description as the post's text, four lines of it. The banner
+   pictures creators put in descriptions are hidden: the thumbnail is the
+   picture here. */
+.profile-character-card-description-box {
+  grid-column: 2;
+  grid-row: 4;
+  min-width: 0;
+  max-height: 84px;
+  margin: 8px 8px 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+  background: transparent !important;
+}
+
+.pp-cc-description {
+  width: auto !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  color: #b8bbbe !important;
+  font-size: 14px !important;
+  line-height: 21px !important;
+  text-align: left !important;
+}
+
+.pp-cc-description * {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #b8bbbe !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  line-height: 21px !important;
+  text-align: left !important;
+}
+
+.pp-cc-description img,
+.pp-cc-description p:empty,
+.pp-cc-description span:has(> img:only-child) {
+  display: none !important;
+}
+
+/* Column 3 · the picture. The wrapper sizes itself with a ::before padding
+   trick; that is switched off and the box given a shape of its own. */
+.profile-character-card-avatar-aspect-ratio {
+  grid-column: 3;
+  grid-row: 1 / 5;
+  position: relative !important;
+  box-sizing: border-box;
+  width: 142px !important;
+  height: auto !important;
+  aspect-ratio: 4 / 5;
+  margin: 8px 8px 0 0 !important;
+  overflow: hidden;
+  border: 1px solid #343536;
+  border-radius: 4px !important;
+  background: #000;
+}
+
+.profile-character-card-avatar-aspect-ratio::before {
+  display: none !important;
+}
+
+.pp-cc-avatar {
+  position: absolute !important;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 0 !important;
+  object-fit: cover;
+  object-position: center top;
+}
+
+/* Row 5 · the action row. Tokens take the comments' place. */
+.profile-character-card-box {
+  grid-column: 2 / -1;
+  grid-row: 5;
+  position: static !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  align-items: center;
+  width: auto !important;
+  margin: 0 !important;
+  padding: 6px 4px !important;
+  background: transparent !important;
+}
+
+.pp-cc-tokens-count {
+  margin: 0 !important;
+  padding: 6px 8px !important;
+  border-radius: 2px;
+  background: transparent !important;
+  color: #818384 !important;
+  font-family: inherit;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 16px !important;
+  transition: background .15s ease;
+}
+
+.pp-cc-tokens-count::before {
+  content: "\2630";
+  margin-right: 6px;
+  font-weight: 400;
+}
+
+.pp-cc-wrapper:hover .pp-cc-tokens-count {
+  background: #d7dadc14 !important;
+}
+
+/* The page buttons under the feed. */
+.characters-list-container-flex > .profile-pagination-flex-outer {
+  margin-top: 16px;
+}
+
+.pp-pg-page-button,
+.pp-pg-prev-button,
+.pp-pg-next-button {
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #818384 !important;
+  font-family: inherit;
+  font-weight: 700;
+}
+
+.pp-pg-page-button:hover,
+.pp-pg-prev-button:hover,
+.pp-pg-next-button:hover {
+  background: #272729 !important;
+  color: #d7dadc !important;
+}
+
+.pp-pg-page-button-active {
+  background: #d7dadc !important;
+  color: #1a1a1b !important;
+}
+
+.pp-pg-page-button-active:hover {
+  background: #fff !important;
+  color: #1a1a1b !important;
+}
+
+@media screen and (max-width: 735px) {
+  .pp-tabs-wrapper,
+  .character-list-pagination-flex {
+    margin-bottom: 8px !important;
+  }
+
+  .pp-cc-list-container {
+    gap: 8px !important;
+  }
+
+  .profile-character-card-stack {
+    grid-template-columns: 36px minmax(0, 1fr) 96px;
+  }
+
+  .profile-character-card-avatar-aspect-ratio {
+    width: 88px !important;
+  }
+
+  .pp-cc-name {
+    font-size: 16px !important;
+    line-height: 20px !important;
+  }
+
+  .pp-cc-tags {
+    max-height: 22px;
+  }
+
+  .profile-character-card-description-box {
+    max-height: 63px;
+  }
+}
+
+/* Nothing hovers on a touch screen: the post is not "upvoted" by a tap that
+   sticks. */
+@media (hover: none) {
+  .pp-cc-wrapper:hover .pp-cc-chats-count,
+  .pp-cc-wrapper:hover .pp-cc-chats-count::before {
+    color: #d7dadc !important;
+  }
+
+  .pp-cc-wrapper:hover .pp-cc-chats-count::before {
+    color: #818384 !important;
+  }
+
+  .pp-cc-wrapper:hover .pp-cc-tokens-count {
+    background: transparent !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-cc-wrapper,
+  .pp-cc-chats-count,
+  .pp-cc-chats-count::before,
+  .pp-cc-chats-count::after,
+  .pp-cc-tokens-count {
+    transition: none;
+  }
+}
+/* @jai:component feed:end */
+
+/* @jai:component site-chrome:start */
+.pp-top-bar {
+  border-bottom: 1px solid #343536;
+  background: #1a1a1b !important;
+  box-shadow: none !important;
+}
+
+.pp-top-bar-tabs a {
+  color: #d7dadc;
+}
+
+.pp-top-bar-tabs a:hover {
+  color: #fff;
+}
+
+/* Reddit's search: a grey pill that lights its border when pointed at. */
+.pp-top-bar-search-input {
+  border: 1px solid #343536 !important;
+  border-radius: 9999px !important;
+  background: #272729 !important;
+  box-shadow: none !important;
+  color: #d7dadc !important;
+}
+
+.pp-top-bar-search-input:hover {
+  border-color: #d7dadc !important;
+}
+
+#search-input,
+#search-input::placeholder {
+  color: #818384 !important;
+  font-family: "IBM Plex Sans", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+.pp-top-bar-search-shortcut {
+  border: 0 !important;
+  background: #343536 !important;
+  color: #818384 !important;
+}
+
+.pp-top-bar-create-char {
+  border: 1px solid #d7dadc !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #d7dadc !important;
+  font-family: "IBM Plex Sans", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-weight: 700;
+}
+
+.pp-top-bar-create-char:hover {
+  background: #d7dadc14 !important;
+  color: #d7dadc !important;
+}
+
+.pp-top-bar-create-char::before,
+.pp-top-bar-create-char::after {
+  display: none !important;
+}
+
+.pp-top-bar-app-menu-list,
+.pp-top-bar-notifications-popover {
+  overflow: hidden;
+  border: 1px solid #343536 !important;
+  border-radius: 4px !important;
+  background: #1a1a1b !important;
+  box-shadow: 0 2px 4px #00000080 !important;
+  color: #d7dadc !important;
+}
+
+.pp-top-bar-app-menu-list-item {
+  background: transparent !important;
+  color: #d7dadc !important;
+  transition: background .15s ease;
+}
+
+.pp-top-bar-app-menu-list-item:hover {
+  background: #272729 !important;
+}
+
+.pp-mnb-wrapper {
+  border-top: 1px solid #343536;
+  border-radius: 0;
+  background: #1a1a1b !important;
+  box-shadow: none !important;
+}
+
+.pp-mnb-container svg {
+  color: #d7dadc !important;
+}
+/* @jai:component site-chrome:end */
+
+/* @jai:component credit:start */
+.rd-credit {
+  grid-column: 1 / -1;
+  grid-row: 12;
+  margin: 12px 0 0;
+  padding: 0 12px;
+  color: #818384;
+  font-size: 11px;
+  line-height: 16px;
+}
+/* @jai:component credit:end */
+</style>
