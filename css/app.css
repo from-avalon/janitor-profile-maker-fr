@@ -511,6 +511,12 @@ kbd {
   pointer-events: none;
   color: var(--text);
 }
+/* The coloured text lives in a <code>, and the browser's own stylesheet gives
+ * <code> `font-family: monospace` — Consolas, 6.6px a character, against the
+ * 7.2px of JetBrains Mono that the textarea above it types in. Left alone the
+ * two drift apart along every line (the caret, selections and Ctrl+F hits land
+ * to the right of the colours). It has to take the layer's font, exactly. */
+.highlight code { font: inherit; }
 /*
  * Both layers are sized to the widest line, not to the pane. Hardcoded markup
  * is written as one long line on purpose (a newline between two inline tags

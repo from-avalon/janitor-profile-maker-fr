@@ -9,6 +9,14 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-10-11 — The code editor's colours line up with what you type
+
+In the About Me code panel, the coloured text could sit to the left of the text
+you were actually editing, a little further off along every line — so the caret,
+a selection or a Ctrl+F match landed beside the code it belonged to, most
+visibly on long lines. The colours now use exactly the same font as the box you
+type in, so they stay together at any width and screen size.
+
 ## 2026-10-10 — Pick a design in Profile data, and switch whenever you like
 
 **Profile data** now starts with a **Profile design** menu. Choose Steam
