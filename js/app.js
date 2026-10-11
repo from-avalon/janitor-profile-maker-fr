@@ -1033,12 +1033,25 @@
    * part is not one it writes. Golden Hour's stats-and-bio and its highlights
    * are (js/photo-feed-profile.js); the generator is handed the template's own
    * markup to fall back on. */
-  function generatedPartHtml(part) {
+  function partWriter(part) {
     // One writer per template: Golden Hour's, and Front Page's
     // (js/front-page-profile.js).
-    var feed = [window.JaiPhotoFeed, window.JaiFrontPage].filter(function (writer) {
+    return [window.JaiPhotoFeed, window.JaiFrontPage].filter(function (writer) {
       return writer && part && part.id.indexOf(writer.template + '-') === 0;
-    })[0];
+    })[0] || null;
+  }
+
+  /* The same for a part's stylesheet, where a writer has one that follows
+   * Profile data (Front Page's banner colour). It is given the CSS as it is
+   * now and changes only what it owns, so the creator's edits stay. */
+  function generatedPartCss(part, css) {
+    var feed = partWriter(part);
+    var write = feed && feed.css && feed.css[part.key];
+    return write ? write(cardEmitOptions(), css) : null;
+  }
+
+  function generatedPartHtml(part) {
+    var feed = partWriter(part);
     if (!feed) return null;
     var write = feed.parts[part.key];
     if (!write) return null;
@@ -1067,9 +1080,15 @@
 
   function materialiseTemplatePart(part) {
     var generated = generatedPartHtml(part);
-    if (generated != null) {
-      rememberGenerated(part.id, generated);
-      return Object.assign({}, part, { html: generated });
+    var styled = part && part.css ? generatedPartCss(part, part.css) : null;
+    if (generated != null || styled != null) {
+      var written = Object.assign({}, part);
+      if (generated != null) {
+        rememberGenerated(part.id, generated);
+        written.html = generated;
+      }
+      if (styled != null) written.css = styled;
+      return written;
     }
     if (!part || part.id.indexOf('hime-darkred-') !== 0) return part;
     var identity = darkRedIdentity();
@@ -1492,6 +1511,9 @@
         if (addMissing) code = window.JaiPresets.applyPart(code, materialiseTemplatePart(part));
         return;
       }
+      code = window.JaiPresets.replacePartCss(code, part, function (css) {
+        return generatedPartCss(part, css);
+      });
       var fresh = generatedPartHtml(part);
       if (fresh == null) return;
       fresh = fresh.replace(/^\n+|\n+$/g, '');
@@ -3159,10 +3181,11 @@
     $('#cards-opt-filterlist').value = options.filterList || '';
     $('#cards-opt-accent').value = cardOption('accent');
     $('#cards-opt-preview').value = cardOption('preview');
+    $('#cards-opt-redditBanner').value = cardOption('redditBanner');
     // Empty means "the layout's own wording", which the placeholders show.
     ['title', 'kicker', 'launch', 'profileLabel', 'profileMark', 'friendsTitle', 'footerText',
       'steamBackground', 'steamFrameImage', 'steamLevel', 'steamStatus', 'steamSubtitle',
-      'feedName', 'feedCategory', 'redditTagline'].forEach(function (key) {
+      'feedName', 'feedCategory', 'redditTagline', 'redditBannerImage'].forEach(function (key) {
       var field = $('#cards-opt-' + key);
       if (document.activeElement !== field) field.value = options[key] || '';
     });
@@ -3460,7 +3483,7 @@
     reapplyCards(0);
   });
 
-  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText, #cards-opt-steamTheme, #cards-opt-steamBackground, #cards-opt-steamFrame, #cards-opt-steamFrameImage, #cards-opt-steamLevel, #cards-opt-steamStatus, #cards-opt-steamSubtitle, #cards-opt-feedName, #cards-opt-feedCategory, #cards-opt-redditTagline')
+  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText, #cards-opt-steamTheme, #cards-opt-steamBackground, #cards-opt-steamFrame, #cards-opt-steamFrameImage, #cards-opt-steamLevel, #cards-opt-steamStatus, #cards-opt-steamSubtitle, #cards-opt-feedName, #cards-opt-feedCategory, #cards-opt-redditTagline, #cards-opt-redditBanner, #cards-opt-redditBannerImage')
     .forEach(function (input) {
       input.addEventListener('input', function () {
         var key = input.id.replace('cards-opt-', '');

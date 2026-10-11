@@ -1,5 +1,5 @@
 <!--
-  FRONT PAGE · v0.1.0
+  FRONT PAGE · v0.2.0
   Paste this entire document into JanitorAI's About Me field.
 
   Your profile as a Reddit user page, dark mode. The profile box becomes the
@@ -14,6 +14,7 @@
 -->
 
 <!-- @jai:component about:start -->
+<div class="rd-banner"></div>
 <div class="rd-handle">u/yourname · they/them · bot maker</div>
 <p class="rd-bio">A couple of sentences about you. What you write, how often you post, and what a visitor should expect from your bots.</p>
 <div class="rd-links"><a href="#">Discord</a><a href="#">Ko-fi</a><a href="#">Carrd</a><a href="#">Tumblr</a></div>
@@ -27,6 +28,14 @@
   <div class="rd-comm"><span class="rd-comm-icon rd-comm-icon-c">T</span><div class="rd-comm-text"><a class="rd-comm-name" href="#">r/tumblr</a><span class="rd-comm-meta">Art and ramblings</span></div><a class="rd-join" href="#">Join</a></div>
 </section>
 <!-- @jai:component communities:end -->
+
+<!-- @jai:component friends:start -->
+<section class="rd-box rd-friends">
+  <h3 class="rd-box-title">Friends</h3>
+  <div class="rd-friend"><span class="rd-friend-icon">A</span><div class="rd-friend-text"><a class="rd-friend-name" href="#">u/ashfall</a><span class="rd-friend-meta">Slow burns and soft monsters</span></div><a class="rd-follow" href="#">Follow</a></div>
+  <div class="rd-friend"><span class="rd-friend-icon">K</span><div class="rd-friend-text"><a class="rd-friend-name" href="#">u/kittenteeth</a><span class="rd-friend-meta">Horror, mostly</span></div><a class="rd-follow" href="#">Follow</a></div>
+</section>
+<!-- @jai:component friends:end -->
 
 <!-- @jai:component rules:start -->
 <section class="rd-box rd-rules">
@@ -165,6 +174,7 @@ body {
 /* Customize: only the owner has it. It is absolutely placed already; this
    puts it on the banner's top right corner. */
 .profile-info-stack > div:first-child:not(.profile-info-hstack) {
+  z-index: 2;
   top: 10px !important;
   right: 10px !important;
   bottom: auto !important;
@@ -174,6 +184,7 @@ body {
 .pp-uc-avatar-container {
   grid-column: 1 / -1;
   grid-row: 1;
+  z-index: 1;
   width: 86px;
   height: 86px;
   margin: 46px 0 0 12px;
@@ -376,6 +387,27 @@ body {
 /* @jai:component layout:end */
 
 /* @jai:component about:start */
+/* The banner across the top of the profile card. Change the two colours, or
+   put a picture in it: <div class="rd-banner"><img src="https://..."></div>
+   (a picture has to be an <img>; JanitorAI strips url() from CSS). */
+.rd-banner {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  align-self: start;
+  height: 94px;
+  margin: 1px 1px 0;
+  overflow: hidden;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(135deg, #33a8ff, #0079d3);
+}
+
+.rd-banner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .rd-handle {
   grid-column: 1 / -1;
   grid-row: 3;
@@ -476,20 +508,6 @@ body {
   text-align: center;
 }
 
-/* A picture instead of the letter: put an <img> inside the icon. */
-.rd-comm-icon img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-/* A second list in the same card (friends under communities). */
-.rd-comm + .rd-box-title {
-  margin-top: 18px;
-}
-
 .rd-comm-icon-b {
   background: #0079d3;
 }
@@ -549,10 +567,113 @@ body {
 }
 /* @jai:component communities:end */
 
+/* @jai:component friends:start */
+.rd-friends {
+  grid-column: 1 / -1;
+  grid-row: 11;
+  margin: 16px 0 0;
+  padding: 12px;
+  border: 1px solid #343536;
+  border-radius: 4px;
+  background: #1a1a1b;
+}
+
+.rd-friends .rd-box-title {
+  margin: 0 0 4px;
+  color: #818384;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  line-height: 12px;
+  text-transform: uppercase;
+}
+
+.rd-friend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* A letter on a colour, or a picture: put an <img> inside the icon. */
+.rd-friend-icon {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #0079d3;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 32px;
+  text-align: center;
+}
+
+.rd-friend-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rd-friend-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rd-friend-name {
+  display: block;
+  overflow: hidden;
+  color: #d7dadc;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The colour is said again on hover: JanitorAI turns hovered links purple. */
+.rd-friend-name:hover {
+  color: #d7dadc;
+  text-decoration: underline;
+}
+
+.rd-friend-meta {
+  display: block;
+  overflow: hidden;
+  color: #818384;
+  font-size: 12px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-follow {
+  flex: 0 0 auto;
+  padding: 3px 15px;
+  border: 1px solid #d7dadc;
+  border-radius: 9999px;
+  color: #d7dadc;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  text-decoration: none;
+  transition: background .15s ease;
+}
+
+.rd-follow:hover {
+  background: #d7dadc14;
+  color: #d7dadc;
+}
+/* @jai:component friends:end */
+
 /* @jai:component rules:start */
 .rd-rules {
   grid-column: 1 / -1;
-  grid-row: 11;
+  grid-row: 12;
   margin: 16px 0 0;
   padding: 12px 12px 4px;
   border: 1px solid #343536;
@@ -1328,7 +1449,7 @@ a.profile-character-card-stack-link-component {
 /* @jai:component credit:start */
 .rd-credit {
   grid-column: 1 / -1;
-  grid-row: 12;
+  grid-row: 13;
   margin: 12px 0 0;
   padding: 0 12px;
   color: #818384;

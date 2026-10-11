@@ -14,8 +14,8 @@ paragraphs.
 A dark-mode Reddit user page. Your profile box becomes the sidebar card on the
 right, with a blue banner, your avatar and name, followers as karma, your
 member date as the cake day, Follow as the pill button and your badges in a
-trophy case. Two more sidebar cards are yours to fill in: where else to find
-you, and a list of rules that open on a click.
+trophy case. Three more sidebar cards are yours to fill in: where else to find
+you, your friends, and a list of rules that open on a click.
 
 Your characters are the feed. Each one is a post: the chat count is the score
 between the vote arrows, the name is the title, tags are flair, and the
@@ -25,8 +25,9 @@ own list restyled, so a new bot shows up without touching the code.
 It is also a choice under Profile data → Profile design, as **Reddit-style
 (Front Page)**. Picked there, the card is filled in for you: the handle from
 your username, the bio from About me, your links as pills and as communities
-to join, your friends under them, and a rule for each extra section. Or add it
-part by part from Insert, with the other templates.
+to join, your friends in a card of their own, and a rule for each extra
+section. Under Design options you can give the banner your own colour, or a
+picture. Or add it part by part from Insert, with the other templates.
 
 ## 2026-10-11 — The code editor's colours line up with what you type
 

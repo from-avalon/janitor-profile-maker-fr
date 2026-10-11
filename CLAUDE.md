@@ -100,8 +100,11 @@ the only source of truth; every canvas gesture is an edit to that text.
   (`css`) or a template whose copy Profile data writes (`template`:
   Instagram-style is Golden Hour's parts, with `js/photo-feed-profile.js`
   writing the markup of two of them through `materialiseTemplatePart`). Reddit-style
-  is Front Page's parts the same way (`js/front-page-profile.js`, three of
-  them); `generatedPartHtml` in app.js is where a new writer is listed. Every
+  is Front Page's parts the same way (`js/front-page-profile.js`, four of
+  them); `partWriter` in app.js is where a new writer is listed. A writer can
+  also own a declaration in a part's stylesheet (`css`, Front Page's banner
+  colour): it is handed the part's CSS as it stands and returns it changed,
+  through `JaiPresets.replacePartCss`, so the creator's other edits stay. Every
   way of choosing one goes through `applyDesign` in app.js, which first runs
   `clearForDesign` — Styles, other templates' parts, the other kind of design
   and the page-layout block come out — and writes one `setCode`, so one Undo.

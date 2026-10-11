@@ -81,8 +81,11 @@
     feedCategory: 'Bot creator',
     feedStories: true,
     // The Reddit-style design: Front Page's parts, written the same way
-    // (js/front-page-profile.js). The words after the u/handle.
-    redditTagline: ''
+    // (js/front-page-profile.js). The words after the u/handle, and the
+    // banner across the profile card: a colour, or a picture over it.
+    redditTagline: '',
+    redditBanner: '#0079d3',
+    redditBannerImage: ''
   };
 
   /* A design with markup all of its own writes it itself; the rest share the

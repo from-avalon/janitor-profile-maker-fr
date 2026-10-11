@@ -674,6 +674,39 @@ try {
   if (reddit.parts !== reddit.of || !reddit.of || reddit.left || !reddit.handle || !reddit.option || reddit.pick !== 'front-page' || reddit.issues) {
     fail(`the Reddit-style design did not build from Profile data (${JSON.stringify(reddit)})`);
   }
+  // Its banner is an option: the colour is written into the part's stylesheet,
+  // the picture into its markup, and the default colour is the template's own.
+  const setOption = (id, value) => page.evaluate(([i, v]) => {
+    const input = document.getElementById(i);
+    input.value = v;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }, [id, value]);
+  await setOption('cards-opt-redditBanner', '#ff4500');
+  // A picture the test's own server has, so nothing is fetched from outside.
+  const bannerPicture = new URL('assets/link-preview.png', page.url()).href;
+  await setOption('cards-opt-redditBannerImage', bannerPicture);
+  await page.waitForTimeout(1200);
+  const painted = await page.evaluate((picture) => {
+    const code = window.JaiStudio.code();
+    return {
+      colour: /\.rd-banner \{[^}]*background: linear-gradient\(135deg, #[0-9a-f]{6}, #ff4500\)/.test(code),
+      picture: code.includes('<div class="rd-banner"><img src="' + picture + '"'),
+      issues: window.JaiStudio.issues().length,
+    };
+  }, bannerPicture);
+  await setOption('cards-opt-redditBanner', '#0079d3');
+  await setOption('cards-opt-redditBannerImage', '');
+  await page.waitForTimeout(1200);
+  const unpainted = await page.evaluate(() => {
+    const code = window.JaiStudio.code();
+    return {
+      colour: code.includes('background: linear-gradient(135deg, #33a8ff, #0079d3);'),
+      picture: code.includes('<div class="rd-banner"></div>'),
+    };
+  });
+  if (!painted.colour || !painted.picture || painted.issues || !unpainted.colour || !unpainted.picture) {
+    fail(`the Reddit-style banner did not follow its options (${JSON.stringify({ painted, unpainted })})`);
+  }
   await page.evaluate(() => window.JaiStudio.setCode('', 'load', { now: true }));
 
   // The changelog dialog: opens from the toolbar and renders at least one entry.
