@@ -741,8 +741,11 @@ try {
     return {
       generated: window.JaiHardcode.isApplied(code),
       keys: count(/class="fp-key fp-key-op fp-k-\d+" id="fp-op-\d+"/g),
-      tiles: count(/<a class="fp-card" href="#fp-op-\d+"/g),
-      files: count(/<section class="fp-screen fp-file fp-file-\d+"/g),
+      tiles: count(/<a class="fp-card fp-r[3-6]" href="#fp-op-\d+"/g),
+      files: count(/<section class="fp-screen fp-file fp-file-\d+ fp-r[3-6]"/g),
+      // A rank for every draw, and at least one character at the top of it.
+      ranked: count(/class="fp-key fp-key-pull [^"]* fp-kr-[3-6]"/g),
+      sixes: count(/<a class="fp-card fp-r6"/g),
       rules: count(/:has\(\.fp-k-\d+:target\) \.fp-file-\d+/g),
       slides: count(/<div class="fp-slide fp-slide-\d+"/g),
       // Recruit: every draw a pool's button can make has a key to land on.
@@ -759,7 +762,7 @@ try {
   });
   if (!terminal.generated || !terminal.keys || terminal.keys !== terminal.tiles || terminal.keys !== terminal.files ||
       terminal.keys !== terminal.rules || !terminal.slides || terminal.templates || terminal.blob ||
-      !terminal.pools || terminal.pools !== terminal.gates || !terminal.draws || terminal.draws !== terminal.drawKeys || !terminal.day ||
+      !terminal.pools || terminal.pools !== terminal.gates || !terminal.draws || terminal.draws !== terminal.drawKeys || terminal.ranked !== terminal.drawKeys || !terminal.sixes || !terminal.day ||
       terminal.pick !== 'frontier' || terminal.issues) {
     fail(`the Operator terminal did not build cleanly (${JSON.stringify(terminal)})`);
   }
