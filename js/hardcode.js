@@ -79,7 +79,10 @@
     // written from Profile data (js/photo-feed-profile.js).
     feedName: '',
     feedCategory: 'Bot creator',
-    feedStories: true
+    feedStories: true,
+    // The Reddit-style design: Front Page's parts, written the same way
+    // (js/front-page-profile.js). The words after the u/handle.
+    redditTagline: ''
   };
 
   /* A design with markup all of its own writes it itself; the rest share the

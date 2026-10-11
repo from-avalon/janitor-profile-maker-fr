@@ -99,7 +99,9 @@ the only source of truth; every canvas gesture is an edit to that text.
   lists the designs in `js/hardcode-styles.js`. A design is either generated
   (`css`) or a template whose copy Profile data writes (`template`:
   Instagram-style is Golden Hour's parts, with `js/photo-feed-profile.js`
-  writing the markup of two of them through `materialiseTemplatePart`). Every
+  writing the markup of two of them through `materialiseTemplatePart`). Reddit-style
+  is Front Page's parts the same way (`js/front-page-profile.js`, three of
+  them); `generatedPartHtml` in app.js is where a new writer is listed. Every
   way of choosing one goes through `applyDesign` in app.js, which first runs
   `clearForDesign` — Styles, other templates' parts, the other kind of design
   and the page-layout block come out — and writes one `setCode`, so one Undo.

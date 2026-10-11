@@ -20,8 +20,13 @@ you, and a list of rules that open on a click.
 Your characters are the feed. Each one is a post: the chat count is the score
 between the vote arrows, the name is the title, tags are flair, and the
 description, a thumbnail and the token count fill the rest. It is JanitorAI's
-own list restyled, so a new bot shows up without touching the code. Find it
-under Insert, with the other templates.
+own list restyled, so a new bot shows up without touching the code.
+
+It is also a choice under Profile data → Profile design, as **Reddit-style
+(Front Page)**. Picked there, the card is filled in for you: the handle from
+your username, the bio from About me, your links as pills and as communities
+to join, your friends under them, and a rule for each extra section. Or add it
+part by part from Insert, with the other templates.
 
 ## 2026-10-11 — The code editor's colours line up with what you type
 

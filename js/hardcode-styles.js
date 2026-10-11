@@ -263,6 +263,14 @@
       template: 'golden-hour'
     },
     {
+      id: 'front-page',
+      name: 'Reddit-style (Front Page)',
+      blurb: 'The Front Page template, filled in from Profile data: your u/handle, the bio from About me, your links as pills and as communities to join, your friends beside them, and a rule for each extra section. Your character list becomes the feed of posts.',
+      // A template's parts, like Instagram-style: no stylesheet of its own.
+      css: null,
+      template: 'front-page'
+    },
+    {
       id: 'none',
       name: 'None — I style it myself',
       blurb: 'Writes markup and wiring only. Your own CSS supplies the look.',

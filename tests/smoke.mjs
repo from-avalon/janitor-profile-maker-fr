@@ -654,6 +654,26 @@ try {
   if (swapped.parts !== swapped.of || swapped.generated || !swapped.card || swapped.pick !== 'photo-feed' || swapped.issues) {
     fail(`switching designs did not replace one with the other (${JSON.stringify(swapped)})`);
   }
+  // Reddit-style is the Front Page template's parts, with its profile card
+  // written from Profile data, and it takes Golden Hour's place.
+  await page.selectOption('#cards-opt-style', 'front-page');
+  await page.waitForTimeout(700);
+  const reddit = await page.evaluate(() => {
+    const code = window.JaiStudio.code();
+    const of = (prefix) => window.JaiPresets.allParts().filter((part) => part.id.startsWith(prefix));
+    return {
+      parts: of('front-page-').filter((part) => window.JaiPresets.isPartApplied(code, part)).length,
+      of: of('front-page-').length,
+      left: of('golden-hour-').filter((part) => window.JaiPresets.isPartApplied(code, part)).length,
+      handle: /class="rd-handle">u\/(?!yourname)/.test(code),
+      option: !!document.getElementById('cards-opt-redditTagline').offsetParent,
+      pick: document.getElementById('cards-opt-style').value,
+      issues: window.JaiStudio.issues().length,
+    };
+  });
+  if (reddit.parts !== reddit.of || !reddit.of || reddit.left || !reddit.handle || !reddit.option || reddit.pick !== 'front-page' || reddit.issues) {
+    fail(`the Reddit-style design did not build from Profile data (${JSON.stringify(reddit)})`);
+  }
   await page.evaluate(() => window.JaiStudio.setCode('', 'load', { now: true }));
 
   // The changelog dialog: opens from the toolbar and renders at least one entry.
