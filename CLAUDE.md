@@ -107,7 +107,12 @@ the only source of truth; every canvas gesture is an edit to that text.
   through `JaiPresets.replacePartCss`, so the creator's other edits stay.
   Gacha is Starfall's parts (`js/starfall-profile.js`); its banner part and
   its wish-results part must agree on the number of results, so both read
-  `pulls()`. Every
+  `pulls()`. The Operator terminal (`js/frontier-profile.js`) is a generated
+  design like Steam, and the one that hides JanitorAI's character list: it
+  writes a `:target` screen per character (`css` emits the rule that opens
+  each). Its stylesheet is written with `@tokens@` filled in by `style`, and
+  its height comes from the width (`vw`), never `vh`: the canvas is as tall
+  as the page. Every
   way of choosing one goes through `applyDesign` in app.js, which first runs
   `clearForDesign` — Styles, other templates' parts, the other kind of design
   and the page-layout block come out — and writes one `setCode`, so one Undo.

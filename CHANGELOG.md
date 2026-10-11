@@ -9,6 +9,30 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-10-12 — New design: Operator terminal, a whole interface for your profile
+
+Under Profile data → Profile design there is a new choice, **Operator terminal
+(Frontier Protocol)**. Where the other designs dress JanitorAI's page, this one
+replaces it with an interface in the manner of an industrial sci-fi game: flat
+panels, one loud accent colour, slanted art and small technical print, the
+width of the window.
+
+A rail down the left holds the screens, with your real avatar, name, follower
+count and Follow button at its foot. Overview is a slideshow of your featured
+characters, each on a slanted plate with its name enormous behind it. Operators
+is your roster. Every character gets a file screen of its own with its art, a
+scene behind it, tags, counts and the way in to the chat. Dossier is you, on
+an ID card; Network is your links and friends; Log is your notes. Screens
+change with a wipe of the accent, and there is a start-up screen when the page
+loads.
+
+Your characters are written into the page, which is what lets each have its
+own screen, so it looks its best with your own pictures: a backdrop for the
+interface, and per character a tall piece of art, a roster tile and a wide
+scene. Under Design options you choose a light or dark theme, the accent, the
+wordmark and the ticker's text, and whether JanitorAI's live character list
+stays underneath for bots Profile data does not have yet.
+
 ## 2026-10-12 — New template: Starfall, a gacha wish screen
 
 A night sky with drifting colour, blinking stars and the odd shooting star,

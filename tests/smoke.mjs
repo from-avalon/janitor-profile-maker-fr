@@ -731,6 +731,31 @@ try {
       gacha.cycle !== gacha.results || gacha.cycle !== gacha.keys || gacha.pick !== 'starfall' || gacha.issues) {
     fail(`the Gacha design did not build from Profile data (${JSON.stringify(gacha)})`);
   }
+  // The Operator terminal writes the characters in: a key, a roster tile and
+  // a file screen for each, and a rule that opens each file.
+  await page.selectOption('#cards-opt-style', 'frontier');
+  await page.waitForTimeout(900);
+  const terminal = await page.evaluate(() => {
+    const code = window.JaiStudio.code();
+    const count = (re) => (code.match(re) || []).length;
+    return {
+      generated: window.JaiHardcode.isApplied(code),
+      keys: count(/class="fp-key fp-key-op" id="fp-op-\d+"/g),
+      tiles: count(/<a class="fp-card" href="#fp-op-\d+"/g),
+      files: count(/<section class="fp-screen fp-file fp-file-\d+"/g),
+      rules: count(/:has\(#fp-op-\d+:target\) \.fp-file-\d+/g),
+      slides: count(/<div class="fp-slide fp-slide-\d+"/g),
+      templates: window.JaiPresets.allParts().filter((part) => window.JaiPresets.isPartApplied(code, part)).length,
+      blob: /blob:/.test(code),
+      pick: document.getElementById('cards-opt-style').value,
+      issues: window.JaiStudio.issues().length,
+    };
+  });
+  if (!terminal.generated || !terminal.keys || terminal.keys !== terminal.tiles || terminal.keys !== terminal.files ||
+      terminal.keys !== terminal.rules || !terminal.slides || terminal.templates || terminal.blob ||
+      terminal.pick !== 'frontier' || terminal.issues) {
+    fail(`the Operator terminal did not build cleanly (${JSON.stringify(terminal)})`);
+  }
   await page.evaluate(() => window.JaiStudio.setCode('', 'load', { now: true }));
 
   // The changelog dialog: opens from the toolbar and renders at least one entry.

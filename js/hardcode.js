@@ -90,13 +90,24 @@
     // banner's title, and a picture for its frame other than the first
     // featured character's.
     gachaTitle: '',
-    gachaArt: ''
+    gachaArt: '',
+    // The Operator terminal layout (js/frontier-profile.js): theme and accent,
+    // the backdrop and emblem pictures, the wordmark, the ticker's text, and
+    // whether JanitorAI's own character list stays underneath.
+    fpTheme: 'day',
+    fpAccent: '#ffd60a',
+    fpBackground: '',
+    fpEmblem: '',
+    fpCallsign: '',
+    fpTicker: '',
+    fpNative: false
   };
 
   /* A design with markup all of its own writes it itself; the rest share the
    * contact-select markup below. */
   function ownEmitter(o) {
     if (o.style === 'steam') return global.JaiSteamProfile || null;
+    if (o.style === 'frontier') return global.JaiFrontier || null;
     return null;
   }
 

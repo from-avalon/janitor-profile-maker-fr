@@ -254,6 +254,14 @@
       }
     },
     {
+      id: 'frontier',
+      name: 'Operator terminal (Frontier Protocol)',
+      blurb: 'A whole interface in place of the page, in the manner of an industrial sci-fi game: a rail of screens, a slideshow of your featured characters on slanted plates, a roster, and a full file screen for every character with its own art and scene. Your characters are written in, so it shines with pictures of your own: a backdrop, and art, a tile and a scene per character.',
+      css: function (o) {
+        return global.JaiFrontier ? global.JaiFrontier.style(o) : '';
+      }
+    },
+    {
       id: 'photo-feed',
       name: 'Instagram-style (Golden Hour)',
       blurb: 'The Golden Hour template, filled in from Profile data: counts from your characters, bio from About me, story highlights for your featured characters and each section, your links as stickers and your friends as mentions.',

@@ -1446,6 +1446,7 @@
     var to = code.indexOf(m.htmlEnd);
     var html = to > from ? code.slice(from, to) : '';
     if (html.indexOf('class="sp-') !== -1) return 'steam';
+    if (html.indexOf('class="fp-') !== -1) return 'frontier';
     if (html.indexOf('zz-navigation') !== -1) return 'proxy-terminal';
     return code.indexOf(m.styleStart) !== -1 ? 'contact-select' : 'none';
   }
@@ -3182,10 +3183,19 @@
     $('#cards-opt-accent').value = cardOption('accent');
     $('#cards-opt-preview').value = cardOption('preview');
     $('#cards-opt-redditBanner').value = cardOption('redditBanner');
+    $('#cards-opt-fpAccent').value = cardOption('fpAccent');
+    $('#cards-opt-fpNative').checked = cardOption('fpNative') === true;
+    var fpTheme = $('#cards-opt-fpTheme');
+    if (!fpTheme.options.length && window.JaiFrontier) {
+      fpTheme.innerHTML = Object.keys(window.JaiFrontier.themes).map(function (id) {
+        return '<option value="' + id + '">' + escapeHtml(window.JaiFrontier.themes[id].name) + '</option>';
+      }).join('');
+    }
+    fpTheme.value = cardOption('fpTheme');
     // Empty means "the layout's own wording", which the placeholders show.
     ['title', 'kicker', 'launch', 'profileLabel', 'profileMark', 'friendsTitle', 'footerText',
       'steamBackground', 'steamFrameImage', 'steamLevel', 'steamStatus', 'steamSubtitle',
-      'feedName', 'feedCategory', 'redditTagline', 'redditBannerImage', 'gachaTitle', 'gachaArt'].forEach(function (key) {
+      'feedName', 'feedCategory', 'redditTagline', 'redditBannerImage', 'gachaTitle', 'gachaArt', 'fpBackground', 'fpEmblem', 'fpCallsign', 'fpTicker'].forEach(function (key) {
       var field = $('#cards-opt-' + key);
       if (document.activeElement !== field) field.value = options[key] || '';
     });
@@ -3477,13 +3487,19 @@
     if (worn.template) toast('“' + worn.name + '” taken off. Ctrl+Z brings it back.');
   });
 
+  $('#cards-opt-fpNative').addEventListener('change', function () {
+    info.layout.options.fpNative = this.checked;
+    saveInfo();
+    reapplyCards(0);
+  });
+
   $('#cards-opt-feedStories').addEventListener('change', function () {
     info.layout.options.feedStories = this.checked;
     saveInfo();
     reapplyCards(0);
   });
 
-  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText, #cards-opt-steamTheme, #cards-opt-steamBackground, #cards-opt-steamFrame, #cards-opt-steamFrameImage, #cards-opt-steamLevel, #cards-opt-steamStatus, #cards-opt-steamSubtitle, #cards-opt-feedName, #cards-opt-feedCategory, #cards-opt-redditTagline, #cards-opt-redditBanner, #cards-opt-redditBannerImage, #cards-opt-gachaTitle, #cards-opt-gachaArt')
+  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText, #cards-opt-steamTheme, #cards-opt-steamBackground, #cards-opt-steamFrame, #cards-opt-steamFrameImage, #cards-opt-steamLevel, #cards-opt-steamStatus, #cards-opt-steamSubtitle, #cards-opt-feedName, #cards-opt-feedCategory, #cards-opt-redditTagline, #cards-opt-redditBanner, #cards-opt-redditBannerImage, #cards-opt-gachaTitle, #cards-opt-gachaArt, #cards-opt-fpTheme, #cards-opt-fpAccent, #cards-opt-fpBackground, #cards-opt-fpEmblem, #cards-opt-fpCallsign, #cards-opt-fpTicker')
     .forEach(function (input) {
       input.addEventListener('input', function () {
         var key = input.id.replace('cards-opt-', '');
