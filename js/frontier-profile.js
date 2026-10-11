@@ -29,9 +29,12 @@
  * slideshow's timing), and `style` the look.
  *
  * Pictures it can use, all optional, all <img> (JanitorAI strips url()):
- *   the backdrop (fpBackground) and an emblem (fpEmblem); per character the
- *   stage art (art), the roster tile (portrait) and a scene for the file
- *   screen (hover).
+ *   the backdrop (fpBackground), an emblem (fpEmblem) and the creator's own
+ *   chibi (fpMascot); per character the stage art (art), the roster tile
+ *   (portrait), a scene for the file screen (hover) and a chibi (chibi).
+ *
+ * Every character has a rank from 3 to 6 stars (`ranks`): by default from
+ * where it stands among the others by chats, or whatever the creator sets.
  */
 (function (global) {
   'use strict';
@@ -120,6 +123,39 @@
     return (featured.length ? featured : list).slice(0, MAX_SLIDES);
   }
 
+  /* The colour each rank wears, whatever the theme and the accent: a rank
+   * has to read the same on every profile. */
+  var RANK_COLOURS = { 6: '#ff8a1e', 5: '#ffd21f', 4: '#b98cff', 3: '#5cc8ff' };
+
+  /*
+   * A rank from 3 to 6 for each character of the roster, in order. Set by
+   * hand in Profile data, it is what the creator says. Left on Auto it comes
+   * from where the character stands among the others by chats: the top tenth
+   * are 6, down to the top third 5, down to three quarters 4, the rest 3.
+   * Standing, not the count itself, because 5,000 chats is a hit on one
+   * profile and a slow week on another.
+   */
+  function ranks(list) {
+    var counts = list.map(function (f) { return number(f.chats); });
+    var sorted = counts.slice().sort(function (a, b) { return b - a; });
+    var any = sorted.length && sorted[0] > 0;
+    return list.map(function (f, i) {
+      var chosen = parseInt(f.rarity, 10);
+      if (chosen >= 3 && chosen <= 6) return chosen;
+      if (!any) return 4;
+      var standing = sorted.indexOf(counts[i]) / list.length;
+      return standing < 0.1 ? 6 : standing < 0.34 ? 5 : standing < 0.75 ? 4 : 3;
+    });
+  }
+
+  function stars(rank) { return new Array(rank + 1).join('★'); }
+
+  /* A character's chibi as a field tag: a white card with a punched corner.
+   * White on purpose, so a chibi drawn on a white background belongs to it. */
+  function tag(f, n, cls) {
+    return usable(f.chibi) ? '<span class="fp-tag ' + cls + '"><img src="' + attr(f.chibi) + '" alt=""><b>Field ID ' + pad(n) + '</b><i class="fp-barcode"></i></span>' : '';
+  }
+
   /* A tag as it can be written into an id and a class name. */
   function slugOf(tag) {
     return String(global.JaiTags.slug(tag) || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -140,6 +176,12 @@
     var featured = everyone.filter(function (n) { return list[n - 1].featured; });
     if (featured.length > 1 && featured.length < list.length) {
       out.push({ key: 'featured', label: 'Featured', members: featured });
+    }
+
+    var rank = ranks(list);
+    var elite = everyone.filter(function (n) { return rank[n - 1] >= 5; });
+    if (elite.length > 1 && elite.length < list.length) {
+      out.push({ key: 'elite', label: 'Elite · 5★ and up', members: elite });
     }
 
     var byTag = {}, labels = {}, order = [];
@@ -210,10 +252,12 @@
     // Recruitment: a key per pool (which pool is chosen), and a key per pool
     // and character (the draw: that character, reached from that pool).
     var draws = pools(files, o);
+    var rank = ranks(list);
     draws.forEach(function (p) {
       html.push('<span class="fp-key fp-key-pool" id="fp-pool-' + p.key + '"></span>');
       p.members.forEach(function (n) {
-        html.push('<span class="fp-key fp-key-pull fp-kp-' + p.key + ' fp-k-' + n + '" id="fp-pull-' + p.key + '-' + n + '"></span>');
+        // fp-kr-N: the rank about to be drawn, which the sequence dresses for.
+        html.push('<span class="fp-key fp-key-pull fp-kp-' + p.key + ' fp-k-' + n + ' fp-kr-' + rank[n - 1] + '" id="fp-pull-' + p.key + '-' + n + '"></span>');
       });
     });
 
@@ -258,6 +302,7 @@
       html.push('<div class="fp-slide fp-slide-' + (i + 1) + '"><div class="fp-ghost">' + esc(f.name) + '</div>' +
         '<i class="fp-plate"></i>' + picture(f.art, 'fp-slide-art', f.name) +
         '<div class="fp-slide-info"><div class="fp-label"><i></i>Featured operator <b>' + pad(i + 1) + '</b> / ' + pad(show.length) + '</div>' +
+        '<div class="fp-stars fp-r' + rank[at - 1] + '">' + stars(rank[at - 1]) + '</div>' +
         '<h2 class="fp-slide-name">' + esc(f.name) + '</h2>' +
         (line ? '<p class="fp-slide-line">' + esc(line) + '</p>' : '') +
         (f.tags.length ? '<div class="fp-chips">' + f.tags.slice(0, 5).map(tagChip).join('') + '</div>' : '') +
@@ -278,8 +323,10 @@
     html.push('<section class="fp-screen fp-screen-roster"><i class="fp-wipe"></i>' +
       head(no.roster, 'Operator roster', '<b>' + pad(list.length) + '</b> files on record') +
       '<div class="fp-roster">' + list.map(function (f, i) {
-        return '<a class="fp-card" href="#fp-op-' + (i + 1) + '"><span class="fp-card-art">' + picture(f.portrait, 'fp-card-img', '') + '</span>' +
-          '<span class="fp-card-no">' + pad(i + 1) + '</span><span class="fp-card-name">' + esc(f.name) + '</span>' +
+        return '<a class="fp-card fp-r' + rank[i] + '" href="#fp-op-' + (i + 1) + '"><span class="fp-card-art">' + picture(f.portrait, 'fp-card-img', '') +
+          (usable(f.chibi) ? '<img class="fp-card-chibi" src="' + attr(f.chibi) + '" alt="">' : '') + '</span>' +
+          '<span class="fp-card-no">' + pad(i + 1) + '</span><span class="fp-card-stars">' + stars(rank[i]) + '</span>' +
+          '<span class="fp-card-name">' + esc(f.name) + '</span>' +
           '<span class="fp-card-meta">' + (f.chats ? esc(f.chats) + ' chats' : 'New file') + '</span></a>';
       }).join('') + '</div></section>');
 
@@ -316,13 +363,14 @@
       var next = i === list.length - 1 ? 1 : i + 2;
       // A scene of its own if the creator gave one; otherwise the art, blurred.
       var own = usable(f.hover) && f.hover !== f.art;
-      html.push('<section class="fp-screen fp-file fp-file-' + (i + 1) + '"><i class="fp-wipe"></i>' +
+      html.push('<section class="fp-screen fp-file fp-file-' + (i + 1) + ' fp-r' + rank[i] + '"><i class="fp-wipe"></i>' +
         (usable(own ? f.hover : f.art) ? '<img class="fp-file-scene' + (own ? '' : ' fp-file-scene-soft') + '" src="' + attr(own ? f.hover : f.art) + '" alt="">' : '') +
         '<i class="fp-file-shade"></i><i class="fp-file-plate"></i>' +
         '<div class="fp-file-art">' + picture(f.art, 'fp-file-img', f.name) + '</div>' +
         '<div class="fp-file-no">' + pad(i + 1) + '</div>' +
         '<div class="fp-file-info"><div class="fp-file-top"><a class="fp-back" href="#fp-roster">Roster</a>' +
         '<span>File <b>' + pad(i + 1) + '</b> / ' + pad(list.length) + '</span></div>' +
+        '<div class="fp-stars fp-file-stars">' + stars(rank[i]).split('').map(function (s) { return '<i>' + s + '</i>'; }).join('') + '</div>' +
         '<h2 class="fp-file-name">' + esc(f.name) + '</h2>' +
         (f.tagline ? '<p class="fp-file-line">' + esc(f.tagline) + '</p>' : '') +
         (f.quote ? '<div class="fp-quote">' + esc(f.quote) + '</div>' : '') +
@@ -330,11 +378,11 @@
         (f.tags.length ? '<div class="fp-chips">' + f.tags.slice(0, 10).map(tagChip).join('') + '</div>' : '') +
         '<div class="fp-stats">' + (f.chats ? '<span><b>' + esc(f.chats) + '</b>Chats</span>' : '') +
         (f.tokens ? '<span><b>' + esc(f.tokens) + '</b>Tokens</span>' : '') +
-        '<span><b>' + pad(i + 1) + '</b>File no.</span></div>' +
+        '<span class="fp-stat-rank"><b>' + rank[i] + '★</b>Rarity</span></div>' +
         '<div class="fp-actions">' +
         (usable(f.link) ? '<a class="fp-btn fp-btn-main" href="' + attr(f.link) + '">Initiate chat<i></i></a>' : '') +
         (list.length > 1 ? '<a class="fp-btn fp-btn-step" href="#fp-op-' + prev + '">Prev</a><a class="fp-btn fp-btn-step" href="#fp-op-' + next + '">Next</a>' : '') +
-        '</div></div></section>');
+        '</div></div>' + tag(f, i + 1, 'fp-file-tag') + '</section>');
     });
 
     // Dossier
@@ -350,7 +398,9 @@
       (identity.followers ? '<span>Followers</span><b>' + esc(identity.followers) + '</b>' : '') +
       '</div><i class="fp-barcode"></i></div>' +
       '<div class="fp-about"><h3>' + esc(heading || 'About the creator') + '</h3><p>' +
-      (about ? multiline(about) : 'Write your introduction under Profile data → About me and it appears here.') + '</p></div></div></section>');
+      (about ? multiline(about) : 'Write your introduction under Profile data → About me and it appears here.') + '</p>' +
+      (usable(o.fpMascot) ? '<span class="fp-tag fp-mascot"><img src="' + attr(o.fpMascot) + '" alt=""><b>' + esc(name ? '@' + name : 'Creator') + '</b><i class="fp-barcode"></i></span>' : '') +
+      '</div></div></section>');
 
     // Network
     if (links.length || allies.length) {
@@ -400,8 +450,8 @@
         '<span class="fp-fx-roll fp-fx-roll-b"><i>A4<br>9F<br>C2<br>0E<br>7B<br>D1<br>55<br>3C</i></span>' +
         '<span class="fp-fx-roll fp-fx-roll-c"><i>610<br>284<br>907<br>133<br>752<br>046<br>398<br>871</i></span></span>' +
         '<em></em><span class="fp-fx-status">Decrypting operator file</span></div>' +
-        '<i class="fp-fx-slab"></i><i class="fp-fx-slab fp-fx-slab-b"></i>' +
-        '<div class="fp-fx-stamp"><b>Recruited</b><span>Contract signed</span></div></div>');
+        '<i class="fp-fx-burst"></i><i class="fp-fx-slab"></i><i class="fp-fx-slab fp-fx-slab-b"></i>' +
+        '<div class="fp-fx-stamp"><b>Recruited</b><span class="fp-fx-stars"><i>★</i><i>★</i><i>★</i><i>★</i><i>★</i><i>★</i></span></div></div>');
       html.push('<div class="fp-pullbar">' + draws.map(function (p) {
         return '<a class="fp-again fp-again-' + p.key + '" href="#fp-pool-' + p.key + '"><i></i>Draw again<span>' + esc(p.label) + '</span></a>';
       }).join('') + '</div>');
@@ -927,6 +977,27 @@
 '.fp-fx-stamp b { display: block; font-family: @HEAD@; font-size: 34px; font-stretch: 75%; letter-spacing: .14em; line-height: 1; text-transform: uppercase; }',
 '.fp-fx-stamp span { display: block; margin-top: 4px; color: #ffffffcc; font-family: @MONO@; font-size: 9px; letter-spacing: .22em; text-transform: uppercase; }',
 '',
+'/* The draw is the colour of the rank that is coming: the slab, the frames,',
+' * the figures and the stamp. Whoever knows the colours knows before the art. */',
+'.profile-info-stack:has(.fp-kr-6:target) .fp-fx-slab:not(.fp-fx-slab-b), .profile-info-stack:has(.fp-kr-6:target) .fp-fx-read em { background: @rank6@; }',
+'.profile-info-stack:has(.fp-kr-5:target) .fp-fx-slab:not(.fp-fx-slab-b), .profile-info-stack:has(.fp-kr-5:target) .fp-fx-read em { background: @rank5@; }',
+'.profile-info-stack:has(.fp-kr-4:target) .fp-fx-slab:not(.fp-fx-slab-b), .profile-info-stack:has(.fp-kr-4:target) .fp-fx-read em { background: @rank4@; }',
+'.profile-info-stack:has(.fp-kr-3:target) .fp-fx-slab:not(.fp-fx-slab-b), .profile-info-stack:has(.fp-kr-3:target) .fp-fx-read em { background: @rank3@; }',
+'.profile-info-stack:has(.fp-kr-6:target) .fp-fx-ring, .profile-info-stack:has(.fp-kr-6:target) .fp-fx-roll, .profile-info-stack:has(.fp-kr-6:target) .fp-fx-stamp { border-color: @rank6@; color: @rank6@; }',
+'.profile-info-stack:has(.fp-kr-5:target) .fp-fx-ring, .profile-info-stack:has(.fp-kr-5:target) .fp-fx-roll, .profile-info-stack:has(.fp-kr-5:target) .fp-fx-stamp { border-color: @rank5@; color: @rank5@; }',
+'.profile-info-stack:has(.fp-kr-4:target) .fp-fx-ring, .profile-info-stack:has(.fp-kr-4:target) .fp-fx-roll, .profile-info-stack:has(.fp-kr-4:target) .fp-fx-stamp { border-color: @rank4@; color: @rank4@; }',
+'.profile-info-stack:has(.fp-kr-3:target) .fp-fx-ring, .profile-info-stack:has(.fp-kr-3:target) .fp-fx-roll, .profile-info-stack:has(.fp-kr-3:target) .fp-fx-stamp { border-color: @rank3@; color: @rank3@; }',
+'/* The stamp carries the stars; the ones past the rank are not there. */',
+'.fp-fx-stars { display: flex; gap: 3px; margin-top: 6px; font-size: 20px; line-height: 1; }',
+'.fp-fx-stars i { font-style: normal; animation: fp-star .4s cubic-bezier(.2, 1.6, .4, 1) both; }',
+'.fp-fx-stars i:nth-child(1) { animation-delay: 3.3s; } .fp-fx-stars i:nth-child(2) { animation-delay: 3.38s; } .fp-fx-stars i:nth-child(3) { animation-delay: 3.46s; } .fp-fx-stars i:nth-child(4) { animation-delay: 3.54s; } .fp-fx-stars i:nth-child(5) { animation-delay: 3.62s; } .fp-fx-stars i:nth-child(6) { animation-delay: 3.7s; }',
+'.profile-info-stack:has(.fp-kr-3:target) .fp-fx-stars i:nth-child(n + 4), .profile-info-stack:has(.fp-kr-4:target) .fp-fx-stars i:nth-child(n + 5), .profile-info-stack:has(.fp-kr-5:target) .fp-fx-stars i:nth-child(n + 6) { display: none; }',
+'/* The top rank alone: the screen whites out and rays turn behind the art. */',
+'.fp-fx-burst { top: 50%; left: 50%; display: none !important; width: 240vmax; height: 240vmax; margin: -120vmax 0 0 -120vmax; background: repeating-conic-gradient(@rank6@59 0deg 5deg, transparent 5deg 14deg); }',
+'.profile-info-stack:has(.fp-kr-6:target) .fp-fx-burst { display: block !important; animation: fp-fx-burst 2.6s ease-out 2.2s both; }',
+'.profile-info-stack:has(.fp-kr-6:target) .fp-fx-slab-b { background: #ffffff; box-shadow: 0 0 80px 40px #ffffff; }',
+'.profile-info-stack:has(.fp-kr-6:target) .fp-fx-status { color: @rank6@; }',
+'',
 '/* A drawn file: it waits for the sequence, its art comes up out of shadow,',
 ' * and the way back to the pool is offered where "Roster" was. */',
 '.profile-info-stack:has(.fp-key-pull:target) .fp-file .fp-wipe { display: none; }',
@@ -935,6 +1006,8 @@
 '.profile-info-stack:has(.fp-key-pull:target) .fp-file-img { animation: fp-unveil 1.5s ease-out 2.4s both; }',
 '.profile-info-stack:has(.fp-key-pull:target) .fp-file-top { animation-delay: 2.7s; }',
 '.profile-info-stack:has(.fp-key-pull:target) .fp-file-name { animation: fp-stamp-in .6s cubic-bezier(.2, .9, .2, 1) 2.8s both; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-file-stars i { animation-delay: 2.9s; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-file-tag { animation-delay: 4s, 3.5s; }',
 '.profile-info-stack:has(.fp-key-pull:target) .fp-file-line { animation-delay: 3s; }',
 '.profile-info-stack:has(.fp-key-pull:target) .fp-quote { animation-delay: 3.08s; }',
 '.profile-info-stack:has(.fp-key-pull:target) .fp-file-desc { animation-delay: 3.16s; }',
@@ -949,6 +1022,43 @@
 '.fp-again span { padding: 1px 5px; background: @a@; color: @onA@; }',
 '.fp-again:hover { background: @ink@; color: @bg@; }',
 '.fp-again:hover i { animation: fp-spin .6s linear infinite; }',
+'',
+'/* ---- rarity: stars, and one colour per rank that no theme changes ---- */',
+'.fp-stars { color: @ink@; font-size: 15px; letter-spacing: .14em; line-height: 1; }',
+'.fp-slide-info .fp-stars { margin-top: 12px; }',
+'.fp-r6 .fp-stars, .fp-stars.fp-r6, .fp-r6 .fp-card-stars { color: @rank6@; }',
+'.fp-r5 .fp-stars, .fp-stars.fp-r5, .fp-r5 .fp-card-stars { color: @rank5@; }',
+'.fp-r4 .fp-stars, .fp-stars.fp-r4, .fp-r4 .fp-card-stars { color: @rank4@; }',
+'.fp-r3 .fp-stars, .fp-stars.fp-r3, .fp-r3 .fp-card-stars { color: @rank3@; }',
+'/* Stars are dark-edged so yellow ones still read on the light theme. */',
+'.fp-stars, .fp-card-stars { text-shadow: 0 0 1px @ink@, 0 1px 0 @ink@66; }',
+'.fp-card-stars { position: absolute; top: 3px; right: 6px; font-size: 10px; letter-spacing: .06em; }',
+'/* A tile wears its rank along its foot, and lifts onto it. */',
+'.fp-card.fp-r6 { border-bottom: 3px solid @rank6@; } .fp-card.fp-r5 { border-bottom: 3px solid @rank5@; } .fp-card.fp-r4 { border-bottom: 3px solid @rank4@; } .fp-card.fp-r3 { border-bottom: 3px solid @rank3@; }',
+'.fp-card.fp-r6:hover { box-shadow: 8px 8px 0 @rank6@; } .fp-card.fp-r5:hover { box-shadow: 8px 8px 0 @rank5@; } .fp-card.fp-r4:hover { box-shadow: 8px 8px 0 @rank4@; } .fp-card.fp-r3:hover { box-shadow: 8px 8px 0 @rank3@; }',
+'/* The top rank gleams without being asked. */',
+'.fp-card.fp-r6 .fp-card-art::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(115deg, transparent 38%, #ffffff73 50%, transparent 62%); background-size: 300% 100%; animation: fp-gleam 3.6s ease-in-out infinite; }',
+'/* The rank among the figures of a file: the number in ink, a bar of its colour under it. */',
+'.fp-stat-rank b { display: table !important; box-shadow: inset 0 -6px 0 @rank4@; }',
+'.fp-r6 .fp-stat-rank b { box-shadow: inset 0 -6px 0 @rank6@; } .fp-r5 .fp-stat-rank b { box-shadow: inset 0 -6px 0 @rank5@; } .fp-r3 .fp-stat-rank b { box-shadow: inset 0 -6px 0 @rank3@; }',
+'.fp-file-stars { display: flex; gap: 3px; margin-top: 22px; font-size: 22px; letter-spacing: 0; }',
+'.fp-file-stars i { font-style: normal; animation: fp-star .45s cubic-bezier(.2, 1.6, .4, 1) both; }',
+'.fp-file-stars i:nth-child(1) { animation-delay: .5s; } .fp-file-stars i:nth-child(2) { animation-delay: .57s; } .fp-file-stars i:nth-child(3) { animation-delay: .64s; } .fp-file-stars i:nth-child(4) { animation-delay: .71s; } .fp-file-stars i:nth-child(5) { animation-delay: .78s; } .fp-file-stars i:nth-child(6) { animation-delay: .85s; }',
+'.fp-file-stars + .fp-file-name { margin-top: 8px; }',
+'/* A file\'s plate and its rule are its rank\'s colour. */',
+'.fp-file.fp-r6 .fp-file-plate { background: @rank6@; } .fp-file.fp-r5 .fp-file-plate { background: @rank5@; } .fp-file.fp-r4 .fp-file-plate { background: @rank4@; } .fp-file.fp-r3 .fp-file-plate { background: @rank3@; }',
+'',
+'/* ---- chibis: a field tag, white on purpose ---- */',
+'.fp-tag { display: block; box-sizing: border-box; padding: 6px 6px 7px; border: 1px solid #14151a; background: #ffffff; color: #14151a; box-shadow: 5px 5px 0 @a@; clip-path: polygon(0 0, 100% 0, 100% 100%, 16% 100%, 0 88%); }',
+'.fp-tag img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; }',
+'.fp-tag b { display: block; margin: 4px 0 3px; overflow: hidden; font-family: @MONO@; font-size: 8px; font-weight: 400; letter-spacing: .12em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }',
+'.fp-tag .fp-barcode { height: 8px; color: #14151a; }',
+'/* Pinned to the corner of the file, swinging a little on its pin. */',
+'.fp-file-tag { position: absolute; right: 34px; bottom: 26px; z-index: 3; width: 132px; transform: rotate(4deg); transform-origin: 50% 0; animation: fp-swing 5s ease-in-out 1s infinite, fp-rise .6s ease .84s backwards; }',
+'/* On a roster tile it waits out of sight and hops up when the tile is pointed at. */',
+'.fp-card-chibi { position: absolute; right: 6px; bottom: 6px; z-index: 2; width: 46%; aspect-ratio: 1; border: 1px solid #14151a; background: #ffffff; object-fit: contain; opacity: 0; transform: translateY(40%) rotate(8deg); transition: opacity .2s ease, transform .3s cubic-bezier(.2, 1.5, .4, 1); }',
+'.fp-card:hover .fp-card-chibi { opacity: 1; transform: translateY(0) rotate(4deg); }',
+'.fp-mascot { width: 150px; margin-top: 26px; transform: rotate(-3deg); animation: fp-swing 6s ease-in-out infinite; }',
 '',
 '/* ---- the ticker along the foot of the main area ---- */',
 '.fp-ticker { position: absolute; right: 0; bottom: 0; left: 0; z-index: 5; height: 28px; overflow: hidden; background: @rail@; }',
@@ -986,6 +1096,9 @@
 '@keyframes fp-fx-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }',
 '@keyframes fp-fx-slab { 0% { transform: translateX(-140%) skewX(-18deg); } 100% { transform: translateX(340%) skewX(-18deg); } }',
 '@keyframes fp-fx-slab-b { 0% { transform: translateX(-500%) skewX(-18deg); } 100% { transform: translateX(1100%) skewX(-18deg); } }',
+'@keyframes fp-fx-burst { 0% { opacity: 0; transform: rotate(0) scale(.2); } 18% { opacity: 1; transform: rotate(20deg) scale(1); } 100% { opacity: 0; transform: rotate(70deg) scale(1); visibility: hidden; } }',
+'@keyframes fp-star { from { opacity: 0; transform: scale(0) rotate(-90deg); } to { opacity: 1; transform: scale(1) rotate(0); } }',
+'@keyframes fp-swing { 0%, 100% { transform: rotate(4deg); } 50% { transform: rotate(-2deg); } }',
 '@keyframes fp-fx-stamp { 0% { opacity: 0; transform: rotate(-7deg) scale(3); } 100% { opacity: 1; transform: rotate(-7deg) scale(1); } }',
 '@keyframes fp-unveil { 0% { filter: brightness(0) contrast(1.4); transform: scale(1.14); } 45% { filter: brightness(0) contrast(1.4); } 100% { filter: brightness(1) contrast(1); transform: scale(1); } }',
 '@keyframes fp-stamp-in { 0% { opacity: 0; letter-spacing: .4em; transform: translateX(40px); } 100% { opacity: 1; letter-spacing: .01em; transform: translateX(0); } }',
@@ -1058,6 +1171,8 @@
 '  .fp-file-info { position: relative; left: auto; padding: 18px 16px 30px; overflow: visible; }',
 '  .fp-file-shade { background: linear-gradient(180deg, @bg@66 0%, @bg@f2 46%, @bg@ 100%); }',
 '  .fp-file-no { display: none; }',
+'  .fp-file-tag { position: relative; right: auto; bottom: auto; width: 120px; margin: 0 0 30px 16px; }',
+'  .fp-card-chibi { display: none; }',
 '  .fp-dossier { grid-template-columns: minmax(0, 1fr); gap: 26px; }',
 '  .fp-idcard { max-width: 300px; }',
 '  .fp-link { grid-template-columns: 30px minmax(0, 1fr) 26px; }',
@@ -1073,7 +1188,7 @@
 '@media (prefers-reduced-motion: reduce) {',
 '  .fp-boot, .fp-wipe { display: none !important; }',
 '  .fp-fx > i, .fp-fx-read { display: none !important; }',
-'  .fp-fx-stamp, .fp-draw::before, .fp-gate-ring, .fp-gates, .fp-recruit-side, .fp-pullbar { animation: none !important; }',
+'  .fp-fx-stamp, .fp-fx-stars i, .fp-file-stars i, .fp-file-tag, .fp-mascot, .fp-card.fp-r6 .fp-card-art::before, .fp-draw::before, .fp-gate-ring, .fp-gates, .fp-recruit-side, .fp-pullbar { animation: none !important; }',
 '  .profile-info-stack:has(.fp-key-pull:target) .fp-file *, .profile-info-stack:has(.fp-key-pull:target) .fp-file-img, .profile-info-stack:has(.fp-key-pull:target) .fp-file-name { animation: none !important; }',
 '  .fp-emblem-mark i, .pp-uc-followers-count::before, .fp-hud, .fp-hud-live i, .fp-head, .fp-card, .fp-card:hover .fp-card-art::after, .fp-file-scene, .fp-file-plate, .fp-file-art, .fp-file-top, .fp-file-name, .fp-file-line, .fp-quote, .fp-file-desc, .fp-file-info .fp-chips, .fp-stats, .fp-file-info .fp-actions, .fp-idcard, .fp-about, .fp-links, .fp-allies, .fp-log, .fp-ticker-run { animation: none; }',
 '}'
@@ -1134,10 +1249,11 @@
     var tokens = {
       bg: t.bg, panel: t.panel, ink: t.ink, mute: t.mute, line: t.line,
       rail: t.rail, railInk: t.railInk, railMute: t.railMute, railLine: t.railLine,
-      a: a, onA: onAccent(a), fxMid: '#1b1d24', fxEdge: '#050608', HEAD: HEAD, MONO: MONO, BODY: BODY
+      a: a, onA: onAccent(a), fxMid: '#1b1d24', fxEdge: '#050608', HEAD: HEAD, MONO: MONO, BODY: BODY,
+      rank6: RANK_COLOURS[6], rank5: RANK_COLOURS[5], rank4: RANK_COLOURS[4], rank3: RANK_COLOURS[3]
     };
     var lines = SHEET.concat(o.fpNative === true || o.fpNative === 'true' ? NATIVE_ON : NATIVE_OFF);
-    return lines.join('\n').replace(/@([A-Za-z]+)@/g, function (all, key) {
+    return lines.join('\n').replace(/@([A-Za-z0-9]+)@/g, function (all, key) {
       return tokens[key] != null ? tokens[key] : all;
     }).trim() + '\n';
   }
@@ -1148,6 +1264,7 @@
     roster: roster,
     slides: slides,
     pools: pools,
+    ranks: ranks,
     markup: markup,
     css: css,
     style: style

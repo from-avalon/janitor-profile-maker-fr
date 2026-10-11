@@ -2705,6 +2705,9 @@
     { key: 'hover', label: 'Hover art override (optional)', type: 'url', placeholder: 'Any aspect ratio; centered and clipped' },
     { key: 'chats', label: 'Chats', half: true, placeholder: '752' },
     { key: 'tokens', label: 'Tokens', half: true, placeholder: '1,845' },
+    { key: 'chibi', label: 'Chibi (optional, Operator terminal)', type: 'url', placeholder: 'A small square picture; a white background is fine' },
+    { key: 'rarity', label: 'Rarity (Operator terminal)', type: 'select', options: [
+      ['', 'Auto, from chats'], ['6', '6 stars'], ['5', '5 stars'], ['4', '4 stars'], ['3', '3 stars']] },
     { key: 'featured', label: 'Feature in showcases', type: 'checkbox' }
   ];
 
@@ -2793,6 +2796,13 @@
     if (f.type === 'checkbox') {
       return '<label class="field field-check"><input type="checkbox" data-field="' + f.key + '"' +
         (value ? ' checked' : '') + '> <span>' + escapeHtml(f.label) + '</span></label>';
+    }
+    if (f.type === 'select') {
+      return '<label class="field">' + escapeHtml(f.label) + '<select data-field="' + f.key + '">' +
+        f.options.map(function (option) {
+          return '<option value="' + escapeHtml(option[0]) + '"' + (String(value == null ? '' : value) === option[0] ? ' selected' : '') +
+            '>' + escapeHtml(option[1]) + '</option>';
+        }).join('') + '</select></label>';
     }
     var v = escapeHtml(value == null ? '' : value);
     var placeholder = escapeHtml(f.placeholder || '');
@@ -3195,7 +3205,7 @@
     // Empty means "the layout's own wording", which the placeholders show.
     ['title', 'kicker', 'launch', 'profileLabel', 'profileMark', 'friendsTitle', 'footerText',
       'steamBackground', 'steamFrameImage', 'steamLevel', 'steamStatus', 'steamSubtitle',
-      'feedName', 'feedCategory', 'redditTagline', 'redditBannerImage', 'gachaTitle', 'gachaArt', 'fpBackground', 'fpEmblem', 'fpCallsign', 'fpTicker', 'fpPools'].forEach(function (key) {
+      'feedName', 'feedCategory', 'redditTagline', 'redditBannerImage', 'gachaTitle', 'gachaArt', 'fpBackground', 'fpEmblem', 'fpCallsign', 'fpTicker', 'fpPools', 'fpMascot'].forEach(function (key) {
       var field = $('#cards-opt-' + key);
       if (document.activeElement !== field) field.value = options[key] || '';
     });
@@ -3499,7 +3509,7 @@
     reapplyCards(0);
   });
 
-  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText, #cards-opt-steamTheme, #cards-opt-steamBackground, #cards-opt-steamFrame, #cards-opt-steamFrameImage, #cards-opt-steamLevel, #cards-opt-steamStatus, #cards-opt-steamSubtitle, #cards-opt-feedName, #cards-opt-feedCategory, #cards-opt-redditTagline, #cards-opt-redditBanner, #cards-opt-redditBannerImage, #cards-opt-gachaTitle, #cards-opt-gachaArt, #cards-opt-fpTheme, #cards-opt-fpAccent, #cards-opt-fpBackground, #cards-opt-fpEmblem, #cards-opt-fpCallsign, #cards-opt-fpTicker, #cards-opt-fpPools')
+  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText, #cards-opt-steamTheme, #cards-opt-steamBackground, #cards-opt-steamFrame, #cards-opt-steamFrameImage, #cards-opt-steamLevel, #cards-opt-steamStatus, #cards-opt-steamSubtitle, #cards-opt-feedName, #cards-opt-feedCategory, #cards-opt-redditTagline, #cards-opt-redditBanner, #cards-opt-redditBannerImage, #cards-opt-gachaTitle, #cards-opt-gachaArt, #cards-opt-fpTheme, #cards-opt-fpAccent, #cards-opt-fpBackground, #cards-opt-fpEmblem, #cards-opt-fpCallsign, #cards-opt-fpTicker, #cards-opt-fpPools, #cards-opt-fpMascot')
     .forEach(function (input) {
       input.addEventListener('input', function () {
         var key = input.id.replace('cards-opt-', '');

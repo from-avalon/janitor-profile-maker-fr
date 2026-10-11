@@ -34,6 +34,14 @@ drawn character's file opens with the art coming up out of silhouette and a
 stamp landing on it. Only characters carrying the pool's tag can come up, and
 which one depends on the moment the button is pressed.
 
+Every character has a rarity of three to six stars, shown on its roster tile,
+its file and the draw, which takes the rank's colour before the art appears
+(and whites out with turning rays for a six). Left alone, rarity comes from
+where a character stands among your others by chats, so your top tenth are six
+stars whatever your numbers are; or set each one yourself under Characters.
+A character can also carry a chibi, pinned to its file as a field tag, and
+there is a place for your own on the dossier.
+
 Your characters are written into the page, which is what lets each have its
 own screen, so it looks its best with your own pictures: a backdrop for the
 interface, and per character a tall piece of art, a roster tile and a wide

@@ -103,6 +103,8 @@
     // Which tags Recruit offers as pools, comma separated; empty = the tags
     // most of the roster shares.
     fpPools: '',
+    // The creator's own chibi, shown on the dossier.
+    fpMascot: '',
     fpNative: false
   };
 
@@ -190,6 +192,9 @@
       hover: String((entry && entry.hover) || '').trim(),
       chats: String((entry && entry.chats) || '').trim(),
       tokens: String((entry && entry.tokens) || '').trim(),
+      // The Operator terminal's: a rank set by hand ('' = by chats), a chibi.
+      rarity: String((entry && entry.rarity) || '').trim(),
+      chibi: String((entry && entry.chibi) || '').trim(),
       featured: !!(entry && entry.featured)
     };
   }
