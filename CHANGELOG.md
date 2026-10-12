@@ -9,6 +9,14 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-10-12 — The code editor no longer slips out of line vertically
+
+Moving the caret to the end of a long stylesheet — or adding rules at the bottom
+of it — could leave the box you type in sitting a line or so higher than the
+coloured code, for the whole document, so a Ctrl+F match or a selection landed
+above the text it belonged to. The two now stay lined up however long the code
+is or how it ends.
+
 ## 2026-10-11 — The code editor's colours line up with what you type
 
 In the About Me code panel, the coloured text could sit to the left of the text

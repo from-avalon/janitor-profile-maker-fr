@@ -500,8 +500,15 @@
     }
     gutter.innerHTML = g;
 
-    input.style.height = 'auto';
-    input.style.height = Math.max(highlightPre.scrollHeight, editorScroll.clientHeight) + 'px';
+    // Size the textarea from its own content, not from the <pre>'s scrollHeight.
+    // The <pre> leaves out its bottom padding and drops the empty last line of a
+    // document that ends in a newline, so a textarea sized from it is up to
+    // ~30px shorter than its text and scrolls *itself* to keep the caret in view
+    // (or a Ctrl+F match). That moves everything you type against the colours,
+    // for the whole document, until it is edited again. A textarea exactly as
+    // tall as its text has nothing to scroll; the pane's scroller does it.
+    input.style.height = '0px';
+    input.style.height = Math.max(input.scrollHeight, editorScroll.clientHeight) + 'px';
     // Match the textarea's box to the widest line. Hardcoded markup is one long
     // line by design, and a textarea left at pane width makes everything you
     // scroll right to impossible to click, select or type into.
