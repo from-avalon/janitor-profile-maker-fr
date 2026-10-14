@@ -1913,6 +1913,38 @@
     this.value = '';
   });
 
+  // Profile data as a file: saved whole, and loaded back in by merging, so a
+  // file never takes away characters the panel has and the file does not.
+  $('#info-save-file').addEventListener('click', function () {
+    var name = String(info.identity.username || 'profile').replace(/[^\w.-]+/g, '-');
+    var blob = new Blob([JSON.stringify(info, null, 1)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'profile-data-' + name + '-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    toast('Profile data saved as ' + a.download);
+  });
+
+  $('#info-load-file').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    var input = this;
+    if (!file) return;
+    file.text().then(function (text) {
+      var result = window.JaiProfileInfo.fromFile(info, JSON.parse(text));
+      saveInfo();
+      renderInfo();
+      reapplyCards(0);
+      cardsStatus('Loaded “' + file.name + '”: ' + plural(result.updated, 'character') + ' updated, ' +
+        plural(result.added, 'character') + ' added. ' + rosterProgress());
+      toast('Profile data loaded');
+    }).catch(function (error) {
+      cardsStatus('“' + file.name + '” is not a Profile data file (' + error.message + ').');
+    }).then(function () { input.value = ''; });
+  });
+
   // The same import lives in the Settings and Profile panels; importing from
   // either also fills in Profile information.
   $('#profile-file').addEventListener('change', handleProfileFileChange);
@@ -2708,6 +2740,8 @@
     { key: 'chibi', label: 'Chibi (optional, Operator terminal)', type: 'url', placeholder: 'A small square picture; a white background is fine' },
     { key: 'rarity', label: 'Rarity (Operator terminal)', type: 'select', options: [
       ['', 'Auto, from chats'], ['6', '6 stars'], ['5', '5 stars'], ['4', '4 stars'], ['3', '3 stars']] },
+    { key: 'summary', label: 'Summary (Operator terminal: shown when its tile is pointed at)', type: 'textarea', placeholder: 'What the bot is about, in two or three lines.' },
+    { key: 'members', label: 'Members, for a bot of several characters (Operator terminal)', type: 'textarea', placeholder: 'One to a line: Name | Title | A line about them | https://… their picture | https://… their chibi (optional)' },
     { key: 'featured', label: 'Feature in showcases', type: 'checkbox' }
   ];
 
@@ -3195,6 +3229,7 @@
     $('#cards-opt-redditBanner').value = cardOption('redditBanner');
     $('#cards-opt-fpAccent').value = cardOption('fpAccent');
     $('#cards-opt-fpNative').checked = cardOption('fpNative') === true;
+    $('#cards-opt-fpGallery').checked = cardOption('fpGallery') !== false;
     var fpTheme = $('#cards-opt-fpTheme');
     if (!fpTheme.options.length && window.JaiFrontier) {
       fpTheme.innerHTML = Object.keys(window.JaiFrontier.themes).map(function (id) {
@@ -3495,6 +3530,19 @@
     renderCards();
     syncTemplates();
     if (worn.template) toast('“' + worn.name + '” taken off. Ctrl+Z brings it back.');
+  });
+
+  $('#cards-opt-fpShuffle').addEventListener('click', function () {
+    info.layout.options.fpShuffle = (parseInt(info.layout.options.fpShuffle, 10) || 0) + 1;
+    saveInfo();
+    reapplyCards(0);
+    toast('The Overview is dealt in a new order');
+  });
+
+  $('#cards-opt-fpGallery').addEventListener('change', function () {
+    info.layout.options.fpGallery = this.checked;
+    saveInfo();
+    reapplyCards(0);
   });
 
   $('#cards-opt-fpNative').addEventListener('change', function () {

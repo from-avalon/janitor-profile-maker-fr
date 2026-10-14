@@ -218,6 +218,14 @@
           <label class="btn btn-ghost btn-sm profile-pages-button" for="profile-pages-info" title="Saved page 2, 3… of your character list. Pick several files at once; characters you already have are not added twice.">Add more pages</label>
           <input id="profile-pages-info" type="file" multiple accept=".mhtml,.mht,.html,.htm,text/html,multipart/related" hidden>
         </div>
+        <!-- Profile data lives in this browser only. A file of it is the way to
+             keep a finished profile, move it to another browser, or start the
+             next one from it. -->
+        <div class="info-import">
+          <button type="button" id="info-save-file" class="btn btn-ghost btn-sm" title="Download everything in Profile data as a file">Save Profile data</button>
+          <label class="btn btn-ghost btn-sm" for="info-load-file" title="Bring a saved Profile data file back in. Characters it names are updated, new ones are added, nothing else is removed.">Load Profile data</label>
+          <input id="info-load-file" type="file" accept=".json,application/json" hidden>
+        </div>
         <p class="cards-status" id="cards-status" aria-live="polite"></p>
 
         <details class="info-section" id="info-identity">
@@ -373,6 +381,8 @@
               </label>
               <p class="field-hint">The <b>Recruit</b> screen draws a character with a short sequence. A visitor first picks a pool: everyone, your featured characters, or one of these tags, and only characters carrying that tag can come up.</p>
               <label class="field field-check"><input type="checkbox" id="cards-opt-fpNative"> <span>Show JanitorAI's live character list underneath</span></label>
+              <button type="button" id="cards-opt-fpShuffle" class="btn btn-ghost btn-sm" title="The opening slideshow's order is dealt from your Profile data, and dealt again whenever it changes. This deals a new one now.">Shuffle the Overview</button>
+              <label class="field field-check"><input type="checkbox" id="cards-opt-fpGallery"> <span>Asset archive on the dossier: every character's pictures, to look at and open</span></label>
               <p class="field-hint">This design writes your characters into the page, so each can have a screen of its own. It looks its best with your pictures. Per character, under <b>Characters</b>: <b>Stage art</b> is the tall picture on the slanted plate, <b>Portrait</b> is the roster tile, and <b>Hover art</b> is the wide scene behind that character's file (without one, the art is used out of focus). A <b>Chibi</b> is pinned to the file as a tag. Every character has a <b>Rarity</b> of 3 to 6 stars: left on Auto it comes from where the character stands among your others by chats (your top tenth are 6 stars), or set it yourself. Tick <b>Feature in showcases</b> on up to five for the opening slideshow. Up to 36 characters get a file. A new bot only appears once Profile data has it, which is what the live list underneath is for.</p>
             </div>
             <div data-design="starfall">
