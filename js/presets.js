@@ -608,6 +608,29 @@
     return payload.slice(0, start) + partMarkup(part) + payload.slice(end + close.length);
   }
 
+  /* A part's stylesheet as it stands in the document, handed to `fn` and
+   * replaced by what it returns. The same text back changes nothing. */
+  function replacePartCss(payload, part, fn) {
+    if (!part.css) return payload;
+    var marker = OPEN + ' ' + part.id + ' ';
+    if (global.JaiPayload.allCss(payload).indexOf(marker) === -1) return payload;
+    var changed = false;
+    var out = global.JaiPayload.editCss(payload, function (css) {
+      var start = css.indexOf(marker);
+      if (start === -1) return css;
+      var from = css.indexOf('*/', start);
+      var end = css.indexOf(footer(part), start);
+      if (from === -1 || end === -1 || from > end) return css;
+      from += 2;
+      var inner = css.slice(from, end);
+      var next = fn(inner);
+      if (next == null || next === inner) return css;
+      changed = true;
+      return css.slice(0, from) + next + css.slice(end);
+    });
+    return changed ? out : payload;
+  }
+
   global.JaiPresets = {
     all: PRESETS,
     isApplied: isApplied,
@@ -621,6 +644,7 @@
     partMarkup: partMarkup,
     partInner: partInner,
     replacePartMarkup: replacePartMarkup,
+    replacePartCss: replacePartCss,
     partMarker: function (part) { return HTML_OPEN + ' ' + part.id + ' '; },
     removePart: removePart
   };

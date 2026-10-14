@@ -9,6 +9,109 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-10-14 — Operator terminal: squads, filters, an asset archive, and Profile data as a file
+
+Profile data can now be kept as a file. **Save Profile data** downloads
+everything in it; **Load Profile data** brings a file back in, updating the
+characters it names and adding new ones without removing anything. A finished
+profile can be kept, moved to another browser, or used to start the next one.
+
+The Operator terminal grew a lot. A bot of several characters (a party, a
+pair) lists them under **Members**, and its file shows all of them side by
+side on slanted strips; the one you point at widens and says who they are.
+Operators can be narrowed by JanitorAI's own tags, and pointing at a tile
+shows a briefing beside the roster: a scene, the full name, a **Summary** you
+write, the tags, and stickers of the bot's chibis. The Dossier has an asset
+archive of every character's pictures, each opening at full size (it can be
+turned off). JanitorAI's top bar is rebuilt as the top edge of the interface.
+
+The Overview is dealt in a new order whenever your Profile data changes, or
+with **Shuffle the Overview**. Pointing at one of its thumbnails brings that
+character up and holds it, with its own Open file and Initiate chat buttons
+right there. The Recruit button turns faster and from the moment the page
+loads, so a draw no longer starts from the same character each time.
+
+## 2026-10-12 — New design: Operator terminal, a whole interface for your profile
+
+Under Profile data → Profile design there is a new choice, **Operator terminal
+(Frontier Protocol)**. Where the other designs dress JanitorAI's page, this one
+replaces it with an interface in the manner of an industrial sci-fi game: flat
+panels, one loud accent colour, slanted art and small technical print, the
+width of the window.
+
+A rail down the left holds the screens, with your real avatar, name, follower
+count and Follow button at its foot. Overview is a slideshow of your featured
+characters, each on a slanted plate with its name enormous behind it. Operators
+is your roster. Every character gets a file screen of its own with its art, a
+scene behind it, tags, counts and the way in to the chat. Dossier is you, on
+an ID card; Network is your links and friends; Log is your notes. Screens
+change with a wipe of the accent, and there is a start-up screen when the page
+loads.
+
+Recruit is the game in it. A visitor picks a pool (everyone, your featured
+characters, or a tag such as Fluff or Angst), the candidates outside it fade
+back, and Initiate recruitment draws one: shutters close, frames lock on, a
+lock of figures spins, two slabs of the accent cross on the slant, and the
+drawn character's file opens with the art coming up out of silhouette and a
+stamp landing on it. Only characters carrying the pool's tag can come up, and
+which one depends on the moment the button is pressed.
+
+Every character has a rarity of three to six stars, shown on its roster tile,
+its file and the draw, which takes the rank's colour before the art appears
+(and whites out with turning rays for a six). Left alone, rarity comes from
+where a character stands among your others by chats, so your top tenth are six
+stars whatever your numbers are; or set each one yourself under Characters.
+A character can also carry a chibi, pinned to its file as a field tag, and
+there is a place for your own on the dossier.
+
+Your characters are written into the page, which is what lets each have its
+own screen, so it looks its best with your own pictures: a backdrop for the
+interface, and per character a tall piece of art, a roster tile and a wide
+scene. Under Design options you choose a light or dark theme, the accent, the
+wordmark, the ticker's text and which tags Recruit offers, and whether JanitorAI's live character list
+stays underneath for bots Profile data does not have yet.
+
+## 2026-10-12 — New template: Starfall, a gacha wish screen
+
+A night sky with drifting colour, blinking stars and the odd shooting star,
+and on it a gacha game's wish screen. Your profile box is the stage: a
+featured banner with a floating gilt frame for a picture, and three more
+screens behind tabs (Traveler for your about and links, Details for the fine
+print, Party for other creators). Your avatar sits in a turning ring of light
+and your follower count is the currency counter in the corner.
+
+Press Wish and the screen goes dark, a star falls, light bursts, and one of
+your characters is revealed with five stars and a Chat now button. Wish ×1
+lands on a different featured character depending on when you press it; Wish
+×10 deals a spread of ten cards. Your character list is the Archive: foil
+cards that lift, shine and show their tags when pointed at. None of it needs
+a script, and it all stands still for visitors who ask for reduced motion.
+
+Add it from Insert, or choose **Gacha (Starfall)** under Profile data →
+Profile design to have it filled in from your characters, About me, links,
+sections and friends. To pick who the wishes land on, tick **Feature in
+showcases** on up to five characters.
+
+## 2026-10-12 — New template: Front Page, a Reddit-style profile
+
+A dark-mode Reddit user page. Your profile box becomes the sidebar card on the
+right, with a blue banner, your avatar and name, followers as karma, your
+member date as the cake day, Follow as the pill button and your badges in a
+trophy case. Three more sidebar cards are yours to fill in: where else to find
+you, your friends, and a list of rules that open on a click.
+
+Your characters are the feed. Each one is a post: the chat count is the score
+between the vote arrows, the name is the title, tags are flair, and the
+description, a thumbnail and the token count fill the rest. It is JanitorAI's
+own list restyled, so a new bot shows up without touching the code.
+
+It is also a choice under Profile data → Profile design, as **Reddit-style
+(Front Page)**. Picked there, the card is filled in for you: the handle from
+your username, the bio from About me, your links as pills and as communities
+to join, your friends in a card of their own, and a rule for each extra
+section. Under Design options you can give the banner your own colour, or a
+picture. Or add it part by part from Insert, with the other templates.
+
 ## 2026-10-11 — The code editor's colours line up with what you type
 
 In the About Me code panel, the coloured text could sit to the left of the text

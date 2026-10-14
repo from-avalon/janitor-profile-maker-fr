@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "id": "front-page",
+  "version": "0.2.0",
+  "status": "draft",
+  "name": "Front Page",
+  "author": "Sweepercom",
+  "license": "All rights reserved",
+  "credit": "Template by Sweepercom",
+  "description": "Your profile as a Reddit user page in dark mode. The profile box is the sidebar card, and every character is a post in the feed: chats are the score, tags are flair.",
+  "tags": [
+    "dark",
+    "social",
+    "feed"
+  ],
+  "entry": "source.txt",
+  "components": [
+    {
+      "key": "backdrop",
+      "name": "Backdrop",
+      "blurb": "The near-black page, the light grey text and the font.",
+      "affects": [
+        "Page background"
+      ]
+    },
+    {
+      "key": "layout",
+      "name": "Sidebar profile card",
+      "blurb": "The feed on the left and a 312px sidebar on the right. The profile card has the blue banner, your avatar and name, followers as karma, the member date as cake day, Follow as the pill button, and your badges in a trophy case. On a phone the card goes on top.",
+      "affects": [
+        "Page layout",
+        "Profile identity",
+        "Follow & options"
+      ]
+    },
+    {
+      "key": "about",
+      "name": "Banner, handle, bio and links",
+      "needs": [
+        "layout"
+      ],
+      "blurb": "The banner across the card (a colour, or your own picture), the grey u/handle line, a short bio and a row of link pills.",
+      "affects": [
+        "Profile banner",
+        "About & status",
+        "Links & social"
+      ]
+    },
+    {
+      "key": "communities",
+      "name": "Communities card",
+      "needs": [
+        "layout"
+      ],
+      "blurb": "A sidebar card listing where else to find you, each with a round icon and a Join button.",
+      "affects": [
+        "Links & social"
+      ]
+    },
+    {
+      "key": "friends",
+      "name": "Friends card",
+      "needs": [
+        "layout"
+      ],
+      "blurb": "A sidebar card of other creators, each with a round picture or letter, a line about them and a Follow button.",
+      "affects": [
+        "Friends & shoutouts"
+      ]
+    },
+    {
+      "key": "rules",
+      "name": "Rules card",
+      "needs": [
+        "layout"
+      ],
+      "blurb": "A sidebar card of numbered rules that open on a click: requests, reposting, feedback.",
+      "affects": [
+        "About & status"
+      ]
+    },
+    {
+      "key": "feed",
+      "name": "Post feed",
+      "blurb": "Your real character list as a feed of posts: a vote rail with the chat count, Posted by, the name as the title, tags as flair, the description, a thumbnail and the token count. Also the tab strip, the sort bar and the page buttons.",
+      "affects": [
+        "Character cards",
+        "Tabs & filters",
+        "Pagination"
+      ]
+    },
+    {
+      "key": "site-chrome",
+      "name": "Site header",
+      "blurb": "JanitorAI's top bar, search, menus and phone navigation in Reddit's dark greys.",
+      "affects": [
+        "Site header",
+        "Menus",
+        "Mobile navigation"
+      ]
+    },
+    {
+      "key": "credit",
+      "name": "Template credit",
+      "recommended": true,
+      "needs": [
+        "layout"
+      ],
+      "blurb": "A small credit line under the sidebar.",
+      "affects": [
+        "Credits"
+      ]
+    }
+  ],
+  "compatibility": {
+    "platform": "JanitorAI public profile About Me",
+    "testedReferenceDate": "2026-10-12",
+    "requiresJavaScript": false,
+    "usesBlockedFeatures": false,
+    "notes": [
+      "The avatar, username, follower count, badges, Follow button and character list are JanitorAI's own elements, restyled.",
+      "The vote arrows are decoration: they are drawn round the live chat count and do not vote.",
+      "Not affiliated with or endorsed by Reddit."
+    ]
+  }
+}

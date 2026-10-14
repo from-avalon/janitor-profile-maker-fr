@@ -254,6 +254,14 @@
       }
     },
     {
+      id: 'frontier',
+      name: 'Operator terminal (Frontier Protocol)',
+      blurb: 'A whole interface in place of the page, in the manner of an industrial sci-fi game: a rail of screens, a slideshow of your featured characters on slanted plates, a roster, and a full file screen for every character with its own art and scene. Your characters are written in, so it shines with pictures of your own: a backdrop, and art, a tile and a scene per character.',
+      css: function (o) {
+        return global.JaiFrontier ? global.JaiFrontier.style(o) : '';
+      }
+    },
+    {
       id: 'photo-feed',
       name: 'Instagram-style (Golden Hour)',
       blurb: 'The Golden Hour template, filled in from Profile data: counts from your characters, bio from About me, story highlights for your featured characters and each section, your links as stickers and your friends as mentions.',
@@ -261,6 +269,22 @@
       // Sections shows them added), so it has no stylesheet of its own.
       css: null,
       template: 'golden-hour'
+    },
+    {
+      id: 'front-page',
+      name: 'Reddit-style (Front Page)',
+      blurb: 'The Front Page template, filled in from Profile data: your u/handle, the bio from About me, your links as pills and as communities to join, a card of your friends, a rule for each extra section, and a banner in your own colour or picture. Your character list becomes the feed of posts.',
+      // A template's parts, like Instagram-style: no stylesheet of its own.
+      css: null,
+      template: 'front-page'
+    },
+    {
+      id: 'starfall',
+      name: 'Gacha (Starfall)',
+      blurb: 'The Starfall template, filled in from Profile data: a wish banner with your featured characters, Wish buttons that play a falling star and reveal one of them, and Traveler, Details and Party screens from your About me, links, sections and friends. Your character list becomes an archive of foil cards.',
+      // A template's parts, like Instagram-style: no stylesheet of its own.
+      css: null,
+      template: 'starfall'
     },
     {
       id: 'none',

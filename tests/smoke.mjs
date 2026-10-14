@@ -654,6 +654,133 @@ try {
   if (swapped.parts !== swapped.of || swapped.generated || !swapped.card || swapped.pick !== 'photo-feed' || swapped.issues) {
     fail(`switching designs did not replace one with the other (${JSON.stringify(swapped)})`);
   }
+  // Reddit-style is the Front Page template's parts, with its profile card
+  // written from Profile data, and it takes Golden Hour's place.
+  await page.selectOption('#cards-opt-style', 'front-page');
+  await page.waitForTimeout(700);
+  const reddit = await page.evaluate(() => {
+    const code = window.JaiStudio.code();
+    const of = (prefix) => window.JaiPresets.allParts().filter((part) => part.id.startsWith(prefix));
+    return {
+      parts: of('front-page-').filter((part) => window.JaiPresets.isPartApplied(code, part)).length,
+      of: of('front-page-').length,
+      left: of('golden-hour-').filter((part) => window.JaiPresets.isPartApplied(code, part)).length,
+      handle: /class="rd-handle">u\/(?!yourname)/.test(code),
+      option: !!document.getElementById('cards-opt-redditTagline').offsetParent,
+      pick: document.getElementById('cards-opt-style').value,
+      issues: window.JaiStudio.issues().length,
+    };
+  });
+  if (reddit.parts !== reddit.of || !reddit.of || reddit.left || !reddit.handle || !reddit.option || reddit.pick !== 'front-page' || reddit.issues) {
+    fail(`the Reddit-style design did not build from Profile data (${JSON.stringify(reddit)})`);
+  }
+  // Its banner is an option: the colour is written into the part's stylesheet,
+  // the picture into its markup, and the default colour is the template's own.
+  const setOption = (id, value) => page.evaluate(([i, v]) => {
+    const input = document.getElementById(i);
+    input.value = v;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }, [id, value]);
+  await setOption('cards-opt-redditBanner', '#ff4500');
+  // A picture the test's own server has, so nothing is fetched from outside.
+  const bannerPicture = new URL('assets/link-preview.png', page.url()).href;
+  await setOption('cards-opt-redditBannerImage', bannerPicture);
+  await page.waitForTimeout(1200);
+  const painted = await page.evaluate((picture) => {
+    const code = window.JaiStudio.code();
+    return {
+      colour: /\.rd-banner \{[^}]*background: linear-gradient\(135deg, #[0-9a-f]{6}, #ff4500\)/.test(code),
+      picture: code.includes('<div class="rd-banner"><img src="' + picture + '"'),
+      issues: window.JaiStudio.issues().length,
+    };
+  }, bannerPicture);
+  await setOption('cards-opt-redditBanner', '#0079d3');
+  await setOption('cards-opt-redditBannerImage', '');
+  await page.waitForTimeout(1200);
+  const unpainted = await page.evaluate(() => {
+    const code = window.JaiStudio.code();
+    return {
+      colour: code.includes('background: linear-gradient(135deg, #33a8ff, #0079d3);'),
+      picture: code.includes('<div class="rd-banner"></div>'),
+    };
+  });
+  if (!painted.colour || !painted.picture || painted.issues || !unpainted.colour || !unpainted.picture) {
+    fail(`the Reddit-style banner did not follow its options (${JSON.stringify({ painted, unpainted })})`);
+  }
+  // Gacha is the Starfall template's parts. Its Wish button and its results
+  // are two parts that have to agree on how many characters there are.
+  await page.selectOption('#cards-opt-style', 'starfall');
+  await page.waitForTimeout(900);
+  const gacha = await page.evaluate(() => {
+    const code = window.JaiStudio.code();
+    const of = (prefix) => window.JaiPresets.allParts().filter((part) => part.id.startsWith(prefix));
+    const links = (code.match(/<span class="sf-wish sf-wish-1 sf-cycle-(\d)">((?:<a [^>]*><\/a>)+)/) || []);
+    return {
+      parts: of('starfall-').filter((part) => window.JaiPresets.isPartApplied(code, part)).length,
+      of: of('starfall-').length,
+      left: of('front-page-').filter((part) => window.JaiPresets.isPartApplied(code, part)).length,
+      cycle: Number(links[1] || 0),
+      wishLinks: (links[2] || '').split('</a>').length - 1,
+      results: (code.match(/<div class="sf-pull sf-pull-\d"/g) || []).length,
+      keys: (code.match(/class="sf-key sf-key-pull" id="sf-pull-\d"/g) || []).length,
+      pick: document.getElementById('cards-opt-style').value,
+      issues: window.JaiStudio.issues().length,
+    };
+  });
+  if (gacha.parts !== gacha.of || !gacha.of || gacha.left || !gacha.cycle || gacha.cycle !== gacha.wishLinks ||
+      gacha.cycle !== gacha.results || gacha.cycle !== gacha.keys || gacha.pick !== 'starfall' || gacha.issues) {
+    fail(`the Gacha design did not build from Profile data (${JSON.stringify(gacha)})`);
+  }
+  // The Operator terminal writes the characters in: a key, a roster tile and
+  // a file screen for each, and a rule that opens each file.
+  await page.selectOption('#cards-opt-style', 'frontier');
+  await page.waitForTimeout(900);
+  const terminal = await page.evaluate(() => {
+    const code = window.JaiStudio.code();
+    const count = (re) => (code.match(re) || []).length;
+    return {
+      generated: window.JaiHardcode.isApplied(code),
+      keys: count(/class="fp-key fp-key-op fp-k-\d+" id="fp-op-\d+"/g),
+      tiles: count(/<a class="fp-card fp-r[3-6][^"]*" href="#fp-op-\d+"/g),
+      files: count(/<section class="fp-screen fp-file fp-file-\d+ fp-r[3-6][^"]*"/g),
+      // A rank for every draw, and at least one character at the top of it.
+      ranked: count(/class="fp-key fp-key-pull [^"]* fp-kr-[3-6]"/g),
+      sixes: count(/<a class="fp-card fp-r6[ "]/g),
+      rules: count(/:has\(\.fp-k-\d+:target\) \.fp-file-\d+/g),
+      slides: count(/<div class="fp-slide fp-slide-\d+"/g),
+      // Recruit: every draw a pool's button can make has a key to land on.
+      pools: count(/class="fp-key fp-key-pool" id="fp-pool-[a-z0-9-]+"/g),
+      gates: count(/<div class="fp-gate fp-gate-[a-z0-9-]+"/g),
+      draws: count(/<a href="#fp-pull-[a-z0-9-]+-\d+" aria-label="Recruit">/g),
+      drawKeys: count(/class="fp-key fp-key-pull [^"]*" id="fp-pull-[a-z0-9-]+-\d+"/g),
+      // The roster's tag filters: a key and a rule for every chip, and a
+      // briefing for every tile.
+      tagKeys: count(/class="fp-key fp-key-tag" id="fp-tag-\d+"/g),
+      chips: count(/<a class="fp-filter fp-f[1-9]\d*" href="#fp-tag-\d+"/g),
+      sifts: count(/:has\(#fp-tag-\d+:target\) \.fp-card:not\(\.fp-g\d+\)/g),
+      briefs: count(/<div class="fp-brief fp-r[3-6]"/g),
+      day: code.includes('.fp-file { background: #e8e7e2; }'),
+      templates: window.JaiPresets.allParts().filter((part) => window.JaiPresets.isPartApplied(code, part)).length,
+      blob: /blob:/.test(code),
+      pick: document.getElementById('cards-opt-style').value,
+      issues: window.JaiStudio.issues().length,
+    };
+  });
+  if (!terminal.generated || !terminal.keys || terminal.keys !== terminal.tiles || terminal.keys !== terminal.files ||
+      terminal.keys !== terminal.rules || !terminal.slides || terminal.templates || terminal.blob ||
+      !terminal.pools || terminal.pools !== terminal.gates || !terminal.draws || terminal.draws !== terminal.drawKeys || terminal.ranked !== terminal.drawKeys || !terminal.sixes || !terminal.day ||
+      !terminal.tagKeys || terminal.tagKeys !== terminal.chips || terminal.tagKeys !== terminal.sifts || terminal.briefs !== terminal.keys ||
+      terminal.pick !== 'frontier' || terminal.issues) {
+    fail(`the Operator terminal did not build cleanly (${JSON.stringify(terminal)})`);
+  }
+  // Its theme is an option: the whole interface, a character's file included,
+  // is repainted when it changes.
+  await page.selectOption('#cards-opt-fpTheme', 'night');
+  await page.waitForTimeout(1200);
+  const night = await page.evaluate(() => window.JaiStudio.code().includes('.fp-file { background: #0f1013; }'));
+  await page.selectOption('#cards-opt-fpTheme', 'day');
+  await page.waitForTimeout(1200);
+  if (!night) fail('the Operator terminal did not follow its theme option');
   await page.evaluate(() => window.JaiStudio.setCode('', 'load', { now: true }));
 
   // The changelog dialog: opens from the toolbar and renders at least one entry.

@@ -79,13 +79,44 @@
     // written from Profile data (js/photo-feed-profile.js).
     feedName: '',
     feedCategory: 'Bot creator',
-    feedStories: true
+    feedStories: true,
+    // The Reddit-style design: Front Page's parts, written the same way
+    // (js/front-page-profile.js). The words after the u/handle, and the
+    // banner across the profile card: a colour, or a picture over it.
+    redditTagline: '',
+    redditBanner: '#0079d3',
+    redditBannerImage: '',
+    // The Gacha design: Starfall's parts (js/starfall-profile.js). The
+    // banner's title, and a picture for its frame other than the first
+    // featured character's.
+    gachaTitle: '',
+    gachaArt: '',
+    // The Operator terminal layout (js/frontier-profile.js): theme and accent,
+    // the backdrop and emblem pictures, the wordmark, the ticker's text, and
+    // whether JanitorAI's own character list stays underneath.
+    fpTheme: 'day',
+    fpAccent: '#ffd60a',
+    fpBackground: '',
+    fpEmblem: '',
+    fpCallsign: '',
+    fpTicker: '',
+    // Which tags Recruit offers as pools, comma separated; empty = the tags
+    // most of the roster shares.
+    fpPools: '',
+    // The creator's own chibi, shown on the dossier.
+    fpMascot: '',
+    fpNative: false,
+    // The archive of every character's pictures, on the dossier.
+    fpGallery: true,
+    // Turned over to deal the Overview's slides in a new order.
+    fpShuffle: 0
   };
 
   /* A design with markup all of its own writes it itself; the rest share the
    * contact-select markup below. */
   function ownEmitter(o) {
     if (o.style === 'steam') return global.JaiSteamProfile || null;
+    if (o.style === 'frontier') return global.JaiFrontier || null;
     return null;
   }
 
@@ -165,8 +196,33 @@
       hover: String((entry && entry.hover) || '').trim(),
       chats: String((entry && entry.chats) || '').trim(),
       tokens: String((entry && entry.tokens) || '').trim(),
+      // The Operator terminal's: a rank set by hand ('' = by chats), a chibi.
+      rarity: String((entry && entry.rarity) || '').trim(),
+      chibi: String((entry && entry.chibi) || '').trim(),
+      // What the bot is about, in a few lines, and the characters of a bot
+      // that is more than one (a party, a pair): shown side by side on its file.
+      summary: String((entry && entry.summary) || '').trim(),
+      members: members(entry && entry.members),
       featured: !!(entry && entry.featured)
     };
+  }
+
+  /* A bot's members: typed one to a line as "Name | Title | A line about them
+   * | picture address | chibi address", or already a list. */
+  function members(value) {
+    var rows = Array.isArray(value) ? value : String(value || '').split(/\r?\n/).map(function (line) {
+      var part = line.split('|').map(function (text) { return text.trim(); });
+      return { name: part[0], title: part[1], line: part[2], art: part[3], chibi: part[4] };
+    });
+    return rows.map(function (m) {
+      return {
+        name: String((m && m.name) || '').trim(),
+        title: String((m && m.title) || '').trim(),
+        line: String((m && m.line) || '').trim(),
+        art: String((m && m.art) || '').trim(),
+        chibi: String((m && m.chibi) || '').trim()
+      };
+    }).filter(function (m) { return m.name; });
   }
 
   function prepare(roster) {

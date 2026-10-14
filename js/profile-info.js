@@ -219,6 +219,86 @@
     return out;
   }
 
+  /*
+   * Folds a saved Profile data file into what the creator has: the panel's
+   * own "Save Profile data" file, or the workshop's overlay, whose "byName"
+   * matches characters by part of their name. Nothing is taken away: a
+   * character the file does not mention is left as it is, and one it brings
+   * that is not here yet is added. What the file says wins over what is here,
+   * since saying it is why the file was loaded.
+   */
+  function fromFile(info, data) {
+    var result = { added: 0, updated: 0 };
+    if (!data || typeof data !== 'object') return result;
+
+    if (data.identity && typeof data.identity === 'object') {
+      Object.keys(info.identity).forEach(function (k) {
+        if (data.identity[k] != null && !isEmpty(data.identity[k])) info.identity[k] = data.identity[k];
+      });
+    }
+    if (data.about && typeof data.about === 'object') {
+      ['title', 'body', 'notes'].forEach(function (k) {
+        if (data.about[k] != null) info.about[k] = data.about[k];
+      });
+    }
+    ['sections', 'friends', 'socials', 'inventory', 'workshop'].forEach(function (k) {
+      if (Array.isArray(data[k]) && data[k].length) info[k] = data[k];
+    });
+    var layout = data.layout || {};
+    if (layout.options && typeof layout.options === 'object') {
+      Object.keys(layout.options).forEach(function (k) { info.layout.options[k] = layout.options[k]; });
+    }
+    if (layout.style) info.layout.style = layout.style;
+
+    // The panel edits tags and members as text, so a list in the file becomes
+    // the text the panel would show.
+    function asPanel(fields) {
+      var out = {};
+      Object.keys(fields).forEach(function (k) {
+        var v = fields[k];
+        if (k === 'tags' && Array.isArray(v)) v = v.join(', ');
+        if (k === 'members' && Array.isArray(v)) {
+          v = v.map(function (m) {
+            return [m.name, m.title, m.line, m.art, m.chibi].map(function (x) { return String(x || '').trim(); })
+              .join(' | ').replace(/( \| )+$/, '');
+          }).join('\n');
+        }
+        out[k] = v;
+      });
+      return out;
+    }
+
+    var byLink = {}, byName = {};
+    info.characters.forEach(function (c) {
+      if (c.link) byLink[c.link] = c;
+      if (c.name) byName[String(c.name).toLowerCase()] = c;
+    });
+    (Array.isArray(data.characters) ? data.characters : []).forEach(function (c) {
+      if (!c || !(c.name || c.link)) return;
+      var existing = (c.link && byLink[c.link]) || byName[String(c.name || '').toLowerCase()];
+      if (existing) {
+        Object.assign(existing, asPanel(c));
+        result.updated++;
+      } else {
+        info.characters.push(asPanel(c));
+        result.added++;
+      }
+    });
+    var parts = data.byName && typeof data.byName === 'object' ? Object.keys(data.byName) : [];
+    info.characters.forEach(function (c) {
+      var name = String(c.name || '').toLowerCase();
+      var hit = false;
+      parts.forEach(function (part) {
+        if (part && name.indexOf(part.toLowerCase()) !== -1) {
+          Object.assign(c, asPanel(data.byName[part]));
+          hit = true;
+        }
+      });
+      if (hit) result.updated++;
+    });
+    return result;
+  }
+
   global.JaiProfileInfo = {
     key: KEY,
     blank: blank,
@@ -227,6 +307,7 @@
     save: save,
     fromDocument: fromDocument,
     merge: merge,
+    fromFile: fromFile,
     emitOptions: emitOptions
   };
 })(window);

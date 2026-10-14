@@ -218,6 +218,14 @@
           <label class="btn btn-ghost btn-sm profile-pages-button" for="profile-pages-info" title="Saved page 2, 3… of your character list. Pick several files at once; characters you already have are not added twice.">Add more pages</label>
           <input id="profile-pages-info" type="file" multiple accept=".mhtml,.mht,.html,.htm,text/html,multipart/related" hidden>
         </div>
+        <!-- Profile data lives in this browser only. A file of it is the way to
+             keep a finished profile, move it to another browser, or start the
+             next one from it. -->
+        <div class="info-import">
+          <button type="button" id="info-save-file" class="btn btn-ghost btn-sm" title="Download everything in Profile data as a file">Save Profile data</button>
+          <label class="btn btn-ghost btn-sm" for="info-load-file" title="Bring a saved Profile data file back in. Characters it names are updated, new ones are added, nothing else is removed.">Load Profile data</label>
+          <input id="info-load-file" type="file" accept=".json,application/json" hidden>
+        </div>
         <p class="cards-status" id="cards-status" aria-live="polite"></p>
 
         <details class="info-section" id="info-identity">
@@ -343,6 +351,61 @@
               </label>
               <label class="field field-check"><input type="checkbox" id="cards-opt-feedStories"> <span>Featured characters as story highlights</span></label>
               <p class="field-hint">The bio is your <b>About me</b> introduction. Creator notes and each extra section become a story highlight; social links become stickers and friends become mentions. To feature a character, open it under <b>Characters</b> and tick <b>Feature in showcases</b>: it gets a highlight of its own, with its picture as the story.</p>
+            </div>
+            <div data-design="frontier">
+              <div class="info-grid">
+                <label class="field">Theme
+                  <select id="cards-opt-fpTheme"></select>
+                </label>
+                <label class="field">Accent
+                  <input type="color" id="cards-opt-fpAccent">
+                </label>
+              </div>
+              <label class="field">Backdrop picture
+                <input type="url" id="cards-opt-fpBackground" placeholder="https://… a wide picture behind every screen">
+              </label>
+              <label class="field">Emblem
+                <input type="url" id="cards-opt-fpEmblem" placeholder="https://… a small square mark (optional)">
+              </label>
+              <label class="field">Your chibi
+                <input type="url" id="cards-opt-fpMascot" placeholder="https://… a small square picture of you (optional)">
+              </label>
+              <label class="field">Wordmark
+                <input type="text" id="cards-opt-fpCallsign" placeholder="Frontier Protocol">
+              </label>
+              <label class="field">Ticker text
+                <input type="text" id="cards-opt-fpTicker" placeholder="Requests open · new operator every other Friday">
+              </label>
+              <label class="field">Recruit pools (tags, comma separated)
+                <input type="text" id="cards-opt-fpPools" placeholder="Leave empty for your most shared tags">
+              </label>
+              <p class="field-hint">The <b>Recruit</b> screen draws a character with a short sequence. A visitor first picks a pool: everyone, your featured characters, or one of these tags, and only characters carrying that tag can come up.</p>
+              <label class="field field-check"><input type="checkbox" id="cards-opt-fpNative"> <span>Show JanitorAI's live character list underneath</span></label>
+              <button type="button" id="cards-opt-fpShuffle" class="btn btn-ghost btn-sm" title="The opening slideshow's order is dealt from your Profile data, and dealt again whenever it changes. This deals a new one now.">Shuffle the Overview</button>
+              <label class="field field-check"><input type="checkbox" id="cards-opt-fpGallery"> <span>Asset archive on the dossier: every character's pictures, to look at and open</span></label>
+              <p class="field-hint">This design writes your characters into the page, so each can have a screen of its own. It looks its best with your pictures. Per character, under <b>Characters</b>: <b>Stage art</b> is the tall picture on the slanted plate, <b>Portrait</b> is the roster tile, and <b>Hover art</b> is the wide scene behind that character's file (without one, the art is used out of focus). A <b>Chibi</b> is pinned to the file as a tag. Every character has a <b>Rarity</b> of 3 to 6 stars: left on Auto it comes from where the character stands among your others by chats (your top tenth are 6 stars), or set it yourself. Tick <b>Feature in showcases</b> on up to five for the opening slideshow. Up to 36 characters get a file. A new bot only appears once Profile data has it, which is what the live list underneath is for.</p>
+            </div>
+            <div data-design="starfall">
+              <label class="field">Banner title
+                <input type="text" id="cards-opt-gachaTitle" placeholder="Ballad of the Falling Stars">
+              </label>
+              <label class="field">Banner picture
+                <input type="url" id="cards-opt-gachaArt" placeholder="https://… defaults to your first featured character">
+              </label>
+              <p class="field-hint">The Wish buttons land on your featured characters, up to five: open a character under <b>Characters</b> and tick <b>Feature in showcases</b>. With none featured, the first five are used. Wish ×10 deals the first ten. The banner's lines are your <b>About me</b> introduction and its heading is the signature on the Traveler screen, where your social links are the waypoints. Creator notes and extra sections fill Details; friends fill Party.</p>
+            </div>
+            <div data-design="front-page">
+              <label class="field">After your u/handle
+                <input type="text" id="cards-opt-redditTagline" placeholder="they/them · bot maker">
+              </label>
+              <label class="field">Banner colour
+                <input type="color" id="cards-opt-redditBanner">
+              </label>
+              <label class="field">Banner picture
+                <input type="url" id="cards-opt-redditBannerImage" placeholder="https://… a wide picture, hosted online">
+              </label>
+              <p class="field-hint">The banner is the strip across the top of the profile card. A picture covers the colour; it shows about 310 by 94 on a computer, so wide pictures work best.</p>
+              <p class="field-hint">The handle is your username and the bio is your <b>About me</b> introduction. Social links become the pills in the profile card and the communities to join; friends get a card of their own. Creator notes and each extra section become a rule that opens on a click. The posts are JanitorAI's own character list, so they need nothing from here.</p>
             </div>
             <div data-design="contact-select proxy-terminal">
             <div class="info-grid">
@@ -645,6 +708,9 @@
 <script src="js/proxy-terminal-style.js"></script>
 <script src="js/steam-profile.js"></script>
 <script src="js/photo-feed-profile.js"></script>
+<script src="js/front-page-profile.js"></script>
+<script src="js/starfall-profile.js"></script>
+<script src="js/frontier-profile.js"></script>
 <script src="js/hardcode.js"></script>
 <script src="js/hardcode-sections.js"></script>
 <script src="js/profile-info.js"></script>

@@ -1033,9 +1033,26 @@
    * part is not one it writes. Golden Hour's stats-and-bio and its highlights
    * are (js/photo-feed-profile.js); the generator is handed the template's own
    * markup to fall back on. */
+  function partWriter(part) {
+    // One writer per template: Golden Hour's, Front Page's
+    // (js/front-page-profile.js) and Starfall's (js/starfall-profile.js).
+    return [window.JaiPhotoFeed, window.JaiFrontPage, window.JaiStarfall].filter(function (writer) {
+      return writer && part && part.id.indexOf(writer.template + '-') === 0;
+    })[0] || null;
+  }
+
+  /* The same for a part's stylesheet, where a writer has one that follows
+   * Profile data (Front Page's banner colour). It is given the CSS as it is
+   * now and changes only what it owns, so the creator's edits stay. */
+  function generatedPartCss(part, css) {
+    var feed = partWriter(part);
+    var write = feed && feed.css && feed.css[part.key];
+    return write ? write(cardEmitOptions(), css) : null;
+  }
+
   function generatedPartHtml(part) {
-    var feed = window.JaiPhotoFeed;
-    if (!feed || !part || part.id.indexOf(feed.template + '-') !== 0) return null;
+    var feed = partWriter(part);
+    if (!feed) return null;
     var write = feed.parts[part.key];
     if (!write) return null;
     return write(window.JaiHardcode.prepare(info.characters), cardEmitOptions(), part.html) || null;
@@ -1063,9 +1080,15 @@
 
   function materialiseTemplatePart(part) {
     var generated = generatedPartHtml(part);
-    if (generated != null) {
-      rememberGenerated(part.id, generated);
-      return Object.assign({}, part, { html: generated });
+    var styled = part && part.css ? generatedPartCss(part, part.css) : null;
+    if (generated != null || styled != null) {
+      var written = Object.assign({}, part);
+      if (generated != null) {
+        rememberGenerated(part.id, generated);
+        written.html = generated;
+      }
+      if (styled != null) written.css = styled;
+      return written;
     }
     if (!part || part.id.indexOf('hime-darkred-') !== 0) return part;
     var identity = darkRedIdentity();
@@ -1423,6 +1446,7 @@
     var to = code.indexOf(m.htmlEnd);
     var html = to > from ? code.slice(from, to) : '';
     if (html.indexOf('class="sp-') !== -1) return 'steam';
+    if (html.indexOf('class="fp-') !== -1) return 'frontier';
     if (html.indexOf('zz-navigation') !== -1) return 'proxy-terminal';
     return code.indexOf(m.styleStart) !== -1 ? 'contact-select' : 'none';
   }
@@ -1488,6 +1512,9 @@
         if (addMissing) code = window.JaiPresets.applyPart(code, materialiseTemplatePart(part));
         return;
       }
+      code = window.JaiPresets.replacePartCss(code, part, function (css) {
+        return generatedPartCss(part, css);
+      });
       var fresh = generatedPartHtml(part);
       if (fresh == null) return;
       fresh = fresh.replace(/^\n+|\n+$/g, '');
@@ -1884,6 +1911,38 @@
   $('#profile-pages-info').addEventListener('change', function () {
     addProfilePages(this.files);
     this.value = '';
+  });
+
+  // Profile data as a file: saved whole, and loaded back in by merging, so a
+  // file never takes away characters the panel has and the file does not.
+  $('#info-save-file').addEventListener('click', function () {
+    var name = String(info.identity.username || 'profile').replace(/[^\w.-]+/g, '-');
+    var blob = new Blob([JSON.stringify(info, null, 1)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'profile-data-' + name + '-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    toast('Profile data saved as ' + a.download);
+  });
+
+  $('#info-load-file').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    var input = this;
+    if (!file) return;
+    file.text().then(function (text) {
+      var result = window.JaiProfileInfo.fromFile(info, JSON.parse(text));
+      saveInfo();
+      renderInfo();
+      reapplyCards(0);
+      cardsStatus('Loaded “' + file.name + '”: ' + plural(result.updated, 'character') + ' updated, ' +
+        plural(result.added, 'character') + ' added. ' + rosterProgress());
+      toast('Profile data loaded');
+    }).catch(function (error) {
+      cardsStatus('“' + file.name + '” is not a Profile data file (' + error.message + ').');
+    }).then(function () { input.value = ''; });
   });
 
   // The same import lives in the Settings and Profile panels; importing from
@@ -2678,6 +2737,11 @@
     { key: 'hover', label: 'Hover art override (optional)', type: 'url', placeholder: 'Any aspect ratio; centered and clipped' },
     { key: 'chats', label: 'Chats', half: true, placeholder: '752' },
     { key: 'tokens', label: 'Tokens', half: true, placeholder: '1,845' },
+    { key: 'chibi', label: 'Chibi (optional, Operator terminal)', type: 'url', placeholder: 'A small square picture; a white background is fine' },
+    { key: 'rarity', label: 'Rarity (Operator terminal)', type: 'select', options: [
+      ['', 'Auto, from chats'], ['6', '6 stars'], ['5', '5 stars'], ['4', '4 stars'], ['3', '3 stars']] },
+    { key: 'summary', label: 'Summary (Operator terminal: shown when its tile is pointed at)', type: 'textarea', placeholder: 'What the bot is about, in two or three lines.' },
+    { key: 'members', label: 'Members, for a bot of several characters (Operator terminal)', type: 'textarea', placeholder: 'One to a line: Name | Title | A line about them | https://… their picture | https://… their chibi (optional)' },
     { key: 'featured', label: 'Feature in showcases', type: 'checkbox' }
   ];
 
@@ -2766,6 +2830,13 @@
     if (f.type === 'checkbox') {
       return '<label class="field field-check"><input type="checkbox" data-field="' + f.key + '"' +
         (value ? ' checked' : '') + '> <span>' + escapeHtml(f.label) + '</span></label>';
+    }
+    if (f.type === 'select') {
+      return '<label class="field">' + escapeHtml(f.label) + '<select data-field="' + f.key + '">' +
+        f.options.map(function (option) {
+          return '<option value="' + escapeHtml(option[0]) + '"' + (String(value == null ? '' : value) === option[0] ? ' selected' : '') +
+            '>' + escapeHtml(option[1]) + '</option>';
+        }).join('') + '</select></label>';
     }
     var v = escapeHtml(value == null ? '' : value);
     var placeholder = escapeHtml(f.placeholder || '');
@@ -3155,10 +3226,21 @@
     $('#cards-opt-filterlist').value = options.filterList || '';
     $('#cards-opt-accent').value = cardOption('accent');
     $('#cards-opt-preview').value = cardOption('preview');
+    $('#cards-opt-redditBanner').value = cardOption('redditBanner');
+    $('#cards-opt-fpAccent').value = cardOption('fpAccent');
+    $('#cards-opt-fpNative').checked = cardOption('fpNative') === true;
+    $('#cards-opt-fpGallery').checked = cardOption('fpGallery') !== false;
+    var fpTheme = $('#cards-opt-fpTheme');
+    if (!fpTheme.options.length && window.JaiFrontier) {
+      fpTheme.innerHTML = Object.keys(window.JaiFrontier.themes).map(function (id) {
+        return '<option value="' + id + '">' + escapeHtml(window.JaiFrontier.themes[id].name) + '</option>';
+      }).join('');
+    }
+    fpTheme.value = cardOption('fpTheme');
     // Empty means "the layout's own wording", which the placeholders show.
     ['title', 'kicker', 'launch', 'profileLabel', 'profileMark', 'friendsTitle', 'footerText',
       'steamBackground', 'steamFrameImage', 'steamLevel', 'steamStatus', 'steamSubtitle',
-      'feedName', 'feedCategory'].forEach(function (key) {
+      'feedName', 'feedCategory', 'redditTagline', 'redditBannerImage', 'gachaTitle', 'gachaArt', 'fpBackground', 'fpEmblem', 'fpCallsign', 'fpTicker', 'fpPools', 'fpMascot'].forEach(function (key) {
       var field = $('#cards-opt-' + key);
       if (document.activeElement !== field) field.value = options[key] || '';
     });
@@ -3450,13 +3532,32 @@
     if (worn.template) toast('“' + worn.name + '” taken off. Ctrl+Z brings it back.');
   });
 
+  $('#cards-opt-fpShuffle').addEventListener('click', function () {
+    info.layout.options.fpShuffle = (parseInt(info.layout.options.fpShuffle, 10) || 0) + 1;
+    saveInfo();
+    reapplyCards(0);
+    toast('The Overview is dealt in a new order');
+  });
+
+  $('#cards-opt-fpGallery').addEventListener('change', function () {
+    info.layout.options.fpGallery = this.checked;
+    saveInfo();
+    reapplyCards(0);
+  });
+
+  $('#cards-opt-fpNative').addEventListener('change', function () {
+    info.layout.options.fpNative = this.checked;
+    saveInfo();
+    reapplyCards(0);
+  });
+
   $('#cards-opt-feedStories').addEventListener('change', function () {
     info.layout.options.feedStories = this.checked;
     saveInfo();
     reapplyCards(0);
   });
 
-  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText, #cards-opt-steamTheme, #cards-opt-steamBackground, #cards-opt-steamFrame, #cards-opt-steamFrameImage, #cards-opt-steamLevel, #cards-opt-steamStatus, #cards-opt-steamSubtitle, #cards-opt-feedName, #cards-opt-feedCategory')
+  $$('#cards-opt-title, #cards-opt-kicker, #cards-opt-launch, #cards-opt-slots, #cards-opt-filters, #cards-opt-filterlist, #cards-opt-accent, #cards-opt-preview, #cards-opt-profileLabel, #cards-opt-profileMark, #cards-opt-friendsTitle, #cards-opt-footerText, #cards-opt-steamTheme, #cards-opt-steamBackground, #cards-opt-steamFrame, #cards-opt-steamFrameImage, #cards-opt-steamLevel, #cards-opt-steamStatus, #cards-opt-steamSubtitle, #cards-opt-feedName, #cards-opt-feedCategory, #cards-opt-redditTagline, #cards-opt-redditBanner, #cards-opt-redditBannerImage, #cards-opt-gachaTitle, #cards-opt-gachaArt, #cards-opt-fpTheme, #cards-opt-fpAccent, #cards-opt-fpBackground, #cards-opt-fpEmblem, #cards-opt-fpCallsign, #cards-opt-fpTicker, #cards-opt-fpPools, #cards-opt-fpMascot')
     .forEach(function (input) {
       input.addEventListener('input', function () {
         var key = input.id.replace('cards-opt-', '');
