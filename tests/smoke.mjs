@@ -741,11 +741,11 @@ try {
     return {
       generated: window.JaiHardcode.isApplied(code),
       keys: count(/class="fp-key fp-key-op fp-k-\d+" id="fp-op-\d+"/g),
-      tiles: count(/<a class="fp-card fp-r[3-6]" href="#fp-op-\d+"/g),
-      files: count(/<section class="fp-screen fp-file fp-file-\d+ fp-r[3-6]"/g),
+      tiles: count(/<a class="fp-card fp-r[3-6][^"]*" href="#fp-op-\d+"/g),
+      files: count(/<section class="fp-screen fp-file fp-file-\d+ fp-r[3-6][^"]*"/g),
       // A rank for every draw, and at least one character at the top of it.
       ranked: count(/class="fp-key fp-key-pull [^"]* fp-kr-[3-6]"/g),
-      sixes: count(/<a class="fp-card fp-r6"/g),
+      sixes: count(/<a class="fp-card fp-r6[ "]/g),
       rules: count(/:has\(\.fp-k-\d+:target\) \.fp-file-\d+/g),
       slides: count(/<div class="fp-slide fp-slide-\d+"/g),
       // Recruit: every draw a pool's button can make has a key to land on.
@@ -753,6 +753,12 @@ try {
       gates: count(/<div class="fp-gate fp-gate-[a-z0-9-]+"/g),
       draws: count(/<a href="#fp-pull-[a-z0-9-]+-\d+" aria-label="Recruit">/g),
       drawKeys: count(/class="fp-key fp-key-pull [^"]*" id="fp-pull-[a-z0-9-]+-\d+"/g),
+      // The roster's tag filters: a key and a rule for every chip, and a
+      // briefing for every tile.
+      tagKeys: count(/class="fp-key fp-key-tag" id="fp-tag-\d+"/g),
+      chips: count(/<a class="fp-filter fp-f[1-9]\d*" href="#fp-tag-\d+"/g),
+      sifts: count(/:has\(#fp-tag-\d+:target\) \.fp-card:not\(\.fp-g\d+\)/g),
+      briefs: count(/<div class="fp-brief fp-r[3-6]"/g),
       day: code.includes('.fp-file { background: #e8e7e2; }'),
       templates: window.JaiPresets.allParts().filter((part) => window.JaiPresets.isPartApplied(code, part)).length,
       blob: /blob:/.test(code),
@@ -763,6 +769,7 @@ try {
   if (!terminal.generated || !terminal.keys || terminal.keys !== terminal.tiles || terminal.keys !== terminal.files ||
       terminal.keys !== terminal.rules || !terminal.slides || terminal.templates || terminal.blob ||
       !terminal.pools || terminal.pools !== terminal.gates || !terminal.draws || terminal.draws !== terminal.drawKeys || terminal.ranked !== terminal.drawKeys || !terminal.sixes || !terminal.day ||
+      !terminal.tagKeys || terminal.tagKeys !== terminal.chips || terminal.tagKeys !== terminal.sifts || terminal.briefs !== terminal.keys ||
       terminal.pick !== 'frontier' || terminal.issues) {
     fail(`the Operator terminal did not build cleanly (${JSON.stringify(terminal)})`);
   }

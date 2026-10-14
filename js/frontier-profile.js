@@ -57,8 +57,9 @@
   var MAX_SLIDES = 5;
   var SLIDE_SECONDS = 7;
   var MAX_TAG_POOLS = 6;
+  var MAX_MEMBERS = 6;
   // How long each character holds the Recruit button before the next takes it.
-  var CYCLE_SECONDS = 0.3;
+  var CYCLE_SECONDS = 0.15;
 
   function theme(o) { return THEMES[o.fpTheme] || THEMES.day; }
 
@@ -117,10 +118,42 @@
   /* The characters that get a screen, and the ones the overview cycles. */
   function roster(files) { return files.slice(0, MAX_FILES); }
 
-  function slides(files) {
+  /*
+   * The Overview's slides in a shuffled order, so the profile does not open on
+   * the same character for ever. A profile runs no script, so the order cannot
+   * change per visit: it is drawn when the design is written. It is drawn
+   * from the Profile data itself (names, counts, and fpShuffle, which the
+   * panel's "Shuffle the Overview" button turns over), so the same data always
+   * gives the same order: reopening the studio does not rewrite the document,
+   * and any change to the data, a fresh import's new chat counts included,
+   * deals a new one. With nothing featured, the five are drawn from everyone.
+   */
+  function slides(files, o) {
     var list = roster(files);
     var featured = list.filter(function (f) { return f.featured; });
-    return (featured.length ? featured : list).slice(0, MAX_SLIDES);
+    var pool = (featured.length ? featured : list).slice();
+    var seed = [String((o && o.fpShuffle) || 0)].concat(list.map(function (f) {
+      return f.name + '|' + f.chats + '|' + f.tokens;
+    })).join('\n');
+    var random = prng(seed);
+    for (var i = pool.length - 1; i > 0; i--) {
+      var j = Math.floor(random() * (i + 1));
+      var held = pool[i]; pool[i] = pool[j]; pool[j] = held;
+    }
+    return pool.slice(0, MAX_SLIDES);
+  }
+
+  /* A small seeded random number source (a string hash into mulberry32):
+   * the same text gives the same sequence on every machine. */
+  function prng(text) {
+    var h = 2166136261;
+    for (var i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return function () {
+      h = (h + 0x6D2B79F5) | 0;
+      var t = Math.imul(h ^ (h >>> 15), 1 | h);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
   }
 
   /* The colour each rank wears, whatever the theme and the accent: a rank
@@ -207,6 +240,59 @@
     return out;
   }
 
+  /* The characters of a bot that is more than one: a party, a pair, a trio.
+   * They stand side by side on the bot's file. One member is not a squad. */
+  function squad(f) {
+    var list = (f.members || []).filter(function (m) { return m && String(m.name || '').trim(); });
+    return list.length > 1 ? list.slice(0, MAX_MEMBERS) : [];
+  }
+
+  /*
+   * What the roster can be narrowed by: JanitorAI's own tags (the numbered
+   * ones every creator shares), most used first. A creator's custom tags are
+   * left out, since there is no end to them, and so is a tag every character
+   * has, which would narrow nothing. `members` are positions in the roster.
+   */
+  function filters(files) {
+    var list = roster(files);
+    if (list.length < 2) return [];
+    var found = {}, out = [];
+    list.forEach(function (f, i) {
+      var seen = {};
+      f.tags.forEach(function (tag) {
+        if (global.JaiTags.idOf(tag) == null) return;
+        var label = global.JaiTags.label(tag);
+        if (seen[label]) return;
+        seen[label] = true;
+        if (!found[label]) { found[label] = { label: label, members: [] }; out.push(found[label]); }
+        found[label].members.push(i + 1);
+      });
+    });
+    out = out.filter(function (t) { return t.members.length < list.length; });
+    out.sort(function (a, b) { return b.members.length - a.members.length || (a.label < b.label ? -1 : 1); });
+    out.forEach(function (t, i) { t.n = i + 1; });
+    return out;
+  }
+
+  /*
+   * The stickers on a briefing: the bot's chibi, or for a squad one sticker a
+   * member — their chibi, or failing that the top of their picture, which is
+   * where the face is. The bot's own chibi stands for the first member, who
+   * is usually who it was drawn of. Each is [address, is it a chibi].
+   */
+  function stickers(f) {
+    var party = squad(f);
+    if (!party.length) return usable(f.chibi) ? [[f.chibi, true]] : [];
+    return party.map(function (m, k) {
+      if (usable(m.chibi)) return [m.chibi, true];
+      if (!k && usable(f.chibi)) return [f.chibi, true];
+      return usable(m.art) ? [m.art, false] : null;
+    }).filter(Boolean);
+  }
+
+  /* What a tile says about its bot when it is pointed at. */
+  function summaryOf(f) { return f.summary || f.tagline || f.description || ''; }
+
   function socials(o) { return (o.socials || []).filter(function (s) { return s && usable(s.link); }); }
 
   function friends(o) { return (o.friends || []).filter(function (f) { return f && String(f.name || '').trim(); }); }
@@ -233,7 +319,7 @@
    * tags renders as a space. */
   function markup(files, o) {
     var list = roster(files);
-    var show = slides(files);
+    var show = slides(files, o);
     var identity = o.identity || {};
     var name = String(identity.username || '').trim().replace(/^@/, '');
     var brand = written(o, 'fpCallsign') || 'Frontier Protocol';
@@ -249,6 +335,9 @@
       '<span class="fp-key" id="fp-dossier"></span><span class="fp-key" id="fp-network"></span><span class="fp-key" id="fp-log"></span>');
     // fp-k-N on a key says "this one opens file N", whichever way it was reached.
     list.forEach(function (f, i) { html.push('<span class="fp-key fp-key-op fp-k-' + (i + 1) + '" id="fp-op-' + (i + 1) + '"></span>'); });
+    // A key per tag the roster can be narrowed by.
+    var sieve = filters(files);
+    sieve.forEach(function (t) { html.push('<span class="fp-key fp-key-tag" id="fp-tag-' + t.n + '"></span>'); });
     // Recruitment: a key per pool (which pool is chosen), and a key per pool
     // and character (the draw: that character, reached from that pool).
     var draws = pools(files, o);
@@ -311,8 +400,15 @@
     });
     if (show.length > 1) {
       html.push('<div class="fp-picks">' + show.map(function (f, i) {
-        return '<a class="fp-pick fp-pick-' + (i + 1) + '" href="#fp-op-' + (list.indexOf(f) + 1) + '" aria-label="' + attr(f.name) + '">' +
-          picture(f.portrait, 'fp-pick-img', '') + '<span>' + pad(i + 1) + '</span></a>';
+        var at = list.indexOf(f) + 1;
+        // Its own two buttons sit just above it, and are part of it: the
+        // pointer goes straight up into them without leaving the thumbnail,
+        // so no other thumbnail is crossed on the way (each would take the
+        // slide over).
+        return '<span class="fp-pick fp-pick-' + (i + 1) + '"><a class="fp-pick-face" href="#fp-op-' + at + '" aria-label="' + attr(f.name) + '">' +
+          picture(f.portrait, 'fp-pick-img', '') + '<span>' + pad(i + 1) + '</span></a>' +
+          '<span class="fp-pick-go"><a class="fp-pick-open" href="#fp-op-' + at + '">Open file</a>' +
+          (usable(f.link) ? '<a class="fp-pick-chat" href="' + attr(f.link) + '">Initiate chat</a>' : '') + '</span></span>';
       }).join('') + '</div><div class="fp-progress">' + show.map(function (f, i) {
         return '<i class="fp-progress-' + (i + 1) + '"></i>';
       }).join('') + '</div>');
@@ -322,13 +418,43 @@
     // Operators
     html.push('<section class="fp-screen fp-screen-roster"><i class="fp-wipe"></i>' +
       head(no.roster, 'Operator roster', '<b>' + pad(list.length) + '</b> files on record') +
-      '<div class="fp-roster">' + list.map(function (f, i) {
-        return '<a class="fp-card fp-r' + rank[i] + '" href="#fp-op-' + (i + 1) + '"><span class="fp-card-art">' + picture(f.portrait, 'fp-card-img', '') +
+      // The tags: each narrows the tiles to the characters that carry it.
+      (sieve.length ? '<div class="fp-filters"><a class="fp-filter fp-f0" href="#fp-roster">All<span>' + pad(list.length) + '</span></a>' +
+        sieve.map(function (t) {
+          return '<a class="fp-filter fp-f' + t.n + '" href="#fp-tag-' + t.n + '">' + esc(t.label) + '<span>' + pad(t.members.length) + '</span></a>';
+        }).join('') + '</div>' : '') +
+      '<div class="fp-roster-wrap"><div class="fp-roster">' + list.map(function (f, i) {
+        // fp-gN: this character carries tag N.
+        var mine = sieve.filter(function (t) { return t.members.indexOf(i + 1) !== -1; })
+          .map(function (t) { return ' fp-g' + t.n; }).join('');
+        var party = squad(f).length;
+        return '<a class="fp-card fp-r' + rank[i] + mine + '" href="#fp-op-' + (i + 1) + '"><span class="fp-card-art">' + picture(f.portrait, 'fp-card-img', '') +
           (usable(f.chibi) ? '<img class="fp-card-chibi" src="' + attr(f.chibi) + '" alt="">' : '') + '</span>' +
           '<span class="fp-card-no">' + pad(i + 1) + '</span><span class="fp-card-stars">' + stars(rank[i]) + '</span>' +
+          (party ? '<span class="fp-card-squad">Squad ×' + party + '</span>' : '') +
           '<span class="fp-card-name">' + esc(f.name) + '</span>' +
           '<span class="fp-card-meta">' + (f.chats ? esc(f.chats) + ' chats' : 'New file') + '</span></a>';
-      }).join('') + '</div></section>');
+      }).join('') + '</div>' +
+      // The briefing beside the tiles: one per character, in the tiles' order,
+      // and the one whose tile is pointed at is shown.
+      '<div class="fp-intel"><div class="fp-brief fp-brief-idle"><div class="fp-label"><i></i>Briefing</div><b>Point at an operator</b>' +
+      '<p>Their file summary reads out here. Click to open the file.</p></div>' + list.map(function (f, i) {
+        var scene = usable(f.hover) ? f.hover : f.art;
+        var about = summaryOf(f);
+        var stuck = stickers(f).map(function (p) {
+          return '<img class="fp-sticker' + (p[1] ? '' : ' fp-sticker-face') + '" src="' + attr(p[0]) + '" alt="">';
+        }).join('');
+        return '<div class="fp-brief fp-r' + rank[i] + '">' + picture(scene, 'fp-brief-img', '') +
+          (stuck ? '<span class="fp-stickers">' + stuck + '</span>' : '') +
+          '<div class="fp-label"><i></i>File <b>' + pad(i + 1) + '</b></div><b>' + esc(f.name) + '</b>' +
+          '<span class="fp-stars">' + stars(rank[i]) + '</span>' +
+          (about ? '<p>' + multiline(about) + '</p>' : '') +
+          // Words only: the panel is gone the moment the pointer leaves the tile.
+          (f.tags.length ? '<span class="fp-brief-tags">' + f.tags.slice(0, 9).map(function (tag) {
+            return '<i>' + esc(global.JaiTags.label(tag)) + '</i>';
+          }).join('') + '</span>' : '') +
+          '<em>' + (f.chats ? esc(f.chats) + ' chats' : 'New file') + (f.tokens ? ' · ' + esc(f.tokens) + ' tokens' : '') + '</em></div>';
+      }).join('') + '</div></div></section>');
 
     // Recruit: choose a pool, press the button, and a character is drawn.
     if (draws.length) {
@@ -363,10 +489,18 @@
       var next = i === list.length - 1 ? 1 : i + 2;
       // A scene of its own if the creator gave one; otherwise the art, blurred.
       var own = usable(f.hover) && f.hover !== f.art;
-      html.push('<section class="fp-screen fp-file fp-file-' + (i + 1) + ' fp-r' + rank[i] + '"><i class="fp-wipe"></i>' +
+      // A bot of several characters shows all of them, side by side on the
+      // slant, where a single character's art would stand. The file is laid
+      // out wider for it: fp-sq-N says how many there are to fit.
+      var party = squad(f);
+      html.push('<section class="fp-screen fp-file fp-file-' + (i + 1) + ' fp-r' + rank[i] + (party.length ? ' fp-file-squad fp-sq-' + party.length : '') + '"><i class="fp-wipe"></i>' +
         (usable(own ? f.hover : f.art) ? '<img class="fp-file-scene' + (own ? '' : ' fp-file-scene-soft') + '" src="' + attr(own ? f.hover : f.art) + '" alt="">' : '') +
         '<i class="fp-file-shade"></i><i class="fp-file-plate"></i>' +
-        '<div class="fp-file-art">' + picture(f.art, 'fp-file-img', f.name) + '</div>' +
+        (party.length ? '<div class="fp-squad">' + party.map(function (m, k) {
+          return '<div class="fp-mem">' + picture(m.art, 'fp-mem-img', m.name) +
+            '<span class="fp-mem-cap"><i>' + pad(k + 1) + '</i><b>' + esc(m.name) + '</b>' +
+            (m.title ? '<em>' + esc(m.title) + '</em>' : '') + (m.line ? '<span>' + esc(m.line) + '</span>' : '') + '</span></div>';
+        }).join('') + '</div>' : '<div class="fp-file-art">' + picture(f.art, 'fp-file-img', f.name) + '</div>') +
         '<div class="fp-file-no">' + pad(i + 1) + '</div>' +
         '<div class="fp-file-info"><div class="fp-file-top"><a class="fp-back" href="#fp-roster">Roster</a>' +
         '<span>File <b>' + pad(i + 1) + '</b> / ' + pad(list.length) + '</span></div>' +
@@ -374,6 +508,7 @@
         '<h2 class="fp-file-name">' + esc(f.name) + '</h2>' +
         (f.tagline ? '<p class="fp-file-line">' + esc(f.tagline) + '</p>' : '') +
         (f.quote ? '<div class="fp-quote">' + esc(f.quote) + '</div>' : '') +
+        (f.summary ? '<p class="fp-file-desc fp-file-sum">' + multiline(f.summary) + '</p>' : '') +
         (f.description ? '<p class="fp-file-desc">' + esc(f.description) + '</p>' : '') +
         (f.tags.length ? '<div class="fp-chips">' + f.tags.slice(0, 10).map(tagChip).join('') + '</div>' : '') +
         '<div class="fp-stats">' + (f.chats ? '<span><b>' + esc(f.chats) + '</b>Chats</span>' : '') +
@@ -400,7 +535,7 @@
       '<div class="fp-about"><h3>' + esc(heading || 'About the creator') + '</h3><p>' +
       (about ? multiline(about) : 'Write your introduction under Profile data → About me and it appears here.') + '</p>' +
       (usable(o.fpMascot) ? '<span class="fp-tag fp-mascot"><img src="' + attr(o.fpMascot) + '" alt=""><b>' + esc(name ? '@' + name : 'Creator') + '</b><i class="fp-barcode"></i></span>' : '') +
-      '</div></div></section>');
+      '</div></div>' + gallery(list, o) + '</section>');
 
     // Network
     if (links.length || allies.length) {
@@ -459,6 +594,43 @@
     return html.join('');
   }
 
+  /*
+   * The asset archive on the dossier: every picture the profile holds, by
+   * character, for whoever wants to look one up. A character is a <details>,
+   * so it opens on a click with no key and no rule of its own, and a picture
+   * is a link to itself: the thumbnail shows what it is, the click opens the
+   * file at full size. A squad lists its members' pictures after the bot's.
+   */
+  function gallery(list, o) {
+    if (o.fpGallery === false || o.fpGallery === 'false') return '';
+    function shelf(no, name, items) {
+      var seen = {};
+      items = items.filter(function (it) {
+        if (!usable(it[1]) || seen[it[1]]) return false;
+        seen[it[1]] = true;
+        return true;
+      });
+      if (!items.length) return '';
+      return '<details class="fp-entry fp-shelf"><summary><i>' + no + '</i><b>' + esc(name) + '</b><em>' + pad(items.length) +
+        (items.length === 1 ? ' file' : ' files') + '</em></summary><div class="fp-assets">' + items.map(function (it) {
+          return '<a class="fp-asset' + (it[2] ? ' fp-asset-fit' : '') + '" href="' + attr(it[1]) + '"><img src="' + attr(it[1]) + '" alt=""><span>' + esc(it[0]) + '</span></a>';
+        }).join('') + '</div></details>';
+    }
+    // [label, address, shown whole rather than cropped]
+    var shelves = [shelf('--', 'Profile', [['Backdrop', o.fpBackground], ['Emblem', o.fpEmblem, true], ['Mascot', o.fpMascot, true]])];
+    list.forEach(function (f, i) {
+      var items = [['Stage', f.art], ['Portrait', f.portrait], ['Scene', f.hover], ['Chibi', f.chibi, true]];
+      squad(f).forEach(function (m) {
+        // By first name: the label is one short line under a small picture.
+        var who = String(m.name).trim().split(' ')[0];
+        items.push([who + ' · stage', m.art], [who + ' · chibi', m.chibi, true]);
+      });
+      shelves.push(shelf(pad(i + 1), f.name, items));
+    });
+    var html = shelves.join('');
+    return html ? '<div class="fp-sub">Asset archive</div><div class="fp-gallery">' + html + '</div>' : '';
+  }
+
   function navItem(key, n, label, note, target) {
     return '<a class="fp-nav-item fp-nav-' + key + '" href="#' + (target || 'fp-' + key) + '"><i>' + pad(n) + '</i><b>' + label + '</b><span>' + note + '</span></a>';
   }
@@ -473,7 +645,7 @@
    * a slideshow with this many slides. */
   function css(files, o) {
     var list = roster(files);
-    var show = slides(files);
+    var show = slides(files, o);
     var n = show.length;
     var out = ['/* Generated from Profile data — edit it there, not here. */'];
 
@@ -482,14 +654,29 @@
       return '.profile-info-stack:has(.fp-k-' + (i + 1) + ':target) .fp-file-' + (i + 1);
     }).join(',\n') + ' { display: block; }');
 
+    // The briefing of the tile that is pointed at. The first child of the
+    // panel is its idle card, so character N is child N + 1.
+    out.push(list.map(function (f, i) {
+      return '.fp-roster:has(.fp-card:nth-child(' + (i + 1) + '):hover) + .fp-intel > .fp-brief:nth-child(' + (i + 2) + ')';
+    }).join(',\n') + ' { display: block; }');
+
+    // A tag narrows the roster: its chip is lit, and the tiles without it go.
+    var sieve = filters(files);
+    if (sieve.length) {
+      var T = '.profile-info-stack:has(#fp-tag-';
+      out.push(sieve.map(function (t) { return T + t.n + ':target) .fp-f' + t.n; }).join(',\n') +
+        ' { border-color: ' + theme(o).ink + '; background: ' + theme(o).ink + '; color: ' + theme(o).bg + '; }');
+      out.push(sieve.map(function (t) { return T + t.n + ':target) .fp-card:not(.fp-g' + t.n + ')'; }).join(',\n') + ' { display: none; }');
+    }
+
     var draws = pools(files, o);
     if (draws.length) {
-      var S = '.profile-info-stack:has(#fp-pool-';
+      var S ='.profile-info-stack:has(#fp-pool-';
       // The chosen pool: its chip lit, its gate shown, the rest of the
       // candidates dimmed.
       out.push(draws.map(function (p) { return S + p.key + ':target) .fp-pool-' + p.key; }).join(',\n') +
         ' { border-color: ' + theme(o).ink + '; background: ' + theme(o).ink + '; color: ' + theme(o).bg + '; }');
-      out.push(draws.map(function (p) { return S + p.key + ':target) .fp-gate-' + p.key; }).join(',\n') + ' { display: flex; }');
+      out.push(draws.map(function (p) { return S + p.key + ':target) .fp-gate-' + p.key; }).join(',\n') + ' { position: relative; visibility: visible; pointer-events: auto; }');
       out.push(draws.map(function (p) { return S + p.key + ':target) .fp-cand:not(.fp-in-' + p.key + ')'; }).join(',\n') +
         ' { opacity: .16; filter: grayscale(1); transform: scale(.9); }');
       // After a draw, the way back to the pool it came from.
@@ -530,11 +717,26 @@
         var delay = (i * SLIDE_SECONDS) + 's';
         out.push('.fp-slide-' + (i + 1) + ', .fp-slide-' + (i + 1) + ' .fp-slide-art, .fp-slide-' + (i + 1) + ' .fp-plate, .fp-progress i.fp-progress-' + (i + 1) + '::after { animation-delay: ' + delay + '; }');
       });
-      // Pointing at a thumbnail holds its slide.
-      out.push(show.map(function (f, i) { return '.fp-screen-home:has(.fp-pick-' + (i + 1) + ':hover) .fp-slide'; }).join(',\n') +
-        ' { animation: none; opacity: 0; visibility: hidden; }');
-      out.push(show.map(function (f, i) { return '.fp-screen-home:has(.fp-pick-' + (i + 1) + ':hover) .fp-slide-' + (i + 1); }).join(',\n') +
-        ' { opacity: 1; visibility: visible; }');
+      // Pointing at a thumbnail (or its own buttons) brings its slide up, and
+      // pointing at a slide's words keeps that slide up. The slides are
+      // shown and hidden over their running animations with !important,
+      // which beats an animation, rather than by stopping them: the show
+      // carries on underneath, in step with its progress bars, and picks up
+      // where the bars say once the pointer goes.
+      function held(i) {
+        return '.fp-screen-home:has(.fp-pick-' + (i + 1) + ':hover, .fp-slide-' + (i + 1) + ' .fp-slide-info:hover)';
+      }
+      out.push(show.map(function (f, i) { return held(i) + ' .fp-slide'; }).join(',\n') +
+        ' { opacity: 0 !important; visibility: hidden !important; }');
+      out.push(show.map(function (f, i) { return held(i) + ' .fp-slide-' + (i + 1); }).join(',\n') +
+        ' { opacity: 1 !important; visibility: visible !important; }');
+      // The bars: every fill put out, and the held slide's whole bar inked.
+      // Not by overriding the fills' transform: the browser runs that
+      // animation on its own and keeps drawing it past an override.
+      out.push(show.map(function (f, i) { return held(i) + ' .fp-progress i::after'; }).join(',\n') +
+        ' { opacity: 0 !important; }');
+      out.push(show.map(function (f, i) { return held(i) + ' .fp-progress i.fp-progress-' + (i + 1); }).join(',\n') +
+        ' { background: ' + theme(o).ink + ' !important; }');
       out.push('@media (prefers-reduced-motion: reduce) { .fp-slide, .fp-slide .fp-slide-art, .fp-slide .fp-plate, .fp-progress i::after { animation: none; } ' +
         '.fp-slide { opacity: 0; visibility: hidden; } .fp-slide-1 { opacity: 1; visibility: visible; } }');
     }
@@ -586,7 +788,10 @@
 '  gap: 0 !important;',
 '  align-items: start;',
 '  position: relative;',
-'  height: clamp(660px, 56vw, 900px);',
+'  /* As tall as its width asks for, but never taller than the window under',
+'   * JanitorAI\'s header: the page then has nothing to scroll, and what is',
+'   * pinned inside a screen stays in view. */',
+'  height: clamp(600px, min(56vw, calc(100vh - 44px)), 900px);',
 '  margin: 0 !important;',
 '  padding: 0 !important;',
 '  overflow: hidden;',
@@ -649,25 +854,25 @@
 '/* The colour is said again on hover: JanitorAI turns hovered links purple. */',
 '.fp-nav-item:hover { padding-left: 26px; background: @railInk@0d; color: @railMute@; }',
 '.fp-nav-home,',
-'.profile-info-stack:has(#fp-roster:target, .fp-key-op:target) .fp-nav-roster,',
+'.profile-info-stack:has(#fp-roster:target, .fp-key-op:target, .fp-key-tag:target) .fp-nav-roster,',
 '.profile-info-stack:has(.fp-key-pool:target, .fp-key-pull:target) .fp-nav-recruit,',
 '.profile-info-stack:has(#fp-dossier:target) .fp-nav-dossier,',
 '.profile-info-stack:has(#fp-network:target) .fp-nav-network,',
 '.profile-info-stack:has(#fp-log:target) .fp-nav-log { background: @railInk@12; }',
 '.fp-nav-home b,',
-'.profile-info-stack:has(#fp-roster:target, .fp-key-op:target) .fp-nav-roster b,',
+'.profile-info-stack:has(#fp-roster:target, .fp-key-op:target, .fp-key-tag:target) .fp-nav-roster b,',
 '.profile-info-stack:has(.fp-key-pool:target, .fp-key-pull:target) .fp-nav-recruit b,',
 '.profile-info-stack:has(#fp-dossier:target) .fp-nav-dossier b,',
 '.profile-info-stack:has(#fp-network:target) .fp-nav-network b,',
 '.profile-info-stack:has(#fp-log:target) .fp-nav-log b { color: @a@; }',
 '.fp-nav-home::before,',
-'.profile-info-stack:has(#fp-roster:target, .fp-key-op:target) .fp-nav-roster::before,',
+'.profile-info-stack:has(#fp-roster:target, .fp-key-op:target, .fp-key-tag:target) .fp-nav-roster::before,',
 '.profile-info-stack:has(.fp-key-pool:target, .fp-key-pull:target) .fp-nav-recruit::before,',
 '.profile-info-stack:has(#fp-dossier:target) .fp-nav-dossier::before,',
 '.profile-info-stack:has(#fp-network:target) .fp-nav-network::before,',
 '.profile-info-stack:has(#fp-log:target) .fp-nav-log::before { transform: scaleY(1); }',
 '.fp-nav-home::after,',
-'.profile-info-stack:has(#fp-roster:target, .fp-key-op:target) .fp-nav-roster::after,',
+'.profile-info-stack:has(#fp-roster:target, .fp-key-op:target, .fp-key-tag:target) .fp-nav-roster::after,',
 '.profile-info-stack:has(.fp-key-pool:target, .fp-key-pull:target) .fp-nav-recruit::after,',
 '.profile-info-stack:has(#fp-dossier:target) .fp-nav-dossier::after,',
 '.profile-info-stack:has(#fp-network:target) .fp-nav-network::after,',
@@ -733,12 +938,25 @@
 '.fp-screen { position: absolute; inset: 0 0 28px 0; display: none; overflow: hidden; }',
 '.fp-screen-home { display: block; }',
 '.profile-info-stack:has(.fp-key:not(#fp-home):target) .fp-screen-home { display: none; }',
-'.profile-info-stack:has(#fp-roster:target) .fp-screen-roster,',
+'.profile-info-stack:has(#fp-roster:target, .fp-key-tag:target) .fp-screen-roster,',
 '.profile-info-stack:has(.fp-key-pool:target) .fp-screen-recruit,',
 '.profile-info-stack:has(#fp-dossier:target) .fp-screen-dossier,',
 '.profile-info-stack:has(#fp-network:target) .fp-screen-network,',
 '.profile-info-stack:has(#fp-log:target) .fp-screen-log { display: block; }',
 '.fp-screen-roster, .fp-screen-recruit, .fp-screen-dossier, .fp-screen-network, .fp-screen-log { padding: 38px 44px 40px; overflow-y: auto; }',
+'/* The backdrop is the Overview\'s. The other screens lay their own ground over',
+' * it, nearly solid, so their small print on the right is not lost in a picture. */',
+'.fp-screen-roster, .fp-screen-recruit, .fp-screen-dossier, .fp-screen-network, .fp-screen-log { background: @bg@f0; }',
+'/* Recruit is never taken out of the layout, so the draw buttons inside it',
+' * keep turning from the moment the page loads (see .fp-gate). Unchosen, it',
+' * is invisible and takes no pointer; its wipe and its entrances, which',
+' * would otherwise have played once, unseen, at load, start when it opens. */',
+'.fp-screen-recruit { display: block; visibility: hidden; pointer-events: none; }',
+'.profile-info-stack:has(.fp-key-pool:target) .fp-screen-recruit { visibility: visible; pointer-events: auto; }',
+'.fp-screen-recruit .fp-wipe { display: none; }',
+'.profile-info-stack:has(.fp-key-pool:target) .fp-screen-recruit .fp-wipe { display: block; }',
+'.fp-screen-recruit .fp-head, .fp-screen-recruit .fp-recruit-side, .fp-screen-recruit .fp-gates { animation-name: none; }',
+'.profile-info-stack:has(.fp-key-pool:target) .fp-screen-recruit .fp-head, .profile-info-stack:has(.fp-key-pool:target) .fp-screen-recruit .fp-recruit-side, .profile-info-stack:has(.fp-key-pool:target) .fp-screen-recruit .fp-gates { animation-name: fp-rise; }',
 '/* Changing screens: a slab of the accent crosses, and the screen is there. */',
 '.fp-wipe { position: absolute; inset: 0; z-index: 9; display: block; background: @a@; pointer-events: none; animation: fp-wipe .75s cubic-bezier(.7, 0, .2, 1) both; }',
 '',
@@ -773,7 +991,7 @@
 '.fp-noimg b { padding: 3px 8px; background: @ink@; color: @bg@; font-family: @MONO@; font-size: 9px; font-weight: 400; letter-spacing: .14em; text-transform: uppercase; }',
 '',
 '/* ---- overview ---- */',
-'.fp-hud { position: absolute; top: 24px; right: 30px; z-index: 4; display: flex; gap: 22px; color: @mute@; font-family: @MONO@; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; animation: fp-rise .6s ease .5s both; }',
+'.fp-hud { position: absolute; top: 24px; right: 30px; z-index: 4; display: flex; gap: 22px; padding: 6px 12px; background: @bg@e6; box-shadow: 4px 4px 0 @a@; color: @mute@; font-family: @MONO@; font-size: 9px; letter-spacing: .14em; text-transform: uppercase; animation: fp-rise .6s ease .5s both; }',
 '.fp-hud span { display: flex; align-items: baseline; gap: 7px; }',
 '.fp-hud b { color: @ink@; font-family: @HEAD@; font-size: 22px; font-stretch: 75%; letter-spacing: .02em; }',
 '.fp-hud-live { align-items: center !important; }',
@@ -791,17 +1009,31 @@
 '.fp-slide-info .fp-actions { margin-top: 22px; }',
 '/* The thumbnails: point at one to hold its slide, click to open the file. */',
 '.fp-picks { position: absolute; bottom: 30px; left: 44px; z-index: 4; display: flex; gap: 6px; }',
-'.fp-pick { position: relative; width: 44px; height: 44px; overflow: hidden; border: 1px solid @ink@66; background: @panel@; transition: transform .18s ease, border-color .18s ease; }',
+'.fp-pick { position: relative; width: 44px; height: 44px; }',
+'.fp-pick-face { position: relative; display: block; width: 100%; height: 100%; box-sizing: border-box; overflow: hidden; border: 1px solid @ink@66; background: @panel@; transition: transform .18s ease, border-color .18s ease; }',
 '.fp-pick-img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; filter: grayscale(1); transition: filter .18s ease; }',
-'.fp-pick span { position: absolute; right: 0; bottom: 0; padding: 1px 3px; background: @ink@; color: @bg@; font-family: @MONO@; font-size: 8px; }',
-'.fp-pick:hover { border-color: @a@; transform: translateY(-4px); }',
+'.fp-pick-face span { position: absolute; right: 0; bottom: 0; padding: 1px 3px; background: @ink@; color: @bg@; font-family: @MONO@; font-size: 8px; }',
+'.fp-pick:hover .fp-pick-face { border-color: @a@; transform: translateY(-4px); }',
 '.fp-pick:hover .fp-pick-img { filter: none; }',
+'/* The thumbnail\'s own buttons, stacked just above it. The padding under them',
+' * is part of the thumbnail too, so there is no gap to fall through. */',
+'.fp-pick-go { position: absolute; bottom: 100%; left: -6px; z-index: 5; display: none; flex-direction: column; gap: 4px; width: max-content; padding-bottom: 10px; }',
+'.fp-pick:hover .fp-pick-go { display: flex; animation: fp-rise .2s ease both; }',
+'.fp-pick-go a { display: block; padding: 7px 12px; border: 1px solid @ink@; background: @bg@; color: @ink@; font-family: @MONO@; font-size: 10px; letter-spacing: .14em; line-height: 1; text-decoration: none; text-transform: uppercase; white-space: nowrap; transition: background .15s ease, color .15s ease; }',
+'.fp-pick-go a:hover { background: @ink@; color: @bg@; }',
+'.fp-pick-go .fp-pick-open { border-color: @a@; background: @a@; color: @onA@; }',
+'.fp-pick-go .fp-pick-open:hover { background: @a@; color: @onA@; filter: brightness(1.08); }',
+'/* While a thumbnail\'s own buttons are out, the slide\'s pair just above them steps aside. */',
+'.fp-screen-home:has(.fp-pick:hover) .fp-slide-info .fp-actions { visibility: hidden !important; }',
 '/* One bar per slide, filling while its slide is up. */',
 '.fp-progress { position: absolute; bottom: 14px; left: 44px; z-index: 4; display: flex; gap: 6px; }',
 '.fp-progress i { position: relative; display: block; width: 44px; height: 3px; overflow: hidden; background: @ink@33; }',
 '.fp-progress i::after { content: ""; position: absolute; inset: 0; background: @ink@; transform: scaleX(0); transform-origin: 0 50%; }',
-'/* Reading stops the clock. */',
-'.fp-screen-home:hover .fp-slide, .fp-screen-home:hover .fp-slide-art, .fp-screen-home:hover .fp-plate, .fp-screen-home:hover .fp-progress i::after { animation-play-state: paused; }',
+'/* Reading stops the clock: the pointer on a slide\'s words, not anywhere on the',
+' * screen. A pointer that is simply resting there when the page loads, or when',
+' * a thumbnail is let go of, would hold the show at its first instant, which',
+' * is before anything has faded in. Words can only be pointed at once shown. */',
+'.fp-screen-home:has(.fp-slide-info:hover) .fp-slide, .fp-screen-home:has(.fp-slide-info:hover) .fp-slide-art, .fp-screen-home:has(.fp-slide-info:hover) .fp-plate, .fp-screen-home:has(.fp-slide-info:hover) .fp-progress i::after { animation-play-state: paused; }',
 '',
 '/* ---- operators ---- */',
 '.fp-roster { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; }',
@@ -819,6 +1051,38 @@
 '.fp-card:hover::after { width: 100%; }',
 '.fp-card:hover .fp-card-img { transform: scale(1.07); }',
 '.fp-card:hover .fp-card-art::after { opacity: 1; animation: fp-scan .9s linear infinite; }',
+'/* A bot of several characters says so on its tile. */',
+'.fp-card-squad { position: absolute; top: 22px; left: 0; padding: 2px 6px; background: @a@; color: @onA@; font-family: @MONO@; font-size: 8px; letter-spacing: .1em; text-transform: uppercase; }',
+'/* The tags the roster can be narrowed by. A flex row, so the whitespace',
+' * between chips is not a gap. All is lit until a tag is chosen. */',
+'.fp-filters { display: flex; flex-wrap: wrap; gap: 5px; margin: -8px 0 20px; animation: fp-rise .6s ease .3s both; }',
+'.fp-filter { display: flex; align-items: center; gap: 7px; padding: 4px 5px 4px 9px; border: 1px solid @ink@66; color: @ink@; font-family: @MONO@; font-size: 10px; letter-spacing: .08em; line-height: 1.3; text-decoration: none; text-transform: uppercase; transition: background .15s ease, color .15s ease, border-color .15s ease; }',
+'.fp-filter span { padding: 1px 4px; background: @a@; color: @onA@; font-size: 9px; letter-spacing: 0; }',
+'.fp-filter:hover { border-color: @ink@; color: @ink@; }',
+'.fp-f0, .fp-f0:hover { border-color: @ink@; background: @ink@; color: @bg@; }',
+'.profile-info-stack:has(.fp-key-tag:target) .fp-f0 { border-color: @ink@66; background: transparent; color: @ink@; }',
+'/* The tiles, and beside them the briefing: what the bot under the pointer',
+' * is about. It stays in view while the tiles scroll. */',
+'.fp-roster-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 24px; align-items: start; }',
+'.fp-intel { position: sticky; top: 0; animation: fp-rise .6s ease .4s both; }',
+'.fp-brief { display: none; padding: 0 14px 14px; border: 1px solid @ink@; background: @panel@; box-shadow: 6px 6px 0 @a@; }',
+'.fp-brief.fp-r6 { box-shadow: 6px 6px 0 @rank6@; } .fp-brief.fp-r5 { box-shadow: 6px 6px 0 @rank5@; } .fp-brief.fp-r4 { box-shadow: 6px 6px 0 @rank4@; } .fp-brief.fp-r3 { box-shadow: 6px 6px 0 @rank3@; }',
+'.fp-brief-idle { display: block; padding-top: 14px; border-style: dashed; box-shadow: none; }',
+'.fp-roster:has(.fp-card:hover) + .fp-intel > .fp-brief-idle { display: none; }',
+'.fp-brief-img { display: block; width: calc(100% + 28px); max-width: none; aspect-ratio: 16 / 9; margin: 0 -14px 12px; object-fit: cover; object-position: center 22%; }',
+'.fp-brief > b { display: -webkit-box; margin-top: 8px; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; color: @ink@; font-family: @HEAD@; font-size: 22px; font-stretch: 75%; font-weight: 700; letter-spacing: .03em; line-height: 1.05; text-transform: uppercase; }',
+'.fp-brief .fp-stars { display: block; margin-top: 7px; font-size: 12px; }',
+'.fp-brief p { display: -webkit-box; margin: 10px 0 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 10; color: @ink@; font-size: 13px; line-height: 1.5; }',
+'/* Stuck on over the foot of the picture, each a little askew. */',
+'.fp-stickers { position: relative; display: flex; margin: -42px 0 4px 2px; }',
+'.fp-sticker { display: block; width: 50px; height: 50px; margin-right: -7px; border: 3px solid #ffffff; border-radius: 9px; background: #ffffff; box-shadow: 0 0 0 1px #14151a40, 2px 4px 7px #00000066; object-fit: contain; transform: rotate(-7deg); }',
+'.fp-sticker:nth-child(even) { transform: rotate(5deg) translateY(5px); }',
+'.fp-sticker:nth-child(3n) { transform: rotate(-2deg) translateY(-3px); }',
+'.fp-sticker-face { object-fit: cover; object-position: center 4%; }',
+'.fp-brief-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }',
+'.fp-brief-tags i { padding: 2px 6px; border: 1px solid @ink@66; color: @ink@; font-family: @MONO@; font-size: 9px; font-style: normal; letter-spacing: .06em; line-height: 1.3; text-transform: uppercase; }',
+'.fp-brief p { -webkit-line-clamp: 7; }',
+'.fp-brief em { display: block; margin-top: 12px; padding-top: 8px; border-top: 1px solid @line@; color: @mute@; font-family: @MONO@; font-size: 9px; font-style: normal; letter-spacing: .12em; text-transform: uppercase; }',
 '',
 '/* ---- a character\'s file ---- */',
 '.fp-file { background: @bg@; }',
@@ -850,6 +1114,42 @@
 '.fp-file-info .fp-actions { margin-top: 22px; animation: fp-rise .6s ease .78s both; }',
 '.fp-btn-step { padding: 13px 16px; font-size: 13px; }',
 '',
+'/* ---- a squad: a bot of several characters, all of them on its file ---- */',
+'/* They stand side by side as strips on the slant, in place of the one',
+' * picture, and the file gives them more of its width the more there are.',
+' * The first strip runs on past the left edge, so its slant never shows a',
+' * gap, and is given that much more to stand on, so it shows as much as',
+' * the others. The strip under the pointer widens. */',
+'.fp-squad { position: absolute; top: 0; bottom: 0; left: 0; display: flex; gap: 7px; animation: fp-slide-in .7s cubic-bezier(.2, .8, .2, 1) .25s both; }',
+'.fp-sq-2 .fp-squad { width: calc(48% - 62px); } .fp-sq-3 .fp-squad { width: calc(54% - 62px); } .fp-sq-4 .fp-squad { width: calc(58% - 62px); } .fp-sq-5 .fp-squad { width: calc(62% - 62px); } .fp-sq-6 .fp-squad { width: calc(66% - 62px); }',
+'/* The plate behind them is what shows between the strips: the separators',
+' * are the file\'s rank colour. */',
+'.fp-file-squad .fp-file-plate { left: -130px; clip-path: none; transform: skewX(-9deg); animation-name: fp-squad-in; }',
+'.fp-sq-2 .fp-file-plate { width: calc(48% + 84px); } .fp-sq-3 .fp-file-plate { width: calc(54% + 84px); } .fp-sq-4 .fp-file-plate { width: calc(58% + 84px); } .fp-sq-5 .fp-file-plate { width: calc(62% + 84px); } .fp-sq-6 .fp-file-plate { width: calc(66% + 84px); }',
+'.fp-sq-2 .fp-file-info { left: 51%; } .fp-sq-3 .fp-file-info { left: 57%; } .fp-sq-4 .fp-file-info { left: 61%; } .fp-sq-5 .fp-file-info { left: 65%; } .fp-sq-6 .fp-file-info { left: 69%; }',
+'.fp-file-squad .fp-file-name { font-size: clamp(28px, 3.3vw, 50px); }',
+'.fp-mem { position: relative; flex: 1 1 0; min-width: 0; overflow: hidden; background: @panel@; transform: skewX(-9deg); transition: flex-grow .45s cubic-bezier(.2, .8, .2, 1), filter .3s ease; }',
+'/* The picture leans back the other way, so it stands upright in a leaning frame. */',
+'.fp-mem-img { position: absolute; top: 0; left: -80px; display: block; width: calc(100% + 160px); max-width: none; height: 100%; object-fit: cover; object-position: center top; transform: skewX(9deg); }',
+'.fp-mem::after { content: ""; position: absolute; right: 0; bottom: 0; left: 0; height: 46%; background: linear-gradient(180deg, #05060800, #050608e6 62%); pointer-events: none; }',
+'.fp-mem-cap { position: absolute; right: 0; bottom: 0; left: 0; z-index: 1; display: block; padding: 0 8px 20px 22px; color: #ffffff; transform: skewX(9deg); transform-origin: 50% 100%; }',
+'.fp-mem-cap i { display: block; color: @a@; font-family: @MONO@; font-size: 9px; font-style: normal; letter-spacing: .14em; }',
+'.fp-mem-cap b { display: block; margin-top: 3px; font-family: @HEAD@; font-size: 16px; font-stretch: 75%; font-weight: 700; letter-spacing: .03em; line-height: 1.05; text-transform: uppercase; }',
+'/* Who they are: folded away until their strip is pointed at. */',
+'.fp-mem-cap em, .fp-mem-cap span { display: block; max-height: 0; overflow: hidden; opacity: 0; transition: max-height .45s ease, opacity .3s ease, margin .3s ease; }',
+'.fp-mem-cap em { color: @a@; font-family: @MONO@; font-size: 9px; font-style: normal; letter-spacing: .1em; line-height: 1.4; text-transform: uppercase; }',
+'.fp-mem-cap span { color: #ffffffd9; font-size: 12px; line-height: 1.45; }',
+'.fp-mem:first-child { flex-basis: 106px; margin-left: -76px; }',
+'.fp-mem:first-child .fp-mem-img { left: -42px; }',
+'.fp-mem:first-child .fp-mem-cap { padding-left: 160px; }',
+'/* The bot\'s chibi keeps its corner; the buttons make room for it. */',
+'.fp-file-squad .fp-file-tag { width: 104px; }',
+'.fp-file-squad .fp-file-info .fp-actions { padding-right: 116px; }',
+'.fp-mem:hover { flex-grow: 2.2; }',
+'.fp-sq-2 .fp-mem:hover { flex-grow: 1.5; }',
+'.fp-mem:hover .fp-mem-cap em, .fp-mem:hover .fp-mem-cap span { max-height: 160px; margin-top: 6px; opacity: 1; }',
+'.fp-squad:hover .fp-mem:not(:hover) { filter: brightness(.5) saturate(.7); }',
+'',
 '/* ---- dossier ---- */',
 '.fp-dossier { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 34px; align-items: start; }',
 '/* The ID card: a photo, a table of facts, a barcode. */',
@@ -865,6 +1165,20 @@
 '.fp-about { animation: fp-rise .6s ease .44s both; }',
 '.fp-about h3 { margin: 0; color: @ink@; font-family: @HEAD@; font-size: clamp(24px, 2.6vw, 36px); font-stretch: 75%; font-weight: 700; letter-spacing: .03em; line-height: 1.05; text-transform: uppercase; }',
 '.fp-about p { max-width: 640px; margin: 16px 0 0; color: @ink@; font-size: 16px; line-height: 1.7; }',
+'',
+'/* The asset archive: a shelf per character, two abreast, opened on a click. */',
+'.fp-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: start; animation: fp-rise .6s ease .5s both; }',
+'.fp-entry.fp-shelf summary { gap: 10px; padding: 9px 14px; font-size: 15px; }',
+'.fp-entry.fp-shelf summary b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }',
+'.fp-entry.fp-shelf summary em { flex: 0 0 auto; margin-left: auto; color: @mute@; font-family: @MONO@; font-size: 9px; font-style: normal; font-weight: 400; letter-spacing: .12em; }',
+'.fp-entry.fp-shelf summary::after { margin-left: 0; }',
+'.fp-assets { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; padding: 12px 14px 14px; }',
+'.fp-asset { display: block; border: 1px solid @line@; background: @bg@; color: @ink@; text-decoration: none; transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease; }',
+'.fp-asset img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; object-position: center top; }',
+'/* A chibi or an emblem is shown whole, on the white it was drawn on. */',
+'.fp-asset-fit img { background: #ffffff; object-fit: contain; }',
+'.fp-asset span { display: block; padding: 4px 6px 5px; overflow: hidden; border-top: 1px solid @line@; font-family: @MONO@; font-size: 8px; letter-spacing: .08em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }',
+'.fp-asset:hover { z-index: 1; border-color: @ink@; box-shadow: 5px 5px 0 @a@; color: @ink@; transform: translate(-3px, -3px); }',
 '',
 '/* ---- network ---- */',
 '.fp-links { display: grid; gap: 0; border-top: 1px solid @ink@; animation: fp-rise .6s ease .36s both; }',
@@ -925,7 +1239,15 @@
 '.fp-gate-ring { width: 300px; height: 300px; margin: -150px 0 0 -150px; border: 1px dashed @ink@40; border-radius: 50%; animation: fp-spin 40s linear infinite; }',
 '.fp-gate-ring-b { width: 230px; height: 230px; margin: -115px 0 0 -115px; border: 2px solid transparent; border-top-color: @a@; border-bottom-color: @a@; animation-duration: 9s; animation-direction: reverse; }',
 '.fp-gate-ring-c { width: 420px; height: 420px; margin: -210px 0 0 -210px; border: 1px solid @ink@1f; border-radius: 0; animation-duration: 70s; }',
-'.fp-gate { position: relative; z-index: 1; display: none; flex-direction: column; align-items: center; padding: 30px 24px; text-align: center; }',
+'/* Every pool\'s gate is laid out all the time, one over another, and the',
+' * chosen one is the one made visible: an element taken out of the layout',
+' * (display: none) stops its animations and starts them again from nothing',
+' * when it comes back, and the draw would then always begin with the same',
+' * character. Laid out, the turn-taking runs from the moment the page loads,',
+' * so when the button is pressed has nothing to do with when Recruit was',
+' * opened. The links of a hidden gate become visible as they take their',
+' * turns; nothing can press them, since the gate takes no pointer. */',
+'.fp-gate { position: absolute; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 30px 24px; text-align: center; visibility: hidden; pointer-events: none; }',
 '.fp-gate-name { margin-top: 12px; color: @ink@; font-family: @HEAD@; font-size: clamp(30px, 3.6vw, 50px); font-stretch: 75%; font-weight: 700; letter-spacing: .03em; line-height: 1; text-transform: uppercase; }',
 '.fp-gate-count { display: flex; align-items: baseline; gap: 8px; margin-top: 10px; color: @mute@; font-family: @MONO@; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; }',
 '.fp-gate-count b { color: @ink@; font-family: @HEAD@; font-size: 30px; font-stretch: 75%; letter-spacing: .02em; }',
@@ -1003,6 +1325,7 @@
 '.profile-info-stack:has(.fp-key-pull:target) .fp-file .fp-wipe { display: none; }',
 '.profile-info-stack:has(.fp-key-pull:target) .fp-file-plate { animation-delay: 2.3s; }',
 '.profile-info-stack:has(.fp-key-pull:target) .fp-file-art { animation-delay: 2.3s; }',
+'.profile-info-stack:has(.fp-key-pull:target) .fp-squad { animation-delay: 2.3s; }',
 '.profile-info-stack:has(.fp-key-pull:target) .fp-file-img { animation: fp-unveil 1.5s ease-out 2.4s both; }',
 '.profile-info-stack:has(.fp-key-pull:target) .fp-file-top { animation-delay: 2.7s; }',
 '.profile-info-stack:has(.fp-key-pull:target) .fp-file-name { animation: fp-stamp-in .6s cubic-bezier(.2, .9, .2, 1) 2.8s both; }',
@@ -1015,7 +1338,7 @@
 '.profile-info-stack:has(.fp-key-pull:target) .fp-stats { animation-delay: 3.32s; }',
 '.profile-info-stack:has(.fp-key-pull:target) .fp-file-info .fp-actions { animation-delay: 3.4s; }',
 '.profile-info-stack:has(.fp-key-pull:target) .fp-back { display: none; }',
-'.fp-pullbar { position: absolute; top: 30px; left: calc(46% + 158px); z-index: 26; display: none; }',
+'.fp-pullbar { position: absolute; top: 30px; right: 168px; z-index: 26; display: none; }',
 '.profile-info-stack:has(.fp-key-pull:target) .fp-pullbar { display: block; animation: fp-rise .5s ease 3.4s both; }',
 '.fp-again { display: none; align-items: center; gap: 9px; padding: 6px 12px 6px 10px; border: 1px solid @ink@; background: @bg@; color: @ink@; font-family: @MONO@; font-size: 10px; letter-spacing: .14em; text-decoration: none; text-transform: uppercase; transition: background .15s ease, color .15s ease; }',
 '.fp-again i { width: 9px; height: 9px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; }',
@@ -1067,6 +1390,8 @@
 '.fp-ticker-run span::after { content: "///"; margin-left: 52px; color: @railMute@; }',
 '',
 '/* ---- JanitorAI\'s header, as the application\'s title bar ---- */',
+'/* On a phone it stays JanitorAI\'s bar in the rail\'s colours. On a wider',
+' * screen it is rebuilt below as the top edge of the interface. */',
 '.pp-top-bar { border-bottom: 2px solid @a@; background: @rail@ !important; box-shadow: none !important; }',
 '.pp-top-bar-tabs a { color: @railInk@; font-family: @MONO@; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }',
 '.pp-top-bar-tabs a:hover { color: @a@; }',
@@ -1077,6 +1402,51 @@
 '.pp-top-bar-create-char { border: 0 !important; border-radius: 0 !important; background: @a@ !important; box-shadow: none !important; color: @onA@ !important; font-family: @MONO@; font-weight: 700; text-transform: uppercase; }',
 '.pp-top-bar-create-char:hover { color: @onA@ !important; filter: brightness(1.08); }',
 '.pp-top-bar-create-char::before, .pp-top-bar-create-char::after { display: none !important; }',
+'/* Wider than a phone, the bar stops being a site header laid over the page',
+' * and becomes the top edge of the interface: the rail runs up through its',
+' * first 256px, and the rest is a thin strip of the main area with a query',
+' * line and small square controls. Nothing in it is louder than the screens. */',
+'@media screen and (min-width: 901px) {',
+'  .pp-top-bar-outer { height: auto !important; min-height: 0 !important; }',
+'  .pp-top-bar { position: relative; grid-template-columns: 256px minmax(0, 1fr) auto !important; gap: 0 !important; height: 44px !important; min-height: 0 !important; padding: 0 !important; border-bottom: 0; background: linear-gradient(90deg, @rail@ 0 256px, @bg@ 256px) !important; backdrop-filter: none !important; }',
+'  /* The rule under the strip stops at the rail, which has its own. */',
+'  .pp-top-bar::after { content: ""; position: absolute; right: 0; bottom: 0; left: 256px; height: 1px; background: @ink@; pointer-events: none; }',
+'  .pp-top-bar::before { content: ""; position: absolute; bottom: 0; left: 0; width: 256px; height: 1px; background: @railLine@; pointer-events: none; }',
+'  /* The rail\'s share: the way back to JanitorAI, said quietly. */',
+'  .pp-top-bar-left { box-sizing: border-box; width: 256px; gap: 10px !important; padding: 0 20px; }',
+'  .profile-top-bar-logo-box, .pp-top-bar-logo { width: 22px !important; height: 22px !important; min-width: 0 !important; }',
+'  .pp-top-bar-logo img { width: 22px !important; height: 22px !important; filter: grayscale(1) brightness(1.5); opacity: .7; transition: filter .2s ease, opacity .2s ease; }',
+'  .pp-top-bar-logo:hover img { filter: none; opacity: 1; }',
+'  .pp-top-bar-tabs a { height: auto !important; padding: 0 !important; color: @railMute@; font-size: 10px; letter-spacing: .18em; }',
+'  .pp-top-bar-tabs a::before { content: "//"; margin-right: 8px; color: @railLine@; }',
+'  .pp-top-bar-tabs a:hover { color: @a@; }',
+'  /* The query line: a label, a rule to type on, the shortcut as a stamp. */',
+'  .profile-top-bar-search-wrapper { justify-self: start; width: min(420px, 100%) !important; margin-left: 44px; }',
+'  .profile-top-bar-search-wrapper::before { content: "Query"; flex: 0 0 auto; margin-right: 12px; color: @mute@; font-family: @MONO@; font-size: 9px; letter-spacing: .18em; text-transform: uppercase; }',
+'  .pp-top-bar-search-box { flex: 1 1 auto; min-width: 0; width: auto !important; }',
+'  .pp-top-bar-search-input { height: 28px !important; border: 0 !important; border-bottom: 1px solid @ink@66 !important; background: transparent !important; color: @ink@ !important; transition: border-color .2s ease; }',
+'  .pp-top-bar-search-input:hover, .pp-top-bar-search-input:focus-within { border-color: @ink@ !important; box-shadow: inset 0 -2px 0 @a@ !important; }',
+'  .pp-top-bar-search-input-group, .pp-top-bar-search-icon, .pp-top-bar-search-right { height: 28px !important; }',
+'  .pp-top-bar-search-icon { width: 24px !important; color: @ink@ !important; }',
+'  .pp-top-bar-search-icon svg { width: 14px !important; height: 14px !important; color: @ink@ !important; }',
+'  .pp-top-bar-search-input { padding-left: 26px !important; }',
+'  #search-input { height: 26px !important; color: @ink@ !important; font-size: 11px !important; letter-spacing: .08em; text-transform: uppercase; }',
+'  #search-input::placeholder { color: @mute@ !important; }',
+'  .pp-top-bar-search-shortcut { height: 16px !important; background: @ink@ !important; color: @bg@ !important; font-family: @MONO@; font-size: 8px !important; letter-spacing: .08em; text-transform: uppercase; }',
+'  /* The controls: an outline, ink on hover. The yellow is kept for the screens. */',
+'  .pp-top-bar-right { height: 44px !important; padding-right: 30px; }',
+'  .pp-top-bar-right > div { gap: 6px !important; }',
+'  .pp-top-bar-create-char { height: 26px !important; padding: 0 12px !important; border: 1px solid @ink@ !important; background: transparent !important; color: @ink@ !important; font-size: 10px !important; font-weight: 400; letter-spacing: .16em; transition: background .18s ease, color .18s ease; }',
+'  .pp-top-bar-create-char span { color: inherit !important; font-family: @MONO@ !important; font-size: 10px !important; line-height: 1 !important; }',
+'  .pp-top-bar-create-char span::before { content: "+ "; }',
+'  .pp-top-bar-create-char:hover { background: @ink@ !important; color: @bg@ !important; filter: none; }',
+'  .pp-top-bar-notifications { display: flex !important; align-items: center; width: 26px !important; height: 26px !important; }',
+'  .pp-top-bar-notifications-button { box-sizing: border-box; width: 26px !important; height: 26px !important; min-width: 0 !important; min-height: 0 !important; max-height: 26px !important; padding: 4px !important; border: 1px solid @ink@ !important; border-radius: 0 !important; background: transparent !important; color: @ink@ !important; transition: background .18s ease, color .18s ease; }',
+'  .pp-top-bar-notifications-button svg { width: 14px !important; height: 14px !important; color: inherit !important; }',
+'  .pp-top-bar-notifications-button:hover { background: @ink@ !important; color: @bg@ !important; }',
+'  .pp-top-bar-app-menu { width: 26px !important; height: 26px !important; min-width: 0 !important; overflow: hidden; border-radius: 0 !important; outline: 1px solid @ink@; clip-path: polygon(0 0, 100% 0, 100% 72%, 72% 100%, 0 100%); }',
+'  .pp-top-bar-app-menu span, .pp-top-bar-app-menu div, .pp-top-bar-app-menu img { width: 26px !important; height: 26px !important; border-radius: 0 !important; }',
+'}',
 '.pp-top-bar-app-menu-list, .pp-top-bar-notifications-popover { overflow: hidden; border: 1px solid @railLine@ !important; border-radius: 0 !important; background: @rail@ !important; box-shadow: 8px 8px 0 @a@ !important; color: @railInk@ !important; }',
 '.pp-top-bar-app-menu-list-item { background: transparent !important; color: @railInk@ !important; }',
 '.pp-top-bar-app-menu-list-item:hover { background: @railInk@1a !important; }',
@@ -1108,6 +1478,7 @@
 '@keyframes fp-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }',
 '@keyframes fp-wipe { 0% { transform: scaleX(0); transform-origin: 0 50%; } 45% { transform: scaleX(1); transform-origin: 0 50%; } 55% { transform: scaleX(1); transform-origin: 100% 50%; } 100% { transform: scaleX(0); transform-origin: 100% 50%; } }',
 '@keyframes fp-slide-in { from { opacity: 0; transform: translateX(-12%); } to { opacity: 1; transform: translateX(0); } }',
+'@keyframes fp-squad-in { from { opacity: 0; transform: translateX(-12%) skewX(-9deg); } to { opacity: 1; transform: translateX(0) skewX(-9deg); } }',
 '@keyframes fp-zoom { from { transform: scale(1.12); } to { transform: scale(1); } }',
 '@keyframes fp-scan { from { top: -30%; } to { top: 100%; } }',
 '@keyframes fp-ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }',
@@ -1127,7 +1498,7 @@
 '  .fp-nav-item::before { top: auto; right: 0; bottom: 0; left: 0; width: auto; height: 3px; transform: scaleX(0); }',
 '  .fp-nav-item::after { display: none; }',
 '  .fp-nav-home::before,',
-'  .profile-info-stack:has(#fp-roster:target, .fp-key-op:target) .fp-nav-roster::before,',
+'  .profile-info-stack:has(#fp-roster:target, .fp-key-op:target, .fp-key-tag:target) .fp-nav-roster::before,',
 '  .profile-info-stack:has(#fp-dossier:target) .fp-nav-dossier::before,',
 '  .profile-info-stack:has(#fp-network:target) .fp-nav-network::before,',
 '  .profile-info-stack:has(#fp-log:target) .fp-nav-log::before { transform: scaleX(1); }',
@@ -1140,6 +1511,8 @@
 '  .fp-main { grid-column: 1 / -1; grid-row: 8; height: auto; }',
 '  .fp-screen { position: relative; inset: auto; padding-bottom: 28px; }',
 '  .fp-screen-roster, .fp-screen-recruit, .fp-screen-dossier, .fp-screen-network, .fp-screen-log { padding: 24px 16px 52px; overflow: visible; }',
+'  .profile-info-stack .fp-screen-recruit { position: absolute; inset: 0 0 auto 0; height: 0; padding: 0; overflow: hidden; }',
+'  .profile-info-stack:has(.fp-key-pool:target) .fp-screen-recruit { position: relative; height: auto; padding: 24px 16px 52px; overflow: visible; }',
 '  .fp-recruit { grid-template-columns: minmax(0, 1fr); gap: 24px; }',
 '  .fp-gates { grid-row: 1; min-height: 320px; }',
 '  /* On a phone the interface is taller than the screen, so the draw is',
@@ -1166,8 +1539,23 @@
 '  .fp-picks { bottom: 44px; left: 16px; }',
 '  .fp-progress { bottom: 34px; left: 16px; }',
 '  .fp-roster { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }',
+'  /* Nothing is pointed at on a phone: the briefing is left out. */',
+'  .fp-roster-wrap { display: block; }',
+'  .fp-intel { display: none; }',
+'  .fp-filters { margin: 0 0 16px; }',
 '  .fp-file-plate { right: 0; bottom: auto; width: auto; height: 348px; clip-path: polygon(0 0, 100% 0, 100% 86%, 0 100%); }',
 '  .fp-file-art { position: relative; width: auto; height: 330px; clip-path: polygon(0 0, 100% 0, 100% 86%, 0 100%); }',
+'  .fp-file-squad .fp-squad { position: relative; width: 100%; height: 330px; gap: 4px; }',
+'  .fp-mem:first-child { flex-basis: 46px; margin-left: -30px; }',
+'  .fp-mem:first-child .fp-mem-img { left: -25px; }',
+'  .fp-mem:first-child .fp-mem-cap { padding-left: 70px; }',
+'  .fp-file-squad .fp-file-info .fp-actions { padding-right: 0; }',
+'  .fp-file-squad .fp-file-plate { left: 0; width: auto; clip-path: polygon(0 0, 100% 0, 100% 86%, 0 100%); transform: none; animation-name: fp-slide-in; }',
+'  .fp-file-squad .fp-file-info { left: auto; }',
+'  .fp-mem-img { left: -40px; width: calc(100% + 80px); }',
+'  .fp-mem-cap { padding: 0 6px 12px 14px; }',
+'  .fp-mem-cap b { font-size: 12px; }',
+'  .fp-mem-cap span { display: none; }',
 '  .fp-file-info { position: relative; left: auto; padding: 18px 16px 30px; overflow: visible; }',
 '  .fp-file-shade { background: linear-gradient(180deg, @bg@66 0%, @bg@f2 46%, @bg@ 100%); }',
 '  .fp-file-no { display: none; }',
@@ -1175,6 +1563,7 @@
 '  .fp-card-chibi { display: none; }',
 '  .fp-dossier { grid-template-columns: minmax(0, 1fr); gap: 26px; }',
 '  .fp-idcard { max-width: 300px; }',
+'  .fp-gallery { grid-template-columns: minmax(0, 1fr); }',
 '  .fp-link { grid-template-columns: 30px minmax(0, 1fr) 26px; }',
 '  .fp-link span { display: none; }',
 '  .fp-link b { font-size: 21px; }',
@@ -1182,15 +1571,19 @@
 '',
 '/* Nothing hovers on a touch screen: no tile is left lifted under a finger. */',
 '@media (hover: none) {',
-'  .fp-card:hover, .fp-ally:hover { box-shadow: none; transform: none; }',
+'  .fp-card:hover, .fp-ally:hover, .fp-asset:hover { box-shadow: none; transform: none; }',
+'  .fp-pick-go { display: none !important; }',
+'  /* A member\'s title is always out where nothing can be pointed at. */',
+'  .fp-mem-cap em { max-height: none; margin-top: 4px; opacity: 1; }',
 '}',
 '',
 '@media (prefers-reduced-motion: reduce) {',
 '  .fp-boot, .fp-wipe { display: none !important; }',
+'  .profile-info-stack .fp-screen-recruit .fp-head, .profile-info-stack .fp-screen-recruit .fp-recruit-side, .profile-info-stack .fp-screen-recruit .fp-gates { animation: none !important; }',
 '  .fp-fx > i, .fp-fx-read { display: none !important; }',
 '  .fp-fx-stamp, .fp-fx-stars i, .fp-file-stars i, .fp-file-tag, .fp-mascot, .fp-card.fp-r6 .fp-card-art::before, .fp-draw::before, .fp-gate-ring, .fp-gates, .fp-recruit-side, .fp-pullbar { animation: none !important; }',
 '  .profile-info-stack:has(.fp-key-pull:target) .fp-file *, .profile-info-stack:has(.fp-key-pull:target) .fp-file-img, .profile-info-stack:has(.fp-key-pull:target) .fp-file-name { animation: none !important; }',
-'  .fp-emblem-mark i, .pp-uc-followers-count::before, .fp-hud, .fp-hud-live i, .fp-head, .fp-card, .fp-card:hover .fp-card-art::after, .fp-file-scene, .fp-file-plate, .fp-file-art, .fp-file-top, .fp-file-name, .fp-file-line, .fp-quote, .fp-file-desc, .fp-file-info .fp-chips, .fp-stats, .fp-file-info .fp-actions, .fp-idcard, .fp-about, .fp-links, .fp-allies, .fp-log, .fp-ticker-run { animation: none; }',
+'  .fp-emblem-mark i, .pp-uc-followers-count::before, .fp-hud, .fp-hud-live i, .fp-head, .fp-card, .fp-card:hover .fp-card-art::after, .fp-file-scene, .fp-file-plate, .fp-file-art, .fp-file-top, .fp-file-name, .fp-file-line, .fp-quote, .fp-file-desc, .fp-file-info .fp-chips, .fp-stats, .fp-file-info .fp-actions, .fp-idcard, .fp-about, .fp-links, .fp-allies, .fp-log, .fp-ticker-run, .fp-filters, .fp-intel, .fp-squad, .fp-gallery { animation: none; }',
 '}'
   ];
 
@@ -1265,6 +1658,8 @@
     slides: slides,
     pools: pools,
     ranks: ranks,
+    squad: squad,
+    filters: filters,
     markup: markup,
     css: css,
     style: style

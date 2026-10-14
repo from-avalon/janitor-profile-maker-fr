@@ -105,7 +105,11 @@
     fpPools: '',
     // The creator's own chibi, shown on the dossier.
     fpMascot: '',
-    fpNative: false
+    fpNative: false,
+    // The archive of every character's pictures, on the dossier.
+    fpGallery: true,
+    // Turned over to deal the Overview's slides in a new order.
+    fpShuffle: 0
   };
 
   /* A design with markup all of its own writes it itself; the rest share the
@@ -195,8 +199,30 @@
       // The Operator terminal's: a rank set by hand ('' = by chats), a chibi.
       rarity: String((entry && entry.rarity) || '').trim(),
       chibi: String((entry && entry.chibi) || '').trim(),
+      // What the bot is about, in a few lines, and the characters of a bot
+      // that is more than one (a party, a pair): shown side by side on its file.
+      summary: String((entry && entry.summary) || '').trim(),
+      members: members(entry && entry.members),
       featured: !!(entry && entry.featured)
     };
+  }
+
+  /* A bot's members: typed one to a line as "Name | Title | A line about them
+   * | picture address | chibi address", or already a list. */
+  function members(value) {
+    var rows = Array.isArray(value) ? value : String(value || '').split(/\r?\n/).map(function (line) {
+      var part = line.split('|').map(function (text) { return text.trim(); });
+      return { name: part[0], title: part[1], line: part[2], art: part[3], chibi: part[4] };
+    });
+    return rows.map(function (m) {
+      return {
+        name: String((m && m.name) || '').trim(),
+        title: String((m && m.title) || '').trim(),
+        line: String((m && m.line) || '').trim(),
+        art: String((m && m.art) || '').trim(),
+        chibi: String((m && m.chibi) || '').trim()
+      };
+    }).filter(function (m) { return m.name; });
   }
 
   function prepare(roster) {

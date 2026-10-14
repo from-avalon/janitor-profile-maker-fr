@@ -9,6 +9,28 @@ Add an entry in the same pull request as the change. A heading is the date and
 a short title, `## 2026-09-09 — Title`, followed by one to three short
 paragraphs.
 
+## 2026-10-14 — Operator terminal: squads, filters, an asset archive, and Profile data as a file
+
+Profile data can now be kept as a file. **Save Profile data** downloads
+everything in it; **Load Profile data** brings a file back in, updating the
+characters it names and adding new ones without removing anything. A finished
+profile can be kept, moved to another browser, or used to start the next one.
+
+The Operator terminal grew a lot. A bot of several characters (a party, a
+pair) lists them under **Members**, and its file shows all of them side by
+side on slanted strips; the one you point at widens and says who they are.
+Operators can be narrowed by JanitorAI's own tags, and pointing at a tile
+shows a briefing beside the roster: a scene, the full name, a **Summary** you
+write, the tags, and stickers of the bot's chibis. The Dossier has an asset
+archive of every character's pictures, each opening at full size (it can be
+turned off). JanitorAI's top bar is rebuilt as the top edge of the interface.
+
+The Overview is dealt in a new order whenever your Profile data changes, or
+with **Shuffle the Overview**. Pointing at one of its thumbnails brings that
+character up and holds it, with its own Open file and Initiate chat buttons
+right there. The Recruit button turns faster and from the moment the page
+loads, so a draw no longer starts from the same character each time.
+
 ## 2026-10-12 — New design: Operator terminal, a whole interface for your profile
 
 Under Profile data → Profile design there is a new choice, **Operator terminal
